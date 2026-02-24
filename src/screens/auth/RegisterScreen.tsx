@@ -166,9 +166,21 @@ const RegisterScreen = ({ navigation }: any) => {
                     {/* Divider */}
                     <View className="flex-row items-center mb-6">
                       <View className="flex-1 h-px bg-gray-200" />
+                      <Text className="mx-4 text-sm text-gray-500">o</Text>
                       <View className="flex-1 h-px bg-gray-200" />
                     </View>
-          
+                    
+                    {/* Botón para regresar al login */}
+                      <TouchableOpacity
+                        className="bg-white border-2 border-red-500 rounded-xl py-4 items-center"
+                        onPress={() => navigation.navigate('Login')}
+                        activeOpacity={0.8}
+                      > {/* Navega a la pantalla de login */}
+                        <Text className="text-red-500 text-base font-semibold">
+                          Regresar al Login ↩️
+                        </Text>
+                      </TouchableOpacity>
+
                   </View>
                 </ScrollView>
               </KeyboardAvoidingView>
