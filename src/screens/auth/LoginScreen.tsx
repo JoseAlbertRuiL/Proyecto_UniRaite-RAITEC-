@@ -89,7 +89,7 @@ const LoginScreen = ({ navigation }: any) => {
             {/* Boton del login */}
             <TouchableOpacity
               className="bg-blue-900 rounded-xl py-4 items-center mb-6 shadow-lg"
-              onPress={handleLogin}
+              onPress={() => navigation.navigate('Start')}
               activeOpacity={0.8}
             >
               <Text className="text-white text-base font-semibold">
@@ -114,6 +114,7 @@ const LoginScreen = ({ navigation }: any) => {
                 Crear Cuenta
               </Text>
             </TouchableOpacity>
+            
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
