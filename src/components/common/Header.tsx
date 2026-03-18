@@ -16,7 +16,7 @@ const Header: React.FC<HeaderProps> = ({ navigation }) => {
       </View>
       <TouchableOpacity
         className="w-10 h-10 bg-white rounded-full justify-center items-center"
-        onPress={() => navigation.navigate('Profile')}
+        onPress={() => navigation.navigate('Register')}
       >
         {/*Ícono de usuario*/}
         <UserIcon/>

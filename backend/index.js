@@ -1,35 +1,65 @@
-const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+import express from "express";
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import pkg from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
+import bcrypt from "bcryptjs";
+
+const { Pool } = pkg;
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const app = express();
-const prisma = new PrismaClient();
-
 app.use(express.json());
 
-// Ejemplo de ruta para obtener usuarios
-app.get('/users', async (req, res) => {
+// ENDPOINT REGISTER
+app.post("/register", async (req, res) => {
   try {
-    const users = await prisma.user.findMany();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    const { email, password, firstName, lastName, lastName2, controlNumber } = req.body;
 
-// Ejemplo de ruta para crear usuario
-app.post('/users', async (req, res) => {
-  const { email, password, name } = req.body;
-  try {
-    const user = await prisma.user.create({
-      data: { email, password, name },
+    // Validación básica
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email y contraseña son obligatorios" });
+    }
+
+    // Verificar si ya existe el usuario
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
     });
-    res.json(user);
+
+    if (existingUser) {
+      return res.status(400).json({ error: "El usuario ya existe" });
+    }
+
+    // Encriptar contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Crear usuario
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name: `${firstName} ${lastName} ${lastName2}`,
+        controlNumber: controlNumber ? parseInt(controlNumber) : null,
+      },
+    });
+
+    res.json({
+      message: "Usuario registrado correctamente",
+      user,
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    res.status(500).json({ error: "Error al registrar usuario" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+app.listen(3000, () => {
+  console.log("Servidor corriendo en http://localhost:3000");
 });

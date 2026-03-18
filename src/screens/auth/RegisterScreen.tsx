@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 
+
 const RegisterScreen = ({ navigation }: any) => {
     const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
@@ -19,11 +20,34 @@ const RegisterScreen = ({ navigation }: any) => {
       const [lastName2, setLastName2] = useState('');
       const [controlNumber, setControlNumber] = useState('');
     
-      const handleRegister = () => {
-        // TODO: Implementar lógica de login
-        console.log('Register:', email, password, firstName, lastName, lastName2, controlNumber);
-        // navigation.navigate('Home'); // ← Descomentar cuando funcione
-      };
+      const handleRegister = async () => {
+  try {
+    const response = await fetch("http://192.168.1.4:3000/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        firstName,
+        lastName,
+        lastName2,
+        controlNumber,
+      }),
+    });
+
+    const data = await response.json();
+
+    console.log("Usuario creado:", data);
+
+    // navegación opcional
+    navigation.navigate("Login");
+
+  } catch (error) {
+    console.error("Error:", error);
+  }
+};
 
     return(
         <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
