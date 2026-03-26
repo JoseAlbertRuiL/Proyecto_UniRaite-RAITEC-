@@ -80,7 +80,11 @@ const LoginScreen = ({ navigation }: any) => {
             </View>
 
             {/* Linea de olvidar la contrasena */}
-            <TouchableOpacity className="self-end mb-6">
+            <TouchableOpacity 
+              className="self-end mb-6"
+              onPress={() => navigation.navigate('Forget')}
+              activeOpacity={0.8}
+              >
               <Text className="text-sm text-blue-900 font-medium">
                 ¿Olvidaste tu contraseña?
               </Text>
