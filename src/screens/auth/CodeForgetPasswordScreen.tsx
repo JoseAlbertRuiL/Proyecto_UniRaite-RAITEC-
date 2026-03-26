@@ -13,6 +13,7 @@ import {
 const CodeForgetPasswordScreen  = ({ navigation }: any) => {
     const [code, setCode] = useState('');
     const [password, setPassword] = useState('');
+        const [passwordconfirm, setPasswordConfirm] = useState('');
 
     
     const handleRecover = () => {
@@ -20,6 +21,8 @@ const CodeForgetPasswordScreen  = ({ navigation }: any) => {
     console.log('Recover:', code);
         // Recolecta la nueva contraseña
     console.log('Recover:', password);
+            // Confirma la nueva contraseña
+    console.log('Recover:', passwordconfirm);
     
         // Implementar la recuperacion de autenticación y manejo de errores
     };
@@ -104,8 +107,8 @@ const CodeForgetPasswordScreen  = ({ navigation }: any) => {
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base text-gray-900"
                             placeholder="••••••••"
                             placeholderTextColor="#9CA3AF"
-                            value={password}
-                            onChangeText={setPassword}
+                            value={passwordconfirm}
+                            onChangeText={setPasswordConfirm}
                             secureTextEntry
                             autoCapitalize="none"
                         />
