@@ -201,7 +201,7 @@ const RegisterScreen = ({ navigation }: any) => {
                         activeOpacity={0.8}
                       > {/* Navega a la pantalla de login */}
                         <Text className="text-red-500 text-base font-semibold">
-                          Regresar al Login ↩️
+                          Regresar al Login ↩
                         </Text>
                       </TouchableOpacity>
 

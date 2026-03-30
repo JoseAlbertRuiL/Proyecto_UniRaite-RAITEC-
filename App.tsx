@@ -1,8 +1,8 @@
 import "./global.css";
 import React, { useState } from 'react';
-import LoginScreen from './src/screens/auth/LoginScreen';
-import RegisterScreen from './src/screens/auth/RegisterScreen';
-import StartScreen from "./src/screens/auth/StartScreen";
+import LoginScreen from './src/screens/Principal/LoginScreen';
+import RegisterScreen from './src/screens/Principal/RegisterScreen';
+import StartScreen from "./src/screens/Principal/HomeScreen";
 
 type ScreenName = 'Login' | 'Register' | 'Start';
 
