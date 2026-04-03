@@ -16,11 +16,58 @@ const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // Aqui va el consumo de la API para la autenticacion del Usuario
-    console.log('Login:', email, password);
-    // Implementar lógica de autenticación y manejo de errores
-  };
+  const API_BASE_URL = Platform.OS === 'android'
+    ? 'http://10.0.2.2:3000' // Android emulator localhost
+    : 'http://127.0.0.1:3000'; // iOS simulator or web
+
+  const handleLogin = async () => {
+    // Validación local de campos
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      alert('Por favor ingresa tu correo.');
+      return;
+    }
+    if (!emailRegex.test(email)) {
+      alert('Por favor ingresa un correo válido.');
+      return;
+    }
+    if (!password) {
+      alert('Por favor ingresa tu contraseña.');
+      return;
+    }
+    if (password.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        correo: email,
+        password: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log('Login exitoso:', data);
+
+      // Navegar si todo está bien
+      navigation.navigate('Home');
+    } else {
+      console.log('Error:', data.message);
+      alert(data.message);
+    }
+  } catch (error) {
+    console.error('Error de conexión:', error);
+    alert('No se pudo conectar al servidor');
+  }
+};
 
   return (
     <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
@@ -89,7 +136,7 @@ const LoginScreen = ({ navigation }: any) => {
             {/* Boton del login */}
             <TouchableOpacity
               className="bg-blue-900 rounded-xl py-4 items-center mb-6 shadow-lg"
-              onPress={() => navigation.navigate('Start')}
+              onPress={handleLogin}
               activeOpacity={0.8}
             >
               <Text className="text-white text-base font-semibold">
