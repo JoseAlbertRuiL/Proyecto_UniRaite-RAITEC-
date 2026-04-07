@@ -2,10 +2,13 @@ import express from "express";
 import 'dotenv/config';
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
+import { PrismaPg } from '@prisma/adapter-pg';
 import cors from "cors";
 
 const app = express();
-const prisma = new PrismaClient();
+/*Usar adaptador para que funcione prisma*/
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 app.use(cors());
 app.use(express.json());
