@@ -17,8 +17,8 @@ const LoginScreen = ({ navigation }: any) => {
   const [password, setPassword] = useState('');
 
   const API_BASE_URL = Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000' // Android emulator localhost
-    : 'http://127.0.0.1:3000'; // iOS simulator or web
+    ? 'http://10.0.2.2:3001' // Android emulator localhost
+    : 'http://127.0.0.1:3001'; // iOS simulator or web
 
   const handleLogin = async () => {
     // Validación local de campos

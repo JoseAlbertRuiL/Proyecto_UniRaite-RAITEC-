@@ -12,24 +12,52 @@ const prisma = new PrismaClient({ adapter });
 
 app.use(cors());
 app.use(express.json());
-
+/* post */
 app.post("/login", async (req, res) => {
-    console.log("DATABASE:", process.env.DATABASE_URL);
+  console.log("📩 Request body:", req.body);
+
   const { correo, password } = req.body;
-  if (!correo || !password) return res.status(400).json({ message: "correo y password requeridos" });
+
   try {
-    const user = await prisma.usuarios.findUnique({ where: { correo_inst: correo }});
-    if (!user) return res.status(401).json({ message: "Credenciales inválidas" });
-    // Si usas bcrypt:
-    // const valid = await bcrypt.compare(password, user.password_hash);
-    // if (!valid) return res.status(401).json({ message: "Credenciales inválidas" });
-    if (user.password_hash !== password) return res.status(401).json({ message: "Credenciales inválidas" });
-    return res.status(200).json({ user: { id: user.id_usuario, nombre: user.nombre, correo: user.correo_inst }});
+    console.log("🔍 Buscando usuario...");
+    /* Encontrar al primer usuario */
+    const user = await prisma.usuarios.findFirst({
+      where: { correo_inst: correo }
+    });
+
+    console.log("👤 Usuario encontrado:", user);
+      
+    /* Validaciones */
+    if (!user) {
+      console.log("❌ Usuario no existe");
+      return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    if (user.password_hash !== password) {
+      console.log("❌ Password incorrecto");
+      return res.status(401).json({ message: "Credenciales inválidas" });
+    }
+
+    console.log("✅ Login correcto");
+    /* Retornar el usuario */
+    return res.status(200).json({
+      user: {
+        id: user.id_usuario,
+        nombre: user.nombre,
+        correo: user.correo_inst
+      }
+    });
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Error servidor" });
+
+      /* Error de Servidor */
+    console.error("🔥 ERROR REAL:", err);
+    return res.status(500).json({
+      message: "Error servidor",
+      error: err.message
+    });
   }
 });
 
-const PORT = 3000;
+const PORT = 3001;
 app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));
