@@ -1,6 +1,6 @@
 // src/screens/auth/LoginScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,69 +10,69 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-} from 'react-native';
+} from "react-native";
+import { API_URL } from "../../services/api";
 
 const LoginScreen = ({ navigation }: any) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const API_BASE_URL = Platform.OS === 'android'
-    ? 'http://10.0.2.2:3001' // Android emulator localhost
-    : 'http://127.0.0.1:3001'; // iOS simulator or web
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
     // Validación local de campos
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim()) {
-      alert('Por favor ingresa tu correo.');
+      alert("Por favor ingresa tu correo.");
       return;
     }
     if (!emailRegex.test(email)) {
-      alert('Por favor ingresa un correo válido.');
+      alert("Por favor ingresa un correo válido.");
       return;
     }
     if (!password) {
-      alert('Por favor ingresa tu contraseña.');
+      alert("Por favor ingresa tu contraseña.");
       return;
     }
     if (password.length < 6) {
-      alert('La contraseña debe tener al menos 6 caracteres.');
+      alert("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        correo: email,
-        password: password,
-      }),
-    });
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          correo_inst: email,
+          password: password,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.ok) {
-      console.log('Login exitoso:', data);
+      if (response.ok) {
+        console.log("Login exitoso:", data);
 
-      // Navegar si todo está bien
-      navigation.navigate('Home');
-    } else {
-      console.log('Error:', data.message);
-      alert(data.message);
+        // Navegar si todo está bien
+        navigation.navigate("Start");
+      } else {
+        console.log("Error:", data.error);
+        alert(data.error);
+      }
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      alert("No se pudo conectar al servidor");
     }
-  } catch (error) {
-    console.error('Error de conexión:', error);
-    alert('No se pudo conectar al servidor');
-  }
-};
+  };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
+    <View
+      className="flex-1 bg-white"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
       <KeyboardAvoidingView // Asegura que el teclado no oculte los campos de texto
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // Ajusta el comportamiento según el sistema operativo
+        behavior={Platform.OS === "ios" ? "padding" : "height"} // Ajusta el comportamiento según el sistema operativo
         className="flex-1"
       >
         <ScrollView // Permite que el contenido sea scrollable cuando el teclado está abierto
@@ -90,8 +90,8 @@ const LoginScreen = ({ navigation }: any) => {
               Viaja seguro con tu comunidad
             </Text>
           </View>
-
-          {/* Formulario */} {/* Aquí es donde se encuentran los campos de correo y contraseña, así como los botones de login y registro */}
+          {/* Formulario */}{" "}
+          {/* Aquí es donde se encuentran los campos de correo y contraseña, así como los botones de login y registro */}
           <View className="w-full pb-8">
             {/* Correo */}
             <View className="mb-5">
@@ -110,7 +110,6 @@ const LoginScreen = ({ navigation }: any) => {
               />
             </View>
 
-            
             <View className="mb-5">
               <Text className="text-sm font-semibold text-gray-800 mb-2">
                 Contraseña
@@ -122,16 +121,16 @@ const LoginScreen = ({ navigation }: any) => {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry // se usa para ocultar el texto, en un futuro se puede agregar un boton para mostrar/ocultar la contraseña
-                autoCapitalize="none" 
+                autoCapitalize="none"
               />
             </View>
 
             {/* Linea de olvidar la contrasena */}
-            <TouchableOpacity 
+            <TouchableOpacity
               className="self-end mb-6"
-              onPress={() => navigation.navigate('Forget')}
+              onPress={() => navigation.navigate("Forget")}
               activeOpacity={0.8}
-              >
+            >
               <Text className="text-sm text-blue-900 font-medium">
                 ¿Olvidaste tu contraseña?
               </Text>
@@ -158,14 +157,15 @@ const LoginScreen = ({ navigation }: any) => {
             {/* Botón de registro */}
             <TouchableOpacity
               className="bg-white border-2 border-blue-900 rounded-xl py-4 items-center"
-              onPress={() => navigation.navigate('Register')}
+              onPress={() => navigation.navigate("Register")}
               activeOpacity={0.8}
-            > {/* Navega a la pantalla de registro */}
+            >
+              {" "}
+              {/* Navega a la pantalla de registro */}
               <Text className="text-blue-900 text-base font-semibold">
                 Crear Cuenta
               </Text>
             </TouchableOpacity>
-            
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
