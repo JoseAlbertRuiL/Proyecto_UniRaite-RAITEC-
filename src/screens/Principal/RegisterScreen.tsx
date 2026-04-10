@@ -20,6 +20,7 @@ const RegisterScreen = ({ navigation }: any) => {
   // Paso 2 - Correo y contraseña
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Paso 3 - Datos escuela
   const [numControl, setNumControl] = useState("");
@@ -259,6 +260,16 @@ const RegisterScreen = ({ navigation }: any) => {
             value={apellidoMaterno}
             onChangeText={setApellidoMaterno}
           />
+
+          {/* Botón para ir al login */}
+          <TouchableOpacity
+            className="mt-6 p-4 bg-gray-200 rounded-xl"
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text className="text-blue-900 text-center font-semibold">
+              ¿Ya tienes cuenta? Inicia sesión
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -278,13 +289,23 @@ const RegisterScreen = ({ navigation }: any) => {
           </Text>
 
           <Text className="mb-1 mt-4 text-gray-700">Contraseña *</Text>
-          <TextInput
-            className="border border-gray-300 rounded-xl p-4"
-            placeholder="Contraseña"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          <View className="flex-row items-center border border-gray-300 rounded-xl bg-gray-50">
+            <TextInput
+              className="flex-1 p-4"
+              placeholder="Contraseña"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              className="px-4"
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text className="text-blue-900 font-semibold">
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 

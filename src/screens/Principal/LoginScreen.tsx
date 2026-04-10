@@ -16,6 +16,7 @@ import { API_URL } from "../../services/api";
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     // Validación local de campos
@@ -53,7 +54,6 @@ const LoginScreen = ({ navigation }: any) => {
 
       if (response.ok) {
         console.log("Login exitoso:", data);
-
         // Navegar si todo está bien
         navigation.navigate("Start");
       } else {
@@ -71,11 +71,11 @@ const LoginScreen = ({ navigation }: any) => {
       className="flex-1 bg-white"
       style={{ paddingTop: StatusBar.currentHeight || 0 }}
     >
-      <KeyboardAvoidingView // Asegura que el teclado no oculte los campos de texto
-        behavior={Platform.OS === "ios" ? "padding" : "height"} // Ajusta el comportamiento según el sistema operativo
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
-        <ScrollView // Permite que el contenido sea scrollable cuando el teclado está abierto
+        <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           className="px-6"
@@ -90,8 +90,8 @@ const LoginScreen = ({ navigation }: any) => {
               Viaja seguro con tu comunidad
             </Text>
           </View>
-          {/* Formulario */}{" "}
-          {/* Aquí es donde se encuentran los campos de correo y contraseña, así como los botones de login y registro */}
+
+          {/* Formulario */}
           <View className="w-full pb-8">
             {/* Correo */}
             <View className="mb-5">
@@ -110,19 +110,30 @@ const LoginScreen = ({ navigation }: any) => {
               />
             </View>
 
+            {/* Contraseña con botón mostrar/ocultar */}
             <View className="mb-5">
               <Text className="text-sm font-semibold text-gray-800 mb-2">
                 Contraseña
               </Text>
-              <TextInput
-                className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base text-gray-900"
-                placeholder="••••••••"
-                placeholderTextColor="#9CA3AF"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry // se usa para ocultar el texto, en un futuro se puede agregar un boton para mostrar/ocultar la contraseña
-                autoCapitalize="none"
-              />
+              <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl">
+                <TextInput
+                  className="flex-1 px-4 py-4 text-base text-gray-900"
+                  placeholder="••••••••"
+                  placeholderTextColor="#9CA3AF"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  className="px-4"
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text className="text-blue-900 font-semibold">
+                    {showPassword ? "Ocultar" : "Mostrar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Linea de olvidar la contrasena */}
@@ -160,8 +171,6 @@ const LoginScreen = ({ navigation }: any) => {
               onPress={() => navigation.navigate("Register")}
               activeOpacity={0.8}
             >
-              {" "}
-              {/* Navega a la pantalla de registro */}
               <Text className="text-blue-900 text-base font-semibold">
                 Crear Cuenta
               </Text>
