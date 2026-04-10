@@ -1,39 +1,45 @@
 import "./global.css";
-import React, { useState } from 'react';
-import LoginScreen from './src/screens/auth/LoginScreen';
-import RegisterScreen from './src/screens/auth/RegisterScreen';
-import StartScreen from "./src/screens/auth/StartScreen";
-import ForgetPasswordScreen from './src/screens/auth/ForgetPasswordScreen';
-import CodeForgetPasswordScreen from './src/screens/auth/CodeForgetPasswordScreen';
-import ConfPerfilScreen from './src/screens/auth/ConfPerfilScreen';
+import React, { useState } from "react";
+import LoginScreen from "./src/screens/Principal/LoginScreen";
+import RegisterScreen from "./src/screens/Principal/RegisterScreen";
+import StartScreen from "./src/screens/Principal/StartScreen";
+import ForgetPasswordScreen from "./src/screens/Principal/ForgetPasswordScreen";
+import CodeForgetPasswordScreen from "./src/screens/Principal/CodeForgetPasswordScreen";
+import ConfPerfilScreen from "./src/screens/Principal/ConfPerfilScreen";
 
-type ScreenName = 'Login' | 'Register' | 'Start' | 'Forget' | 'Code' | 'ConfigP';
+type ScreenName =
+  | "Login"
+  | "Register"
+  | "Start"
+  | "Forget"
+  | "Code"
+  | "ConfigP";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>('Login');
+  const [screen, setScreen] = useState<ScreenName>("Login");
 
   const navigation = {
     navigate: (name: string) => {
-      if (name === 'Register') setScreen('Register');
-      if (name === 'Login') setScreen('Login');
-      if (name === 'Start') setScreen('Start');
-      if (name === 'Forget') setScreen('Forget');
-      if (name === 'Code') setScreen('Code');
-      if (name === 'ConfigP') setScreen('ConfigP');
+      if (name === "Register") setScreen("Register");
+      if (name === "Login") setScreen("Login");
+      if (name === "Start") setScreen("Start");
+      if (name === "Forget") setScreen("Forget");
+      if (name === "Code") setScreen("Code");
+      if (name === "ConfigP") setScreen("ConfigP");
     },
   } as any;
 
-  return screen === 'Start' ? (
+  return screen === "Start" ? (
     <StartScreen navigation={navigation} />
-  ) : screen === 'Register' ? (
+  ) : screen === "Register" ? (
     <RegisterScreen navigation={navigation} />
-  ) : screen === 'Forget' ? (
+  ) : screen === "Forget" ? (
     <ForgetPasswordScreen navigation={navigation} />
-  ) : screen === 'Code' ? (
+  ) : screen === "Code" ? (
     <CodeForgetPasswordScreen navigation={navigation} />
-  ) : screen === 'ConfigP' ? (
+  ) : screen === "ConfigP" ? (
     <ConfPerfilScreen navigation={navigation} />
-  ) :(
+  ) : (
     <LoginScreen navigation={navigation} />
   );
 }

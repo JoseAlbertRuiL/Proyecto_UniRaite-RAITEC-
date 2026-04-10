@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
 
 //Configuración
 require('dotenv').config();
@@ -25,16 +26,24 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: (req, file, cb) => {
+    if (file.fieldname === 'foto_credencial') {
+      cb(null, 'uploads/credentials/');
+    } else if (file.fieldname === 'foto_perfil') {
+      cb(null, 'uploads/perfiles/');
+    } else {
+      cb(null, 'uploads/');
+    }
+  },
   filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'cred-' + unique + path.extname(file.originalname));
+    const ext = path.extname(file.originalname);
+    cb(null, `${uuidv4()}${ext}`);
   }
 });
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png') {
       cb(null, true);
@@ -46,26 +55,42 @@ const upload = multer({
 
 // Función para validación de correo institucional
 const isValidEmail = (email) => {
-  return email.endsWith('@morelia.tecnm.mx');
+  const regex = /^l[2][0-9]{7}@morelia\.tecnm\.mx$/;
+  return regex.test(email);
 };
 
 //Endpoint para registro
-app.post('/api/register', upload.single('foto_credencial'), async (req, res) => {
+app.post('/api/register', upload.fields([
+  { name: 'foto_credencial', maxCount: 1 },
+  { name: 'foto_perfil', maxCount: 1 }
+]), async (req, res) => {
   try {
-    const { nombre, apellido_paterno, apellido_materno, num_control, correo_inst, password } = req.body;
-    const foto_credencial = req.file ? req.file.filename : null;
+    const { 
+      nombre, 
+      apellido_paterno, 
+      apellido_materno, 
+      num_control, 
+      correo_inst, 
+      password,
+      carrera
+    } = req.body;
+    
+    // Obtener los nombres de los archivos subidos
+    const foto_credencial = req.files?.foto_credencial?.[0]?.filename || null;
+    const foto_perfil = req.files?.foto_perfil?.[0]?.filename || null;
 
-    //Validar correo institucional
-    if (!isValidEmail(correo_inst)) {
-      return res.status(400).json({ error: 'Usa tu correo @morelia.tecnm.mx' });
+    // Validar correo institucional (formato: lXXXXXXXX@morelia.tecnm.mx)
+    const emailRegex = /^l[2][0-9]{7}@morelia\.tecnm\.mx$/;
+    if (!emailRegex.test(correo_inst)) {
+      return res.status(400).json({ error: 'Usa tu correo @morelia.tecnm.mx con formato lXXXXXXXX@morelia.tecnm.mx' });
     }
 
-    //Validación para que todos los campos obligatorios existan
+    // Validación para que todos los campos obligatorios existan
     if (!nombre || !apellido_paterno || !num_control || !correo_inst || !password) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    //Verificación de que existen
+    // Verificar si ya existe el correo o número de control
     const existe = await prisma.usuarios.findFirst({
       where: {
         OR: [
@@ -79,23 +104,29 @@ app.post('/api/register', upload.single('foto_credencial'), async (req, res) => 
       return res.status(400).json({ error: 'El correo o número de control ya está registrado' });
     }
 
-    //Encriptación de contraseña con hash
+    // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    //Creación de usuario
+    // Crear usuario
     const usuario = await prisma.usuarios.create({
       data: {
+        id_usuario: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         nombre,
         apellido_paterno,
         apellido_materno: apellido_materno || null,
         num_control,
         correo_inst,
         password_hash: hashedPassword,
-        foto_credencial
+        carrera: carrera || null,
+        foto_credencial,
+        foto_perfil,
+        es_conductor: false,
+        verificado: false
       }
     });
 
-    //Generación de token jwt
+
+    // Generar token JWT
     const token = jwt.sign({ id: usuario.id_usuario }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
@@ -108,7 +139,8 @@ app.post('/api/register', upload.single('foto_credencial'), async (req, res) => 
         apellido_paterno: usuario.apellido_paterno,
         apellido_materno: usuario.apellido_materno,
         correo_inst: usuario.correo_inst,
-        num_control: usuario.num_control
+        num_control: usuario.num_control,
+        carrera: usuario.carrera
       }
     });
 
@@ -204,13 +236,28 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' });
 });
 
+// Endpoint para verificar si el correo ya existe
+app.get('/api/verificar-correo', async (req, res) => {
+  try {
+    const { correo } = req.query;
+    console.log('Verificando correo:', correo);
+    const usuario = await prisma.usuarios.findUnique({
+      where: { correo_inst: correo }
+    });
+    res.json({ existe: !!usuario });
+  } catch (error) {
+    console.error('Error al verificar:', error);
+    res.status(500).json({ error: 'Error al verificar' });
+  }
+});
+
 //Para iniciar el servidor
 async function main() {
   try {
     await prisma.$connect();
     console.log('Servidor PostreSQL funcionando');
     
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor en http://localhost:${PORT}`);
       console.log(`Endpoints:`);
       console.log(`   POST   /api/register`);

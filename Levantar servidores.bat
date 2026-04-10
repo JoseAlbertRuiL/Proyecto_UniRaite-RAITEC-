@@ -7,7 +7,7 @@ start "UNIRAITE Backend" cmd /k "cd backend && npm run dev"
 timeout /t 2 /nobreak >nul
 
 echo [2/2] Iniciando FRONTEND (Expo)...
-start "UNIRAITE Frontend" cmd /k "npx expo start"
+start "UNIRAITE Frontend" cmd /k "npx expo start -c"
 
 echo.
 echo ========================================
