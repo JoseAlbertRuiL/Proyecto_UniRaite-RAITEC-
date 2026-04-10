@@ -1,65 +1,63 @@
 import express from "express";
-import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import pkg from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
-
-const { Pool } = pkg;
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import 'dotenv/config';
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
+import { PrismaPg } from '@prisma/adapter-pg';
+import cors from "cors";
 
 const app = express();
+/*Usar adaptador para que funcione prisma*/
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
+
+app.use(cors());
 app.use(express.json());
+/* post */
+app.post("/login", async (req, res) => {
+  console.log("📩 Request body:", req.body);
 
-// ENDPOINT REGISTER
-app.post("/register", async (req, res) => {
+  const { correo, password } = req.body;
+
   try {
-    const { email, password, firstName, lastName, lastName2, controlNumber } = req.body;
+    console.log("🔍 Buscando usuario...");
+    /* Encontrar al primer usuario */
+    const user = await prisma.usuarios.findFirst({
+      where: { correo_inst: correo }
+    });
 
-    // Validación básica
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email y contraseña son obligatorios" });
+    console.log("👤 Usuario encontrado:", user);
+      
+    /* Validaciones */
+    if (!user) {
+      console.log("❌ Usuario no existe");
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
-    // Verificar si ya existe el usuario
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ error: "El usuario ya existe" });
+    if (user.password_hash !== password) {
+      console.log("❌ Password incorrecto");
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
-    // Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Crear usuario
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name: `${firstName} ${lastName} ${lastName2}`,
-        controlNumber: controlNumber ? parseInt(controlNumber) : null,
-      },
+    console.log("✅ Login correcto");
+    /* Retornar el usuario */
+    return res.status(200).json({
+      user: {
+        id: user.id_usuario,
+        nombre: user.nombre,
+        correo: user.correo_inst
+      }
     });
 
-    res.json({
-      message: "Usuario registrado correctamente",
-      user,
-    });
+  } catch (err) {
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error al registrar usuario" });
+      /* Error de Servidor */
+    console.error("🔥 ERROR REAL:", err);
+    return res.status(500).json({
+      message: "Error servidor",
+      error: err.message
+    });
   }
 });
 
-app.listen(3000, () => {
-  console.log("Servidor corriendo en http://localhost:3000");
-});
+const PORT = 3001;
+app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));
