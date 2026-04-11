@@ -8,6 +8,7 @@ const fs = require("fs");
 const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
 const emailjs = require("@emailjs/nodejs");
+const userRoutes = require("../routes/user.routes");
 
 //Configuración
 require("dotenv").config();
@@ -19,6 +20,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+
+//Ruta para modificar perfil
+app.use("/api", userRoutes);
 
 //Configuración de Subida de fotos
 const uploadDir = "./uploads/credentials";
@@ -231,6 +235,7 @@ app.get("/api/perfil", async (req, res) => {
         apellido_materno: true,
         correo_inst: true,
         num_control: true,
+        carrera: true,
         foto_credencial: true,
         es_conductor: true,
         verificado: true,

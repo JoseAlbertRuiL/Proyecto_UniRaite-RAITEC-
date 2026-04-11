@@ -22,7 +22,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
 
   const [nombre, setNombre] = useState('');
-  const [correo, setCorreo] = useState('');
+  const [apellidoPaterno, setApellidoPaterno] = useState('');
+  const [apellidoMaterno, setApellidoMaterno] = useState('');
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisibleContrasenia, setModalVisibleContrasenia] = useState(false);
@@ -31,7 +32,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   useEffect(() => {
     obtenerPerfil();
   }, []);
-
+  //Función para obtener datos del perfil
   const obtenerPerfil = async () => {
   try {
     const token = await AsyncStorage.getItem("token");
@@ -67,6 +68,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   }
 };
 
+//Función de cerrar sesión
 const cerrarSesion = async () => {
   try {
     await AsyncStorage.removeItem("token");
@@ -75,6 +77,38 @@ const cerrarSesion = async () => {
     navigation.navigate("Login"); // mejor que navigate
   } catch (error) {
     console.log("Error al cerrar sesión:", error);
+  }
+};
+
+// Función para guardar cambios de perfil
+const guardarCambios = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    const res = await fetch(`${API_URL}/perfil`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        nombre,
+        apellido_paterno: apellidoPaterno,
+        apellido_materno: apellidoMaterno,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      setUser(data.user); // actualiza UI
+      setModalVisible(false);
+    } else {
+      alert("Error al actualizar");
+    }
+
+  } catch (error) {
+    console.log(error);
   }
 };
 
@@ -101,10 +135,10 @@ const cerrarSesion = async () => {
 
       </TouchableOpacity>
 
-      <Text className="text-lg font-bold mt-3">{user ? `${user.nombre} ${user.apellido_paterno}` : "Cargando..."}</Text>
+      <Text className="text-lg font-bold mt-3">{user ? `${user.nombre} ${user.apellido_paterno} ${user.apellido_materno}`: "Cargando..."}</Text>
       <Text className="text-gray-500">{user?.correo_inst || "Cargando..."}</Text>
       <Text className="text-gray-500">No control: {user?.num_control || "..."}</Text>
-
+      <Text className="text-gray-500">Carrera: {user?.carrera || "..."}</Text>
 
     </View>
 
@@ -185,20 +219,33 @@ const cerrarSesion = async () => {
             />
             
             <TextInput
-              value={correo}
-              onChangeText={setCorreo}
+              value={apellidoPaterno}
+              onChangeText={setApellidoPaterno}
               className="border border-gray-300 rounded-xl px-4 py-3"
-              placeholder="Nuevo correo"
+              placeholder="Nuevo Apellido Paterno"
             />
 
-
+            <TextInput
+              value={apellidoMaterno}
+              onChangeText={setApellidoMaterno}
+              className="border border-gray-300 rounded-xl px-4 py-3"
+              placeholder="Nuevo Apellido Materno"
+            />
+            <View className="flex-row justify-between mt-4">
+            <TouchableOpacity
+              onPress={() => guardarCambios()}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Guardar</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setModalVisible(false)}
-              className="bg-blue-600 mt-4 py-3 rounded-xl items-center"
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
-              <Text className="text-white font-semibold">Guardar</Text>
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
+            </View>
 
           </View>
 
@@ -220,9 +267,9 @@ const cerrarSesion = async () => {
 
             <TouchableOpacity
               onPress={() => setModalVisibleContrasenia(false)}
-              className="bg-blue-600 mt-4 py-3 rounded-xl items-center"
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
-              <Text className="text-white font-semibold">Guardar</Text>
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
 
           </View>
