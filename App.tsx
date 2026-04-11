@@ -2,12 +2,11 @@ import "./global.css";
 import React, { useState } from 'react';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
-import StartScreen from "./src/screens/auth/StartScreen";
 import ForgetPasswordScreen from './src/screens/auth/ForgetPasswordScreen';
 import CodeForgetPasswordScreen from './src/screens/auth/CodeForgetPasswordScreen';
 import ConfPerfilScreen from './src/screens/auth/ConfPerfilScreen';
 
-type ScreenName = 'Login' | 'Register' | 'Start' | 'Forget' | 'Code' | 'ConfigP';
+type ScreenName = 'Login' | 'Register' | 'Forget' | 'Code' | 'ConfigP';
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>('Login');
@@ -16,15 +15,14 @@ export default function App() {
     navigate: (name: string) => {
       if (name === 'Register') setScreen('Register');
       if (name === 'Login') setScreen('Login');
-      if (name === 'Start') setScreen('Start');
       if (name === 'Forget') setScreen('Forget');
       if (name === 'Code') setScreen('Code');
       if (name === 'ConfigP') setScreen('ConfigP');
     },
   } as any;
 
-  return screen === 'Start' ? (
-    <StartScreen navigation={navigation} />
+  return screen === 'Login' ? (
+    <LoginScreen navigation={navigation} />
   ) : screen === 'Register' ? (
     <RegisterScreen navigation={navigation} />
   ) : screen === 'Forget' ? (
