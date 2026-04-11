@@ -19,7 +19,7 @@ const Header: React.FC<HeaderProps> = ({ navigation }) => {
       </TouchableOpacity>
       <TouchableOpacity
         className="w-10 h-10 bg-white rounded-full justify-center items-center"
-        onPress={() => navigation.navigate('Start')}
+        onPress={() => navigation.navigate('Home')}
       >
         <CarIcon/>
       </TouchableOpacity>

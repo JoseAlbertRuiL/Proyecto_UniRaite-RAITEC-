@@ -55,7 +55,7 @@ const LoginScreen = ({ navigation }: any) => {
       if (response.ok) {
         console.log("Login exitoso:", data);
         // Navegar si todo está bien
-        navigation.navigate("Start");
+        navigation.navigate("Home");
       } else {
         console.log("Error:", data.error);
         alert(data.error);
