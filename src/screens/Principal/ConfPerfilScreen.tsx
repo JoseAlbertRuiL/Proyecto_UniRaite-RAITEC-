@@ -10,18 +10,73 @@ import {
   Image
 } from 'react-native';
 import Header from '../../components/common/HeaderBack';
+import { useEffect } from 'react';
+/*Para Token*/
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../services/api';
+
+
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
+
+  const [user, setUser] = useState<any>(null);
 
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
 
-  /*Estado del modal para editar datos personales y contraseña*/
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisibleContrasenia, setModalVisibleContrasenia] = useState(false);
-  /*Switch modo conductor*/
   const [modoConductor, setModoConductor] = useState(false);
 
+  useEffect(() => {
+    obtenerPerfil();
+  }, []);
+
+  const obtenerPerfil = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    console.log("TOKEN:", token);
+
+    if (!token) {
+      navigation.navigate("Login");
+      return;
+    }
+
+    console.log("URL:", `${API_URL}/perfil`);
+
+    const res = await fetch(`${API_URL}/perfil`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log("STATUS:", res.status);
+
+    const data = await res.json();
+    console.log("DATA:", data);
+
+    if (data.success) {
+      setUser(data.user);
+    } else {
+      console.log("Error backend:", data);
+    }
+
+  } catch (error) {
+    console.log("ERROR REAL:", error);
+  }
+};
+
+const cerrarSesion = async () => {
+  try {
+    await AsyncStorage.removeItem("token");
+    await AsyncStorage.removeItem("user"); // opcional
+
+    navigation.navigate("Login"); // mejor que navigate
+  } catch (error) {
+    console.log("Error al cerrar sesión:", error);
+  }
+};
 
 
   return (
@@ -46,9 +101,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
       </TouchableOpacity>
 
-      <Text className="text-lg font-bold mt-3">José Vázquez</Text>
-      <Text className="text-gray-500">correo@email.com</Text>
-      <Text className="text-gray-500">No control: </Text>
+      <Text className="text-lg font-bold mt-3">{user ? `${user.nombre} ${user.apellido_paterno}` : "Cargando..."}</Text>
+      <Text className="text-gray-500">{user?.correo_inst || "Cargando..."}</Text>
+      <Text className="text-gray-500">No control: {user?.num_control || "..."}</Text>
 
 
     </View>
@@ -185,7 +240,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       </Text>
 
       <TouchableOpacity
-        onPress={() => navigation.navigate('Login')}
+        onPress={cerrarSesion}
       >
         <Text className="text-base bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold">Cerrar Sesión</Text>
       </TouchableOpacity>

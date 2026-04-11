@@ -12,6 +12,7 @@ import {
   StatusBar,
 } from "react-native";
 import { API_URL } from "../../services/api";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
@@ -19,52 +20,61 @@ const LoginScreen = ({ navigation }: any) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    // Validación local de campos
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim()) {
-      alert("Por favor ingresa tu correo.");
-      return;
-    }
-    if (!emailRegex.test(email)) {
-      alert("Por favor ingresa un correo válido.");
-      return;
-    }
-    if (!password) {
-      alert("Por favor ingresa tu contraseña.");
-      return;
-    }
-    if (password.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    try {
-      const response = await fetch(`${API_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          correo_inst: email,
-          password: password,
-        }),
-      });
+  if (!email.trim()) {
+    alert("Por favor ingresa tu correo.");
+    return;
+  }
+  if (!emailRegex.test(email)) {
+    alert("Por favor ingresa un correo válido.");
+    return;
+  }
+  if (!password) {
+    alert("Por favor ingresa tu contraseña.");
+    return;
+  }
+  if (password.length < 6) {
+    alert("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
 
-      const data = await response.json();
+  try {
+    // IMPORTANTE: usa /api/login
+    const response = await fetch(`${API_URL}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        correo_inst: email,
+        password: password,
+      }),
+    });
 
-      if (response.ok) {
-        console.log("Login exitoso:", data);
-        // Navegar si todo está bien
-        navigation.navigate("Home");
-      } else {
-        console.log("Error:", data.error);
-        alert(data.error);
-      }
-    } catch (error) {
-      console.error("Error de conexión:", error);
-      alert("No se pudo conectar al servidor");
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Login exitoso:", data);
+
+      //  GUARDAR TOKEN
+      await AsyncStorage.setItem("token", data.token);
+
+      //  (opcional pero útil)
+      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+
+      // Navegar hacia HomeScreen
+      navigation.navigate("Home");
+
+    } else {
+      console.log("Error:", data.error);
+      alert(data.error);
     }
-  };
+  } catch (error) {
+    console.error("Error de conexión:", error);
+    alert("No se pudo conectar al servidor");
+  }
+};
 
   return (
     <View
