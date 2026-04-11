@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `User` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "EstadoSolicitud" AS ENUM ('pendiente', 'aceptada', 'rechazada');
 
@@ -13,25 +7,26 @@ CREATE TYPE "EstadoTrayecto" AS ENUM ('en_curso', 'finalizado', 'cancelado');
 -- CreateEnum
 CREATE TYPE "TipoEmergencia" AS ENUM ('accidente', 'acoso', 'falla_mecanica', 'otro');
 
--- DropTable
-DROP TABLE "User";
-
 -- CreateTable
 CREATE TABLE "usuarios" (
     "id_usuario" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "apellido_paterno" TEXT NOT NULL,
-    "apellido_materno" TEXT NOT NULL,
+    "apellido_materno" TEXT,
     "correo_inst" TEXT NOT NULL,
     "password_hash" TEXT NOT NULL,
+    "reset_token" TEXT,
+    "reset_expires" TIMESTAMP(3),
     "num_control" TEXT NOT NULL,
-    "carrera" TEXT NOT NULL,
-    "universidad" TEXT NOT NULL,
+    "carrera" TEXT,
+    "universidad" TEXT,
     "foto_perfil" TEXT,
     "foto_credencial" TEXT,
-    "es_conductor" BOOLEAN NOT NULL,
-    "verificado" BOOLEAN NOT NULL,
+    "es_conductor" BOOLEAN NOT NULL DEFAULT false,
+    "verificado" BOOLEAN NOT NULL DEFAULT false,
     "reputacion_promedio" DOUBLE PRECISION,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "usuarios_pkey" PRIMARY KEY ("id_usuario")
 );
@@ -135,6 +130,12 @@ CREATE TABLE "notificaciones" (
 
     CONSTRAINT "notificaciones_pkey" PRIMARY KEY ("id_notificacion")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "usuarios_correo_inst_key" ON "usuarios"("correo_inst");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "usuarios_num_control_key" ON "usuarios"("num_control");
 
 -- AddForeignKey
 ALTER TABLE "vehiculos" ADD CONSTRAINT "vehiculos_id_usuario_fkey" FOREIGN KEY ("id_usuario") REFERENCES "usuarios"("id_usuario") ON DELETE RESTRICT ON UPDATE CASCADE;

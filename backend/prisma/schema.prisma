@@ -4,24 +4,29 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-/* Usuarios */
+// Usuarios
 model usuarios {
-  id_usuario        String   @id
+  id_usuario        String   @id @default(cuid())
   nombre            String
   apellido_paterno  String
-  apellido_materno  String
-  correo_inst       String
+  apellido_materno  String?
+  correo_inst       String   @unique
   password_hash     String
-  num_control       String
-  carrera           String  
-  universidad       String
+  reset_token       String?
+  reset_expires     DateTime?
+  num_control       String   @unique
+  carrera           String?
+  universidad       String?
   foto_perfil       String?
   foto_credencial   String?
-  es_conductor      Boolean
-  verificado        Boolean
+  es_conductor      Boolean  @default(false)
+  verificado        Boolean  @default(false)
   reputacion_promedio Float?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
 
   vehiculos         vehiculos[]
   viajes_publicados viajes_publicados[] @relation("ConductorViajes")
@@ -34,7 +39,7 @@ model usuarios {
   calificaciones_recibidas calificaciones[] @relation("Evaluado")
 }
 
-/* Vehículos */
+// Vehículos 
 model vehiculos {
   id_vehiculo       Int      @id @default(autoincrement())
   id_usuario        String
@@ -48,7 +53,7 @@ model vehiculos {
   viajes            viajes_publicados[]
 }
 
-/* Viajes publicados */
+// Viajes publicados 
 model viajes_publicados {
   id_viaje_pub      Int      @id @default(autoincrement())
   id_conductor      String
@@ -69,7 +74,7 @@ model viajes_publicados {
   viajes_activos    viajes_activos[]
 }
 
-/* Solicitudes */
+// Solicitudes 
 model solicitudes_viaje {
   id_solicitud      Int      @id @default(autoincrement())
   id_viaje_pub      Int
@@ -81,7 +86,7 @@ model solicitudes_viaje {
   pasajero          usuarios @relation(fields: [id_pasajero], references: [id_usuario])
 }
 
-/* Mensajes */
+// Mensajes 
 model mensajes_chat {
   id_mensaje        Int      @id @default(autoincrement())
   id_viaje_pub      Int
@@ -93,7 +98,7 @@ model mensajes_chat {
   emisor            usuarios @relation("EmisorMensajes", fields: [id_emisor], references: [id_usuario])
 }
 
-/* Viajes activos */
+// Viajes activos 
 model viajes_activos {
   id_viaje_activo   Int      @id @default(autoincrement())
   id_viaje_pub      Int
@@ -106,7 +111,7 @@ model viajes_activos {
   calificaciones    calificaciones[]
 }
 
-/* Incidentes */
+// Incidentes 
 model incidentes_seguridad {
   id_incidente      Int      @id @default(autoincrement())
   id_viaje_activo   Int
@@ -120,7 +125,7 @@ model incidentes_seguridad {
   usuario           usuarios @relation(fields: [id_usuario_reporta], references: [id_usuario])
 }
 
-/* Calificaciones */
+// Calificaciones 
 model calificaciones {
   id_calificacion   Int      @id @default(autoincrement())
   id_viaje_activo   Int
@@ -134,7 +139,7 @@ model calificaciones {
   evaluado          usuarios @relation("Evaluado", fields: [id_evaluado], references: [id_usuario])
 }
 
-/* Notificaciones */
+// Notificaciones 
 model notificaciones {
   id_notificacion   Int      @id @default(autoincrement())
   id_usuario        String
@@ -147,7 +152,7 @@ model notificaciones {
   usuario           usuarios @relation(fields: [id_usuario], references: [id_usuario])
 }
 
-/* ENUMS */
+// ENUMS 
 enum EstadoSolicitud {
   pendiente
   aceptada
