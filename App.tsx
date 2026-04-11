@@ -1,10 +1,10 @@
 import "./global.css";
 import React, { useState } from 'react';
-import LoginScreen from './src/screens/auth/LoginScreen';
-import RegisterScreen from './src/screens/auth/RegisterScreen';
-import ForgetPasswordScreen from './src/screens/auth/ForgetPasswordScreen';
-import CodeForgetPasswordScreen from './src/screens/auth/CodeForgetPasswordScreen';
-import ConfPerfilScreen from './src/screens/auth/ConfPerfilScreen';
+import LoginScreen from './src/screens/Principal/LoginScreen';
+import RegisterScreen from './src/screens/Principal/RegisterScreen';
+import ForgetPasswordScreen from './src/screens/Principal/ForgetPasswordScreen';
+import CodeForgetPasswordScreen from './src/screens/Principal/CodeForgetPasswordScreen';
+import ConfPerfilScreen from './src/screens/Principal/ConfPerfilScreen';
 
 type ScreenName = 'Login' | 'Register' | 'Forget' | 'Code' | 'ConfigP';
 
