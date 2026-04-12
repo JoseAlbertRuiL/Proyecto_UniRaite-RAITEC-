@@ -203,6 +203,152 @@ app.get('/api/perfil', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' });
 });
+// ---------------- RUTAS DE CHAT ----------------
+
+// OBTENER MENSAJES: Solo si el viaje existe
+app.get('/api/mensajes/:idViaje', async (req, res) => {
+  try {
+    const { idViaje } = req.params;
+    const mensajes = await prisma.mensajes_chat.findMany({
+      where: { id_viaje_pub: parseInt(idViaje) },
+      orderBy: { fecha_envio: 'asc' },
+      include: { emisor: { select: { nombre: true } } }
+    });
+    res.json(mensajes);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener mensajes' });
+  }
+});
+
+// ENVIAR MENSAJE: Valida el "Match"
+app.post('/api/mensajes', async (req, res) => {
+  try {
+    const { id_viaje_pub, id_emisor, contenido } = req.body;
+    const tripId = parseInt(id_viaje_pub);
+
+    // Verificamos si el emisor es el CONDUCTOR
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: tripId }
+    });
+
+    if (!viaje) {
+      return res.status(404).json({ error: 'El viaje no existe.' });
+    }
+
+    // Verificamos si el emisor es un PASAJERO con solicitud ACEPTADA (El "Match")
+    const match = await prisma.solicitudes_viaje.findFirst({
+      where: {
+        id_viaje_pub: tripId,
+        id_pasajero: id_emisor,
+        estado_solicitud: 'aceptada'
+      }
+    });
+
+    // Seguridad: Si no es conductor ni pasajero aceptado, no puede chatear
+    if (viaje.id_conductor !== id_emisor && !match) {
+      return res.status(403).json({ error: 'No tienes un match confirmado para este viaje.' });
+    }
+
+    const nuevoMensaje = await prisma.mensajes_chat.create({
+      data: {
+        id_viaje_pub: tripId,
+        id_emisor: id_emisor,
+        contenido: contenido,
+        fecha_envio: new Date()
+      }
+    });
+    
+    res.status(201).json(nuevoMensaje);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al enviar mensaje' });
+  }
+});
+
+// ESTADO DEL VIAJE: Para bloquear el chat al finalizar)
+app.get('/api/viaje-estado/:idViaje', async (req, res) => {
+  try {
+    const { idViaje } = req.params;
+    // Buscamos en viajes_activos el estado del trayecto
+    const trayecto = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: parseInt(idViaje) },
+      select: { estado_trayecto: true }
+    });
+
+    res.json({ estado: trayecto?.estado_trayecto || 'pendiente' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al consultar estado' });
+  }
+});
+// ---------------- RESPONDER SOLICITUDES ----------------
+app.put('/api/solicitudes/:idSolicitud/responder', async (req, res) => {
+  try {
+    const { accion } = req.body; // Tiene que ser 'aceptar' o 'rechazar'
+    const idSolicitud = parseInt(req.params.idSolicitud);
+
+    //Buscamos la solicitud en la base de datos
+    const solicitud = await prisma.solicitudes_viaje.findUnique({
+      where: { id_solicitud: idSolicitud }
+    });
+
+    if (!solicitud) {
+      return res.status(404).json({ error: 'La solicitud no existe.' });
+    }
+
+    if (solicitud.estado_solicitud !== 'pendiente') {
+      return res.status(400).json({ error: 'Esta solicitud ya fue respondida.' });
+    }
+
+    // REGLA DE NEGOCIO: Validar los 10 minutos
+    const ahora = new Date();
+    const tiempoTranscurridoMs = ahora - new Date(solicitud.fecha_solicitud);
+    const minutosTranscurridos = tiempoTranscurridoMs / (1000 * 60);
+
+    if (minutosTranscurridos > 10) {
+      // Si pasaron más de 10 minutos, la auto-rechazamos por tiempo vencido
+      await prisma.solicitudes_viaje.update({
+        where: { id_solicitud: idSolicitud },
+        data: { estado_solicitud: 'rechazada' }
+      });
+      return res.status(400).json({ error: 'La solicitud expiró. Pasaron más de 10 minutos.' });
+    }
+
+    // 3. Actualizamos el estado a lo que decidió el conductor
+    const nuevoEstado = accion === 'aceptar' ? 'aceptada' : 'rechazada';
+    
+    await prisma.solicitudes_viaje.update({
+      where: { id_solicitud: idSolicitud },
+      data: { estado_solicitud: nuevoEstado }
+    });
+
+    // 4. REGLA DE NEGOCIO: "Entonces el viaje se crea en estado activo"
+    // Solo lo hacemos si el conductor aceptó y si el viaje no estaba activo ya.
+    if (nuevoEstado === 'aceptada') {
+      const viajeYaActivo = await prisma.viajes_activos.findFirst({
+        where: { id_viaje_pub: solicitud.id_viaje_pub }
+      });
+
+      if (!viajeYaActivo) {
+        await prisma.viajes_activos.create({
+          data: {
+            id_viaje_pub: solicitud.id_viaje_pub,
+            hora_inicio_real: new Date(),
+            estado_trayecto: 'en_curso' // Inicia el viaje oficialmente
+          }
+        });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      mensaje: `Solicitud ${nuevoEstado} exitosamente.` 
+    });
+
+  } catch (error) {
+    console.error("Error al responder solicitud:", error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+// Fin del código del Rutas para el chat
 
 //Para iniciar el servidor
 async function main() {
@@ -222,5 +368,7 @@ async function main() {
     console.error('❌ Error al conectar:', error);
   }
 }
+
+
 
 main();
