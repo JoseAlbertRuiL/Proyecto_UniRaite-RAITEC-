@@ -13,6 +13,7 @@ import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import DriverCard from '../../components/driverCard';
 
+
 const StartScreen = ({ navigation }: any) => {
 const handleStart = () => {
     // Aqui va el consumo de la API
@@ -40,7 +41,8 @@ return (
 
               {/* Botones de mapa */}
               <View className="flex-row justify-between mb-6">
-                <TouchableOpacity className="bg-blue-600 rounded-lg py-3 px-6">
+                <TouchableOpacity className="bg-blue-600 rounded-lg py-3 px-6"
+                onPress={() => navigation.navigate("Map")}>
                   <Text className="text-white font-bold">Establecer ruta cercana al hogar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity className="bg-green-500 rounded-lg py-3 px-6">
