@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - You are about to drop the `User` table. If the table is not empty, all the data it contains will be lost.
-
-*/
 -- CreateEnum
 CREATE TYPE "EstadoSolicitud" AS ENUM ('pendiente', 'aceptada', 'rechazada');
 
@@ -12,9 +6,6 @@ CREATE TYPE "EstadoTrayecto" AS ENUM ('en_curso', 'finalizado', 'cancelado');
 
 -- CreateEnum
 CREATE TYPE "TipoEmergencia" AS ENUM ('accidente', 'acoso', 'falla_mecanica', 'otro');
-
--- DropTable
-DROP TABLE "User";
 
 -- CreateTable
 CREATE TABLE "usuarios" (
