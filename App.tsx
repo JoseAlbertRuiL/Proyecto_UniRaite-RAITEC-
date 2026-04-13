@@ -2,20 +2,28 @@ import "./global.css";
 import React, { useState } from "react";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
-import StartScreen from "./src/screens/Principal/StartScreen";
+import HomeScreen from "./src/screens/Principal/HomeScreen";
 import ForgetPasswordScreen from "./src/screens/Principal/ForgetPasswordScreen";
 import CodeForgetPasswordScreen from "./src/screens/Principal/CodeForgetPasswordScreen";
 import ConfPerfilScreen from "./src/screens/Principal/ConfPerfilScreen";
 import ChangePasswordScreen from "./src/screens/Principal/ChangePasswordScreen";
+import Map from "./src/components/common/Map";
+
+interface NavigationProps {
+  navigation: any;
+  route?: any;
+}
+
 
 type ScreenName =
   | "Login"
   | "Register"
-  | "Start"
+  | "Home"
   | "Forget"
   | "Code"
   | "ConfigP"
-  | "ChangePassword";
+  | "ChangePassword"
+  | "Map";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
@@ -29,16 +37,17 @@ export default function App() {
       }
       if (name === "Register") setScreen("Register");
       if (name === "Login") setScreen("Login");
-      if (name === "Start") setScreen("Start");
+      if (name === "Home") setScreen("Home");
       if (name === "Forget") setScreen("Forget");
       if (name === "Code") setScreen("Code");
       if (name === "ConfigP") setScreen("ConfigP");
       if (name === "ChangePassword") setScreen("ChangePassword");
+      if (name === "Map") setScreen("Map");
     },
   } as any;
 
-  return screen === "Start" ? (
-    <StartScreen navigation={navigation} />
+  return screen === "Home" ? (
+  <HomeScreen navigation={navigation} />
   ) : screen === "Register" ? (
     <RegisterScreen navigation={navigation} />
   ) : screen === "Forget" ? (
@@ -48,8 +57,10 @@ export default function App() {
   ) : screen === "ConfigP" ? (
     <ConfPerfilScreen navigation={navigation} />
   ) : screen === "ChangePassword" ? (
-    <ChangePasswordScreen navigation={navigation} route={route} />
+  <ChangePasswordScreen navigation={navigation} route={route} />
+  ) : screen === "Map" ? (
+  <Map navigation={navigation} />
   ) : (
     <LoginScreen navigation={navigation} />
-  );
+);
 }
