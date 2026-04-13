@@ -92,7 +92,7 @@ const LoginScreen = ({ navigation }: any) => {
         >
           {/* Logo/Título */}
           <View className="items-center justify-center flex-1 mb-12">
-            <Text className="text-6xl mb-4">🚗</Text>
+            <Text className="text-6xl mb-4"></Text>
             <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">
               UNIRAITE
             </Text>
