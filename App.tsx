@@ -8,6 +8,7 @@ import CodeForgetPasswordScreen from "./src/screens/Principal/CodeForgetPassword
 import ConfPerfilScreen from "./src/screens/Principal/ConfPerfilScreen";
 import ChangePasswordScreen from "./src/screens/Principal/ChangePasswordScreen";
 import Map from "./src/components/common/Map";
+import ChatScreen from "./src/screens/Principal/ChatScreen";
 
 interface NavigationProps {
   navigation: any;
@@ -23,7 +24,8 @@ type ScreenName =
   | "Code"
   | "ConfigP"
   | "ChangePassword"
-  | "Map";
+  | "Map"
+  | "Chat";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
@@ -43,6 +45,7 @@ export default function App() {
       if (name === "ConfigP") setScreen("ConfigP");
       if (name === "ChangePassword") setScreen("ChangePassword");
       if (name === "Map") setScreen("Map");
+      if (name === "Chat") setScreen("Chat");
     },
   } as any;
 
@@ -60,6 +63,8 @@ export default function App() {
   <ChangePasswordScreen navigation={navigation} route={route} />
   ) : screen === "Map" ? (
   <Map navigation={navigation} />
+  ) : screen === "Chat" ? (
+  <ChatScreen navigation={navigation} route={route} />
   ) : (
     <LoginScreen navigation={navigation} />
 );

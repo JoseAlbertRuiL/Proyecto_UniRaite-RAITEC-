@@ -11,8 +11,8 @@ import {
   Alert
 } from 'react-native';
 
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
+import Header from '../../components/common/Header';
+import Footer from '../../components/common/Footer';
 
 //const BASE_URL = 'http://192.168.100.135:3000/api';
 const BASE_URL = 'http://localhost:3000/api';
