@@ -32,6 +32,13 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   useEffect(() => {
     obtenerPerfil();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setModoConductor(user.es_conductor ?? false);
+    }
+  }, [user]);
+
   //Función para obtener datos del perfil
   const obtenerPerfil = async () => {
   try {
@@ -109,6 +116,18 @@ const guardarCambios = async () => {
 
   } catch (error) {
     console.log(error);
+  }
+};
+
+const handleModoConductor = async (value: boolean) => {
+  if (value) {
+    if (user?.es_conductor) {
+      setModoConductor(true);
+    } else {
+      navigation.navigate("Licencia");
+    }
+  } else {
+    setModoConductor(false);
   }
 };
 
@@ -191,7 +210,7 @@ const guardarCambios = async () => {
           <Text className="text-base">Modo conductor</Text>
           <Switch
             value={modoConductor}
-            onValueChange={setModoConductor}
+            onValueChange={handleModoConductor}
           />
         </View>
 

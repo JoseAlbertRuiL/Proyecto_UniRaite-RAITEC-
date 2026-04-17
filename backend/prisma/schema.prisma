@@ -9,31 +9,33 @@ datasource db {
 
 // Usuarios
 model usuarios {
-  id_usuario        String   @id @default(cuid())
-  nombre            String
-  apellido_paterno  String
-  apellido_materno  String?
-  correo_inst       String   @unique
-  password_hash     String
-  reset_token       String?
-  reset_expires     DateTime?
-  num_control       String   @unique
-  carrera           String?
-  universidad       String?
-  foto_perfil       String?
-  foto_credencial   String?
-  es_conductor      Boolean  @default(false)
-  verificado        Boolean  @default(false)
+  id_usuario          String   @id @default(cuid())
+  nombre              String
+  apellido_paterno    String
+  apellido_materno    String?
+  correo_inst         String   @unique
+  password_hash       String
+  reset_token         String?
+  reset_expires       DateTime?
+  num_control         String   @unique
+  carrera             String?
+  universidad         String?
+  foto_perfil         String?
+  foto_credencial     String?
+  es_conductor        Boolean  @default(false)
+  verificado          Boolean  @default(false)
+  foto_licencia       String?
+  foto_circulacion    String?
   reputacion_promedio Float?
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
-  vehiculos         vehiculos[]
-  viajes_publicados viajes_publicados[] @relation("ConductorViajes")
-  solicitudes       solicitudes_viaje[]
-  mensajes_enviados mensajes_chat[] @relation("EmisorMensajes")
-  notificaciones    notificaciones[]
-  reportes          incidentes_seguridad[]
+  vehiculos           vehiculos[]
+  viajes_publicados   viajes_publicados[] @relation("ConductorViajes")
+  solicitudes         solicitudes_viaje[]
+  mensajes_enviados   mensajes_chat[] @relation("EmisorMensajes")
+  notificaciones      notificaciones[]
+  reportes            incidentes_seguridad[]
 
   calificaciones_hechas   calificaciones[] @relation("Evaluador")
   calificaciones_recibidas calificaciones[] @relation("Evaluado")
@@ -41,37 +43,37 @@ model usuarios {
 
 // Vehículos 
 model vehiculos {
-  id_vehiculo       Int      @id @default(autoincrement())
-  id_usuario        String
-  modelo            String
-  color             String
-  placas            String
+  id_vehiculo         Int      @id @default(autoincrement())
+  id_usuario          String
+  modelo              String
+  color               String
+  placas              String
   capacidad_pasajeros Int
-  foto_auto_url     String?
+  foto_auto_url       String?
 
-  usuario           usuarios @relation(fields: [id_usuario], references: [id_usuario])
-  viajes            viajes_publicados[]
+  usuario             usuarios @relation(fields: [id_usuario], references: [id_usuario])
+  viajes              viajes_publicados[]
 }
 
 // Viajes publicados 
 model viajes_publicados {
-  id_viaje_pub      Int      @id @default(autoincrement())
-  id_conductor      String
-  id_vehiculo       Int
-  origen_texto      String
-  destino_texto     String
-  punto_encuentro   String
-  fecha_hora_salida DateTime
+  id_viaje_pub         Int      @id @default(autoincrement())
+  id_conductor         String
+  id_vehiculo          Int
+  origen_texto         String
+  destino_texto        String
+  punto_encuentro      String
+  fecha_hora_salida    DateTime
   asientos_disponibles Int
-  costo_estimado    Float
-  es_recurrente     Boolean
+  costo_estimado       Float
+  es_recurrente        Boolean
 
-  conductor         usuarios @relation("ConductorViajes", fields: [id_conductor], references: [id_usuario])
-  vehiculo          vehiculos @relation(fields: [id_vehiculo], references: [id_vehiculo])
+  conductor            usuarios @relation("ConductorViajes", fields: [id_conductor], references: [id_usuario])
+  vehiculo             vehiculos @relation(fields: [id_vehiculo], references: [id_vehiculo])
 
-  solicitudes       solicitudes_viaje[]
-  mensajes          mensajes_chat[]
-  viajes_activos    viajes_activos[]
+  solicitudes          solicitudes_viaje[]
+  mensajes             mensajes_chat[]
+  viajes_activos       viajes_activos[]
 }
 
 // Solicitudes 
@@ -113,16 +115,16 @@ model viajes_activos {
 
 // Incidentes 
 model incidentes_seguridad {
-  id_incidente      Int      @id @default(autoincrement())
-  id_viaje_activo   Int
+  id_incidente       Int      @id @default(autoincrement())
+  id_viaje_activo    Int
   id_usuario_reporta String
-  tipo_emergencia   TipoEmergencia
-  descripcion_breve String
-  ubicacion_lat_lng String
-  fecha_reporte     DateTime
+  tipo_emergencia    TipoEmergencia
+  descripcion_breve  String
+  ubicacion_lat_lng  String
+  fecha_reporte      DateTime
 
-  viaje_activo      viajes_activos @relation(fields: [id_viaje_activo], references: [id_viaje_activo])
-  usuario           usuarios @relation(fields: [id_usuario_reporta], references: [id_usuario])
+  viaje_activo       viajes_activos @relation(fields: [id_viaje_activo], references: [id_viaje_activo])
+  usuario            usuarios @relation(fields: [id_usuario_reporta], references: [id_usuario])
 }
 
 // Calificaciones 

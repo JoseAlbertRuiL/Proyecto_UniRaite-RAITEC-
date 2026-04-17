@@ -9,6 +9,8 @@ import ConfPerfilScreen from "./src/screens/Principal/ConfPerfilScreen";
 import ChangePasswordScreen from "./src/screens/Principal/ChangePasswordScreen";
 import Map from "./src/components/common/Map";
 import ChatScreen from "./src/screens/Principal/ChatScreen";
+import LicenciaScreen    from "./src/screens/Principal/LicenciaScreen";
+import CirculacionScreen from "./src/screens/Principal/CirculacionScreen"
 
 interface NavigationProps {
   navigation: any;
@@ -25,7 +27,9 @@ type ScreenName =
   | "ConfigP"
   | "ChangePassword"
   | "Map"
-  | "Chat";
+  | "Chat"
+  | "Licencia"
+  | "Circulacion";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
@@ -46,11 +50,13 @@ export default function App() {
       if (name === "ChangePassword") setScreen("ChangePassword");
       if (name === "Map") setScreen("Map");
       if (name === "Chat") setScreen("Chat");
+      if (name === "Licencia")    setScreen("Licencia");
+      if (name === "Circulacion") setScreen("Circulacion");
     },
   } as any;
 
   return screen === "Home" ? (
-  <HomeScreen navigation={navigation} />
+    <HomeScreen navigation={navigation} />
   ) : screen === "Register" ? (
     <RegisterScreen navigation={navigation} />
   ) : screen === "Forget" ? (
@@ -60,12 +66,16 @@ export default function App() {
   ) : screen === "ConfigP" ? (
     <ConfPerfilScreen navigation={navigation} />
   ) : screen === "ChangePassword" ? (
-  <ChangePasswordScreen navigation={navigation} route={route} />
+    <ChangePasswordScreen navigation={navigation} route={route} />
   ) : screen === "Map" ? (
-  <Map navigation={navigation} />
+    <Map navigation={navigation} />
   ) : screen === "Chat" ? (
-  <ChatScreen navigation={navigation} route={route} />
+    <ChatScreen navigation={navigation} route={route} />
+  ) : screen === "Licencia" ? (
+    <LicenciaScreen navigation={navigation} />
+  ) : screen === "Circulacion" ? (
+    <CirculacionScreen navigation={navigation} route={route} />
   ) : (
     <LoginScreen navigation={navigation} />
-);
+  );
 }
