@@ -349,7 +349,57 @@ app.put('/api/solicitudes/:idSolicitud/responder', async (req, res) => {
   }
 });
 // Fin del código del Rutas para el chat
+// ---------------- HISTORIAL DE CHATS ----------------
+app.get('/api/mis-chats/:idUsuario', async (req, res) => {
+  try {
+    const { idUsuario } = req.params;
 
+    // 1. Buscamos los viajes donde eres CONDUCTOR
+    const viajesConductor = await prisma.viajes_publicados.findMany({
+      where: { id_conductor: idUsuario },
+      select: { id_viaje_pub: true }
+    });
+
+    // 2. Buscamos los viajes donde eres PASAJERO (con Match aceptado)
+    const viajesPasajero = await prisma.solicitudes_viaje.findMany({
+      where: { id_pasajero: idUsuario, estado_solicitud: 'aceptada' },
+      select: { id_viaje_pub: true }
+    });
+
+    // Juntamos todos los IDs de los viajes en una sola lista y quitamos duplicados
+    const idsViajes = [...viajesConductor, ...viajesPasajero].map(v => v.id_viaje_pub);
+    const viajesUnicos = [...new Set(idsViajes)];
+
+    // 3. Rescatamos el ÚLTIMO mensaje de cada viaje
+    const historial = [];
+    
+    for (const idViaje of viajesUnicos) {
+      const ultimoMensaje = await prisma.mensajes_chat.findFirst({
+        where: { id_viaje_pub: idViaje },
+        orderBy: { fecha_envio: 'desc' }, // El más reciente primero
+        include: { emisor: { select: { nombre: true } } }
+      });
+
+      if (ultimoMensaje) {
+        historial.push({
+          idViaje: idViaje,
+          texto: ultimoMensaje.contenido,
+          fecha: ultimoMensaje.fecha_envio,
+          remitente: ultimoMensaje.emisor.nombre,
+          esMio: ultimoMensaje.id_emisor === idUsuario
+        });
+      }
+    }
+
+    // Ordenamos todo el historial para que el chat con el mensaje más nuevo salga hasta arriba
+    historial.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    res.json(historial);
+  } catch (error) {
+    console.error("Error al obtener historial:", error);
+    res.status(500).json({ error: 'Error al cargar el historial de chats' });
+  }
+});
 //Para iniciar el servidor
 async function main() {
   try {

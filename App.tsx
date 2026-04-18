@@ -4,8 +4,9 @@ import LoginScreen from './src/screens/Principal/LoginScreen';
 import RegisterScreen from './src/screens/Principal/RegisterScreen';
 import StartScreen from "./src/screens/Principal/HomeScreen";
 import ChatScreen from "./src/screens/ChatScreen"; 
+import ChatHistoryScreen from './src/screens/ChatHistoryScreen'; // Nueva pantalla
 
-type ScreenName = 'Login' | 'Register' | 'Start' | 'Chat';
+type ScreenName = 'Login' | 'Register' | 'Start' | 'Chat' | 'ChatHistory'; // Agregamos ChatHistory al tipo
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>('Start');
@@ -17,6 +18,7 @@ export default function App() {
       if (name === 'Register') setScreen('Register');
       if (name === 'Login') setScreen('Login');
       if (name === 'Start') setScreen('Start');
+      if (name === 'ChatHistory') setScreen('ChatHistory');
       if (name === 'Chat') setScreen('Chat');
     },
     goBack: () => setScreen('Start'),
@@ -30,6 +32,8 @@ export default function App() {
     <RegisterScreen navigation={navigation} />
   ) : screen === 'Chat' ? (
     <ChatScreen navigation={navigation} route={route} />
+  ) : screen === 'ChatHistory' ? (
+    <ChatHistoryScreen navigation={navigation} />
   ) : (
     <StartScreen navigation={navigation} />
   );
