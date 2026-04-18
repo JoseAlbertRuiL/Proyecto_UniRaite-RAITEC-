@@ -28,7 +28,7 @@ type ScreenName =
   | "Chat";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("Login");
+  const [screen, setScreen] = useState<ScreenName>("Home");
   const [route, setRoute] = useState<any>({}); // ← AGREGAR ESTA LÍNEA
 
   const navigation = {

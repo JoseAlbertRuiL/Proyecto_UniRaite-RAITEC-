@@ -12,6 +12,7 @@ import {
 import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import DriverCard from '../../components/driverCard';
+import EmergencyButton from "../../components/EmergencyButton";
 
 
 const StartScreen = ({ navigation }: any) => {
@@ -73,8 +74,12 @@ return (
                   <View className="flex-1 h-px bg-gray-200" />
                 </View>
 
+              
+
                     </ScrollView>
                       </KeyboardAvoidingView>
+
+                      <EmergencyButton />
 
       <Footer navigation={navigation} />
                     </View>
