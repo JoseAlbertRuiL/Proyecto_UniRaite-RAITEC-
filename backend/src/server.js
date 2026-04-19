@@ -9,6 +9,7 @@ const { PrismaClient } = require("@prisma/client");
 const { v4: uuidv4 } = require("uuid");
 const emailjs = require("@emailjs/nodejs");
 const userRoutes = require("../routes/user.routes");
+const conductorRoutes = require("../routes/conductor.routes");
 
 //Configuración
 require("dotenv").config();
@@ -23,12 +24,19 @@ app.use("/uploads", express.static("uploads"));
 
 //Ruta para modificar perfil
 app.use("/api", userRoutes);
+app.use("/api", conductorRoutes);
 
 //Configuración de Subida de fotos
 const uploadDir = "./uploads/credentials";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
+
+const perfilesDir = "./uploads/perfiles";
+if (!fs.existsSync(perfilesDir)) {
+  fs.mkdirSync(perfilesDir, { recursive: true });
+}
+
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -421,6 +429,7 @@ async function main() {
       console.log(`   POST   /api/login`);
       console.log(`   GET    /api/perfil`);
       console.log(`   GET    /api/health`);
+      console.log(`   POST   /api/registro-conductor`);
     });
   } catch (error) {
     console.error("❌ Error al conectar:", error);
