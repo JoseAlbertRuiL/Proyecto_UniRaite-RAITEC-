@@ -28,6 +28,12 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisibleContrasenia, setModalVisibleContrasenia] = useState(false);
   const [modoConductor, setModoConductor] = useState(false);
+  
+  
+  // Para cambiar el contacto de emergencia
+  const [contactoEmergencia, setContactoEmergencia] = useState('');
+  const [modalVisibleContactoEmergencia, setModalVisibleContactoEmergencia] = useState(false);
+
 
   useEffect(() => {
     obtenerPerfil();
@@ -195,8 +201,19 @@ const guardarCambios = async () => {
           />
         </View>
 
+        {/* Contacto de emergencia */}
+        <TouchableOpacity
+          className="flex-row justify-between items-center px-4 py-4 border-b border-gray-200"
+          onPress={() => setModalVisibleContactoEmergencia(true)}
+        >
+          <Text className="text-base">Contacto de emergencia</Text>
+          <Text>{'>'}</Text>
+        </TouchableOpacity>
+
       </View>
 
+
+      {/* ======================================= MOODALS ======================================= */}
       {/* Modal editar nombre */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View className="flex-1 justify-center bg-black/50 px-6">
@@ -276,6 +293,31 @@ const guardarCambios = async () => {
 
         </View>
       </Modal>
+
+      {/* Modal editar contacto de emergencia */}
+      <Modal visible={modalVisibleContactoEmergencia} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-3">Editar Contacto de Emergencia</Text>
+            <TextInput
+              value={contactoEmergencia}
+              onChangeText={setContactoEmergencia}
+              className="border border-gray-300 rounded-xl px-4 py-3"
+              placeholder="Nuevo contacto de emergencia"
+            /> 
+            <View className="flex-row justify-between mt-4">
+            <TouchableOpacity
+              onPress={() => setModalVisibleContactoEmergencia(false)}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
+            </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
 
       <View className="flex-row items-center mb-6">
                     <View className="flex-1 h-px bg-gray-200" />

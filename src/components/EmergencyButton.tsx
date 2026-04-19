@@ -21,7 +21,7 @@ const EmergencyButton = () => {
   return (
   <>
     <TouchableOpacity style={styles.floatingButton} onPress={() => setVisible(true)}>
-      <Text style={styles.text}>SOS</Text>
+      <Text style={styles.text}>!</Text>
     </TouchableOpacity>
 
     <Modal transparent={true} visible={visible} animationType="slide">
@@ -63,7 +63,8 @@ const styles = StyleSheet.create({
   },
   text: {
   color: "white",
-  fontSize: 14,
+  fontSize: 45,
+  fontWeight: "bold",
 },
   modalContainer: {
     flex: 1,
@@ -95,8 +96,8 @@ const styles = StyleSheet.create({
   bottom: 80,
   right: 20,
   backgroundColor: "red",
-  width: 40,
-  height: 40,
+  width: 60,
+  height: 60,
   borderRadius: 30,
   justifyContent: "center",
   alignItems: "center",

@@ -9,6 +9,7 @@ import ConfPerfilScreen from "./src/screens/Principal/ConfPerfilScreen";
 import ChangePasswordScreen from "./src/screens/Principal/ChangePasswordScreen";
 import Map from "./src/components/common/Map";
 import ChatScreen from "./src/screens/Principal/ChatScreen";
+import ChatHistory from "./src/screens/Principal/ChatHistoryScreen";
 
 interface NavigationProps {
   navigation: any;
@@ -25,10 +26,11 @@ type ScreenName =
   | "ConfigP"
   | "ChangePassword"
   | "Map"
-  | "Chat";
+  | "Chat"
+  | "ChatHistory";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("Home");
+  const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({}); // ← AGREGAR ESTA LÍNEA
 
   const navigation = {
@@ -46,6 +48,7 @@ export default function App() {
       if (name === "ChangePassword") setScreen("ChangePassword");
       if (name === "Map") setScreen("Map");
       if (name === "Chat") setScreen("Chat");
+      if (name === "ChatHistory") setScreen("ChatHistory");
     },
   } as any;
 
@@ -65,6 +68,8 @@ export default function App() {
   <Map navigation={navigation} />
   ) : screen === "Chat" ? (
   <ChatScreen navigation={navigation} route={route} />
+  ) : screen === "ChatHistory" ? (
+  <ChatHistory navigation={navigation} />
   ) : (
     <LoginScreen navigation={navigation} />
 );

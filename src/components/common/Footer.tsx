@@ -23,16 +23,16 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
       <TouchableOpacity className="items-center" onPress={() => navigation.navigate('Home')}>
         <SvgXml xml={homeSvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Inicio</Text>
-      
-      {/* Búsqueda */}  
       </TouchableOpacity>
-      <TouchableOpacity className="items-center" onPress={() => navigation.navigate('Search')}>
+
+      {/* Búsqueda */}
+      {/*<TouchableOpacity className="items-center" onPress={() => navigation.navigate('Search')}>
         <SvgXml xml={searchSvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Buscar</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>*/}
       
       {/*Chats*/}
-      <TouchableOpacity className="items-center" onPress={() => navigation.navigate('Chat')}>
+      <TouchableOpacity className="items-center" onPress={() => navigation.navigate('ChatHistory')}>
         <SvgXml xml={chatSvg} width={24} height={24} fill="#6B7280" />
           <Text className="text-xs text-gray-600">Chat</Text>
       </TouchableOpacity>

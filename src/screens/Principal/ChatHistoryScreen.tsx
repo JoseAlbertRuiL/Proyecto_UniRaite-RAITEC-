@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StatusBar } from 'react-native';
-import Header from '../components/common/Header';
-import Footer from '../components/common/Footer';
+import Header from '../../components/common/Header';
+import Footer from '../../components/common/Footer';
 
 // OJO: Cambia localhost por tu IP si vas a probar en el celular
 const BASE_URL = 'http://localhost:3000/api';
