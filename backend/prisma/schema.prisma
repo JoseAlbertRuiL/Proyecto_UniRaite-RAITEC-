@@ -29,6 +29,7 @@ model usuarios {
   reputacion_promedio Float?
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
+  contacto_emergencia String?
 
   vehiculos           vehiculos[]
   viajes_publicados   viajes_publicados[] @relation("ConductorViajes")
