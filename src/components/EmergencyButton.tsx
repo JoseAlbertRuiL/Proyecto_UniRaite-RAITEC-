@@ -61,11 +61,11 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
   },
-  text: {
-  color: "white",
-  fontSize: 45,
-  fontWeight: "bold",
-},
+    text: {
+    color: "white",
+    fontSize: 45,
+    fontWeight: "bold",
+  },
   modalContainer: {
     flex: 1,
     justifyContent: "center",
@@ -91,19 +91,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-    floatingButton: {
-  position: "absolute",
-  bottom: 80,
-  right: 20,
-  backgroundColor: "red",
-  width: 60,
-  height: 60,
-  borderRadius: 30,
-  justifyContent: "center",
-  alignItems: "center",
-  elevation: 8, // Android sombra
-  shadowColor: "#000", // iOS sombra
-  shadowOpacity: 0.3,
-  shadowRadius: 5,
-},
+  floatingButton: {
+    position: "absolute",
+    bottom: 80,
+    right: 20,
+    backgroundColor: "red",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 8, // Android sombra
+    shadowColor: "#000", // iOS sombra
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
 });
