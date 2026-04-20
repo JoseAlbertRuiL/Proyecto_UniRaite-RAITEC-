@@ -36,7 +36,7 @@ type ScreenName =
   | "ChatHistory";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("PublicarViaje"); // ← cambia a "Login" cuando tengas backend
+  const [screen, setScreen] = useState<ScreenName>("Login"); // ← cambia a "Login" cuando tengas backend
   const [route, setRoute] = useState<any>({});
 
   const navigation = {
