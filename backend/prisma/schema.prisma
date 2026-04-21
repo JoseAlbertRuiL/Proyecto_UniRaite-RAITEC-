@@ -63,7 +63,6 @@ model viajes_publicados {
   id_vehiculo          Int
   origen_texto         String
   destino_texto        String
-  punto_encuentro      String
   fecha_hora_salida    DateTime
   asientos_disponibles Int
   costo_estimado       Float

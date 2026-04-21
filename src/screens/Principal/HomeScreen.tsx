@@ -61,6 +61,7 @@ return (
                 onPress={() => navigation.navigate("Map")}>
                   <Text className="text-white font-bold">Establecer ruta cercana al hogar</Text>
                 </TouchableOpacity>
+                {/* Botón ofrecer viaje */}
                 <TouchableOpacity className="bg-green-500 rounded-lg py-3 px-6" onPress={handleOfrecerViaje}>
                   <Text className="text-white font-bold">Ofrecer Viaje</Text>
                 </TouchableOpacity>
