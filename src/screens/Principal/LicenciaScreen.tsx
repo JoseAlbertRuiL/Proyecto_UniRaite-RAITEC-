@@ -18,9 +18,9 @@ const LicenciaScreen = ({ navigation }: any) => {
 
   const seleccionarFoto = () => {
     Alert.alert("Subir licencia", "¿Cómo quieres subir la imagen?", [
-      { text: "📷 Tomar foto",        onPress: tomarFoto },
-      { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
       { text: "Cancelar",             style: "cancel" },
+      { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
+      { text: "📷 Tomar foto",        onPress: tomarFoto },
     ]);
   };
 

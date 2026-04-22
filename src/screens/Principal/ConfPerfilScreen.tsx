@@ -7,7 +7,7 @@ import {
   StatusBar,
   Modal,
   Switch,
-  Image
+  Image,
 } from 'react-native';
 import Header from '../../components/common/HeaderBack';
 import { useEffect } from 'react';
@@ -30,6 +30,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisibleContrasenia, setModalVisibleContrasenia] = useState(false);
   const [modoConductor, setModoConductor] = useState(false);
+  const [vehiculo, setVehiculo]           = useState<any>(null);
+  const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
   
   
   // Para cambiar el contacto de emergencia
@@ -42,10 +44,23 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      setModoConductor(user.es_conductor ?? false);
+  const cargarEstadoSwitch = async () => {
+    const guardado = await AsyncStorage.getItem("modo_conductor_activo");
+    // Solo activar si el usuario ES conductor Y tenía el switch activo
+    if (guardado === "true" && user?.es_conductor) {
+      setModoConductor(true);
+    } else {
+      setModoConductor(false);
     }
-  }, [user]);
+  };
+  if (user) cargarEstadoSwitch();
+}, [user]);
+
+useEffect(() => {
+  if (modoConductor && !vehiculo) {
+    obtenerVehiculo();
+  }
+}, [modoConductor]);
 
   //Función para obtener datos del perfil
   const obtenerPerfil = async () => {
@@ -80,6 +95,20 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   } catch (error) {
     console.log("ERROR REAL:", error);
+  }
+};
+
+// Funcion para obtener datos del vehículo (si es conductor)
+const obtenerVehiculo = async () => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    const res   = await fetch(`${API_URL}/vehiculo`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    if (data.success) setVehiculo(data.vehiculo);
+  } catch (error) {
+    console.log("Error al obtener vehículo:", error);
   }
 };
 
@@ -189,13 +218,21 @@ const actualizarContacto = async () => {
 
 const handleModoConductor = async (value: boolean) => {
   if (value) {
+    const token = await AsyncStorage.getItem("token");
+    const res   = await fetch(`${API_URL}/perfil`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+
     if (user?.es_conductor) {
       setModoConductor(true);
+      await AsyncStorage.setItem("modo_conductor_activo", "true");
     } else {
       navigation.navigate("Licencia");
     }
   } else {
     setModoConductor(false);
+    await AsyncStorage.setItem("modo_conductor_activo", "false");
   }
 };
 
@@ -281,6 +318,17 @@ const handleModoConductor = async (value: boolean) => {
             onValueChange={handleModoConductor}
           />
         </View>
+
+        {/* Datos del vehículo — solo visible cuando el switch está activo */}
+        {modoConductor && (
+          <TouchableOpacity
+            className="flex-row justify-between items-center px-4 py-4 border-b border-gray-200"
+            onPress={() => setModalVisibleVehiculo(true)}
+          >
+            <Text className="text-base">Datos del vehículo</Text>
+            <Text>{">"}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Contacto de emergencia */}
         <TouchableOpacity
@@ -387,6 +435,87 @@ const handleModoConductor = async (value: boolean) => {
 
           </View>
 
+        </View>
+      </Modal>
+
+      {/* Modal datos del vehículo */}
+      <Modal visible={modalVisibleVehiculo} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+
+            <Text className="text-lg font-semibold mb-4">Datos del Vehículo</Text>
+
+            {vehiculo ? (
+              <View>
+                {/* Modelo */}
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Modelo</Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {vehiculo.modelo}
+                  </Text>
+                </View>
+
+                {/* Divider */}
+                <View className="h-px bg-gray-100 mb-3" />
+
+                {/* Placas */}
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Placas</Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {vehiculo.placas}
+                  </Text>
+                </View>
+
+                {/* Divider */}
+                <View className="h-px bg-gray-100 mb-3" />
+
+                {/* Color */}
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Color</Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {vehiculo.color}
+                  </Text>
+                </View>
+
+                {/* Divider */}
+                <View className="h-px bg-gray-100 mb-3" />
+
+                {/* Capacidad */}
+                <View className="mb-4">
+                  <Text className="text-xs text-gray-500 mb-1">
+                    Capacidad de pasajeros
+                  </Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {vehiculo.capacidad_pasajeros} pasajeros
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text className="text-gray-500 text-center mb-4">
+                Cargando datos...
+              </Text>
+            )}
+
+            <View className="flex-row justify-between mt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisibleVehiculo(false);
+                  navigation.navigate("Circulacion", { modoEdicion: true });
+                }}
+                className="flex-1 bg-gray-200 py-3 rounded-xl items-center mr-2"
+              >
+                <Text className="text-gray-700 font-semibold text-base">Editar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setModalVisibleVehiculo(false)}
+                className="flex-1 bg-blue-600 py-3 rounded-xl items-center ml-2"
+              >
+                <Text className="text-white font-semibold text-base">Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+
+          </View>
         </View>
       </Modal>
 

@@ -55,9 +55,9 @@ const RegisterScreen = ({ navigation }: any) => {
   // Tomar foto con cámara o galería
   const seleccionarFoto = async (tipo: "credencial" | "perfil") => {
     Alert.alert("Seleccionar foto", "¿Cómo quieres subir la imagen?", [
-      { text: "📷 Tomar foto", onPress: () => tomarFoto(tipo) },
-      { text: "🖼️ Elegir de galería", onPress: () => elegirDeGaleria(tipo) },
       { text: "Cancelar", style: "cancel" },
+      { text: "🖼️ Elegir de galería", onPress: () => elegirDeGaleria(tipo) },
+      { text: "📷 Tomar foto", onPress: () => tomarFoto(tipo) },
     ]);
   };
 

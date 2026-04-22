@@ -8,32 +8,37 @@ import {
   Platform,
   ScrollView,
   StatusBar,
+  Alert,
 } from 'react-native';
 import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import DriverCard from '../../components/driverCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from "../../services/api";
 import EmergencyButton from "../../components/EmergencyButton";
 
 
 const StartScreen = ({ navigation }: any) => {
 const handleOfrecerViaje = async () => {
   try {
-    const userStr = await AsyncStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-
-    if (!user) {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
       navigation.navigate("Login");
       return;
     }
 
-    if (user.es_conductor) {
-      console.log("Ofrecer viaje - pendiente implementar");
+    const res  = await fetch(`${API_URL}/perfil`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+
+    if (data.user?.es_conductor) {
+      navigation.navigate("PublicarViaje");
     } else {
       navigation.navigate("Licencia");
     }
   } catch (error) {
-    console.log("Error:", error);
+    Alert.alert("Error", "No se pudo verificar tu información.");
   }
 };
 
