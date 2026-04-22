@@ -24,9 +24,12 @@ CREATE TABLE "usuarios" (
     "foto_credencial" TEXT,
     "es_conductor" BOOLEAN NOT NULL DEFAULT false,
     "verificado" BOOLEAN NOT NULL DEFAULT false,
+    "foto_licencia" TEXT,
+    "foto_circulacion" TEXT,
     "reputacion_promedio" DOUBLE PRECISION,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "contacto_emergencia" TEXT,
 
     CONSTRAINT "usuarios_pkey" PRIMARY KEY ("id_usuario")
 );
@@ -51,7 +54,6 @@ CREATE TABLE "viajes_publicados" (
     "id_vehiculo" INTEGER NOT NULL,
     "origen_texto" TEXT NOT NULL,
     "destino_texto" TEXT NOT NULL,
-    "punto_encuentro" TEXT NOT NULL,
     "fecha_hora_salida" TIMESTAMP(3) NOT NULL,
     "asientos_disponibles" INTEGER NOT NULL,
     "costo_estimado" DOUBLE PRECISION NOT NULL,
