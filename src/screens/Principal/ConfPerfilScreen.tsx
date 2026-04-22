@@ -330,18 +330,19 @@ const handleModoConductor = async (value: boolean) => {
               placeholder="Nuevo Apellido Materno"
             />
             <View className="flex-row justify-between mt-4">
+
+              <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => guardarCambios()}
               className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
               <Text className="text-white font-semibold text-lg">Guardar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
-            >
-              <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
             </View>
 
@@ -376,13 +377,13 @@ const handleModoConductor = async (value: boolean) => {
               <Text className="text-white font-semibold text-lg">Guardar</Text>
             </TouchableOpacity>
             
-
-            <TouchableOpacity
+              <TouchableOpacity
               onPress={() => setModalVisibleContrasenia(false)}
               className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
               <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
+
             </View>
 
           </View>
