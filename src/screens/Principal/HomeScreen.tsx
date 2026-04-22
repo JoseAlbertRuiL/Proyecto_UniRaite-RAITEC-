@@ -12,14 +12,30 @@ import {
 import Header from '../../components/common/Header';
 import Footer from '../../components/common/Footer';
 import DriverCard from '../../components/driverCard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import EmergencyButton from "../../components/EmergencyButton";
 
 
 const StartScreen = ({ navigation }: any) => {
-const handleStart = () => {
-    // Aqui va el consumo de la API
-    console.log('Start:');
-    // Implementar lógica de autenticación y manejo de errores
-  };
+const handleOfrecerViaje = async () => {
+  try {
+    const userStr = await AsyncStorage.getItem("user");
+    const user = userStr ? JSON.parse(userStr) : null;
+
+    if (!user) {
+      navigation.navigate("Login");
+      return;
+    }
+
+    if (user.es_conductor) {
+      console.log("Ofrecer viaje - pendiente implementar");
+    } else {
+      navigation.navigate("Licencia");
+    }
+  } catch (error) {
+    console.log("Error:", error);
+  }
+};
 
 
 return (
@@ -45,7 +61,8 @@ return (
                 onPress={() => navigation.navigate("Map")}>
                   <Text className="text-white font-bold">Establecer ruta cercana al hogar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity className="bg-green-500 rounded-lg py-3 px-6">
+                {/* Botón ofrecer viaje */}
+                <TouchableOpacity className="bg-green-500 rounded-lg py-3 px-6" onPress={handleOfrecerViaje}>
                   <Text className="text-white font-bold">Ofrecer Viaje</Text>
                 </TouchableOpacity>
               </View>
@@ -73,8 +90,12 @@ return (
                   <View className="flex-1 h-px bg-gray-200" />
                 </View>
 
+              
+
                     </ScrollView>
                       </KeyboardAvoidingView>
+
+                      <EmergencyButton />
 
       <Footer navigation={navigation} />
                     </View>

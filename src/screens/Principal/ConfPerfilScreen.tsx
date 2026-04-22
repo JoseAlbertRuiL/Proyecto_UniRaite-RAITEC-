@@ -24,14 +24,29 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [nombre, setNombre] = useState('');
   const [apellidoPaterno, setApellidoPaterno] = useState('');
   const [apellidoMaterno, setApellidoMaterno] = useState('');
+  const [passwordActual, setPasswordActual] = useState('');
+  const [nuevaPassword, setNuevaPassword] = useState('');
 
   const [modalVisible, setModalVisible] = useState(false);
   const [modalVisibleContrasenia, setModalVisibleContrasenia] = useState(false);
   const [modoConductor, setModoConductor] = useState(false);
+  
+  
+  // Para cambiar el contacto de emergencia
+  const [contactoEmergencia, setContactoEmergencia] = useState('');
+  const [modalVisibleContactoEmergencia, setModalVisibleContactoEmergencia] = useState(false);
+
 
   useEffect(() => {
     obtenerPerfil();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setModoConductor(user.es_conductor ?? false);
+    }
+  }, [user]);
+
   //Función para obtener datos del perfil
   const obtenerPerfil = async () => {
   try {
@@ -84,7 +99,10 @@ const cerrarSesion = async () => {
 const guardarCambios = async () => {
   try {
     const token = await AsyncStorage.getItem("token");
-
+    if(!nombre.length || !apellidoPaterno.length || !apellidoMaterno.length) {
+      alert("Todos los campos son requeridos");
+      return;
+    }
     const res = await fetch(`${API_URL}/perfil`, {
       method: "PUT",
       headers: {
@@ -109,6 +127,75 @@ const guardarCambios = async () => {
 
   } catch (error) {
     console.log(error);
+  }
+};
+
+// Cambiar contraseña
+const cambiarPassword = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if(!nuevaPassword.length) {
+    alert("La nueva contraseña es requerida");
+    return;
+  }
+  const res = await fetch(`${API_URL}/perfil/password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      passwordActual,
+      nuevaPassword,
+    }),
+    
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    alert("Contraseña actualizada");
+    setModalVisibleContrasenia(false);
+  } else {
+    alert(data.error);
+  }
+};
+
+const actualizarContacto = async () => {
+  const token = await AsyncStorage.getItem("token");
+  if(!contactoEmergencia.length) {
+    alert("El contacto de emergencia es requerido");
+    return;
+  }
+  const res = await fetch(`${API_URL}/perfil/contacto`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      contactoEmergencia,
+    }),
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    setUser(data.user);
+    setModalVisibleContactoEmergencia(false);
+  } else {
+    alert("Error al actualizar contacto");
+  }
+};
+
+const handleModoConductor = async (value: boolean) => {
+  if (value) {
+    if (user?.es_conductor) {
+      setModoConductor(true);
+    } else {
+      navigation.navigate("Licencia");
+    }
+  } else {
+    setModoConductor(false);
   }
 };
 
@@ -191,12 +278,23 @@ const guardarCambios = async () => {
           <Text className="text-base">Modo conductor</Text>
           <Switch
             value={modoConductor}
-            onValueChange={setModoConductor}
+            onValueChange={handleModoConductor}
           />
         </View>
 
+        {/* Contacto de emergencia */}
+        <TouchableOpacity
+          className="flex-row justify-between items-center px-4 py-4 border-b border-gray-200"
+          onPress={() => setModalVisibleContactoEmergencia(true)}
+        >
+          <Text className="text-base">Contacto de emergencia</Text>
+          <Text>{'>'}</Text>
+        </TouchableOpacity>
+
       </View>
 
+
+      {/* ======================================= MOODALS ======================================= */}
       {/* Modal editar nombre */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View className="flex-1 justify-center bg-black/50 px-6">
@@ -232,18 +330,19 @@ const guardarCambios = async () => {
               placeholder="Nuevo Apellido Materno"
             />
             <View className="flex-row justify-between mt-4">
+
+              <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={() => guardarCambios()}
               className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
               <Text className="text-white font-semibold text-lg">Guardar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
-            >
-              <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
             </View>
 
@@ -259,23 +358,75 @@ const guardarCambios = async () => {
             <Text className="text-lg font-semibold mb-3">Editar Contraseña</Text>
 
             <TextInput
-              value={nombre}
-              onChangeText={setNombre}
-              className="border border-gray-300 rounded-xl px-4 py-3"
-              placeholder="contraseña"
+              value={passwordActual}
+              onChangeText={setPasswordActual}
+              placeholder="Contraseña actual"
             />
 
+            <TextInput
+              value={nuevaPassword}
+              onChangeText={setNuevaPassword}
+              placeholder="Nueva contraseña"
+            />
+
+            <View className="flex-row justify-between mt-4">
             <TouchableOpacity
+              onPress={() => cambiarPassword()}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Guardar</Text>
+            </TouchableOpacity>
+            
+              <TouchableOpacity
               onPress={() => setModalVisibleContrasenia(false)}
               className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
             >
               <Text className="text-white font-semibold text-lg">Cancelar</Text>
             </TouchableOpacity>
 
+            </View>
+
           </View>
 
         </View>
       </Modal>
+
+      {/* Modal editar contacto de emergencia */}
+      <Modal visible={modalVisibleContactoEmergencia} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-3">Editar Contacto de Emergencia</Text>
+            <Text className="text-base">Contacto de emergencia:</Text>
+            <Text className="text-gray-500 mb-4">
+              {user?.contacto_emergencia || "No definido"}
+            </Text>
+            <TextInput
+              value={contactoEmergencia}
+              onChangeText={setContactoEmergencia}
+              className="border border-gray-300 rounded-xl px-4 py-3"
+              placeholder="Nuevo contacto de emergencia"
+            /> 
+            <View className="flex-row justify-between mt-4">
+            <TouchableOpacity
+              onPress={() => actualizarContacto()}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Guardar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setModalVisibleContactoEmergencia(false)}
+              className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center"
+            >
+              <Text className="text-white font-semibold text-lg">Cancelar</Text>
+            </TouchableOpacity>
+
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
 
       <View className="flex-row items-center mb-6">
                     <View className="flex-1 h-px bg-gray-200" />

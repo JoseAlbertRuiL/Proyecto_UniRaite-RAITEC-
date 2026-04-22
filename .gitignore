@@ -44,3 +44,5 @@ yarn-error.*
 /android
 /backend/uploads/credentials
 /backend/uploads/perfiles
+/backend/uploads/licencias
+/backend/uploads/vehiculos
