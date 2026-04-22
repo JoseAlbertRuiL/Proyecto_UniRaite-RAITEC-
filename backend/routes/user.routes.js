@@ -40,6 +40,7 @@ router.get("/perfil", authMiddleware, async (req, res) => {
         correo_inst: true,
         num_control: true,
         carrera: true,
+        es_conductor: true,
         contacto_emergencia: true,
       },
     });
