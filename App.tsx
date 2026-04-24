@@ -1,5 +1,6 @@
 import "./global.css";
 import React, { useState } from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -10,15 +11,9 @@ import ChangePasswordScreen from "./src/screens/Principal/ChangePasswordScreen";
 import Map from "./src/components/common/Map";
 import ChatScreen from "./src/screens/Principal/ChatScreen";
 import PublishTripScreen from "./src/screens/trip/PublishTripScreen";
-import LicenciaScreen    from "./src/screens/Principal/LicenciaScreen";
-import CirculacionScreen from "./src/screens/Principal/CirculacionScreen"
+import LicenciaScreen from "./src/screens/Principal/LicenciaScreen";
+import CirculacionScreen from "./src/screens/Principal/CirculacionScreen";
 import ChatHistory from "./src/screens/Principal/ChatHistoryScreen";
-
-interface NavigationProps {
-  navigation: any;
-  route?: any;
-}
-
 
 type ScreenName =
   | "Login"
@@ -36,7 +31,7 @@ type ScreenName =
   | "ChatHistory";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("Login"); // ← cambia a "Login" cuando tengas backend
+  const [screen, setScreen] = useState<ScreenName>("PublicarViaje");
   const [route, setRoute] = useState<any>({});
 
   const navigation = {
@@ -54,36 +49,40 @@ export default function App() {
       if (name === "Licencia")       setScreen("Licencia");
       if (name === "Circulacion")    setScreen("Circulacion");
       if (name === "PublicarViaje")  setScreen("PublicarViaje");
-      if (name === "ChatHistory") setScreen("ChatHistory");
+      if (name === "ChatHistory")    setScreen("ChatHistory");
     },
     goBack: () => setScreen("Home"),
   } as any;
 
-  return screen === "Home" ? (
-    <HomeScreen navigation={navigation} />
-  ) : screen === "Register" ? (
-    <RegisterScreen navigation={navigation} />
-  ) : screen === "Forget" ? (
-    <ForgetPasswordScreen navigation={navigation} />
-  ) : screen === "Code" ? (
-    <CodeForgetPasswordScreen navigation={navigation} route={route} />
-  ) : screen === "ConfigP" ? (
-    <ConfPerfilScreen navigation={navigation} />
-  ) : screen === "ChangePassword" ? (
-    <ChangePasswordScreen navigation={navigation} route={route} />
-  ) : screen === "Map" ? (
-    <Map navigation={navigation} />
-  ) : screen === "Chat" ? (
-    <ChatScreen navigation={navigation} route={route} />
-  ) : screen === "Licencia" ? (
-    <LicenciaScreen navigation={navigation} />
-  ) : screen === "Circulacion" ? (
-    <CirculacionScreen navigation={navigation} route={route} />
-  ) : screen === "PublicarViaje" ? (
-    <PublishTripScreen navigation={navigation} />
-  ) : screen === "ChatHistory" ? (
-  <ChatHistory navigation={navigation} />
-  ) : (
-    <LoginScreen navigation={navigation} />
+  return (
+    <SafeAreaProvider>
+      {screen === "Home" ? (
+        <HomeScreen navigation={navigation} />
+      ) : screen === "Register" ? (
+        <RegisterScreen navigation={navigation} />
+      ) : screen === "Forget" ? (
+        <ForgetPasswordScreen navigation={navigation} />
+      ) : screen === "Code" ? (
+        <CodeForgetPasswordScreen navigation={navigation} route={route} />
+      ) : screen === "ConfigP" ? (
+        <ConfPerfilScreen navigation={navigation} />
+      ) : screen === "ChangePassword" ? (
+        <ChangePasswordScreen navigation={navigation} route={route} />
+      ) : screen === "Map" ? (
+        <Map navigation={navigation} />
+      ) : screen === "Chat" ? (
+        <ChatScreen navigation={navigation} route={route} />
+      ) : screen === "Licencia" ? (
+        <LicenciaScreen navigation={navigation} />
+      ) : screen === "Circulacion" ? (
+        <CirculacionScreen navigation={navigation} route={route} />
+      ) : screen === "PublicarViaje" ? (
+        <PublishTripScreen navigation={navigation} />
+      ) : screen === "ChatHistory" ? (
+        <ChatHistory navigation={navigation} />
+      ) : (
+        <LoginScreen navigation={navigation} />
+      )}
+    </SafeAreaProvider>
   );
 }
