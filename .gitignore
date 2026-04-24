@@ -49,3 +49,4 @@ yarn-error.*
 /backend/uploads/licencias
 /backend/uploads/vehiculos
 backend/.env
+/backend
