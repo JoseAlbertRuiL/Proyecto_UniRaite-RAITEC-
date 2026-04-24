@@ -18,9 +18,9 @@ const LicenciaScreen = ({ navigation }: any) => {
 
   const seleccionarFoto = () => {
     Alert.alert("Subir licencia", "¿Cómo quieres subir la imagen?", [
-      { text: "Cancelar",             style: "cancel" },
+      { text: "Cancelar", style: "cancel" },
       { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
-      { text: "📷 Tomar foto",        onPress: tomarFoto },
+      { text: "📷 Tomar foto", onPress: tomarFoto },
     ]);
   };
 
@@ -52,10 +52,12 @@ const LicenciaScreen = ({ navigation }: any) => {
     if (!result.canceled) setFotoLicencia(result.assets[0].uri);
   };
 
-
   const handleSiguiente = () => {
     if (!fotoLicencia) {
-      Alert.alert("Foto requerida", "Debes subir tu licencia de conducir para continuar.");
+      Alert.alert(
+        "Foto requerida",
+        "Debes subir tu licencia de conducir para continuar.",
+      );
       return;
     }
     navigation.navigate("Circulacion", { fotoLicencia });
@@ -68,10 +70,9 @@ const LicenciaScreen = ({ navigation }: any) => {
       [
         { text: "Continuar registro", style: "cancel" },
         { text: "Sí, cancelar", onPress: () => navigation.navigate("Home") },
-      ]
+      ],
     );
   };
-
 
   return (
     <View
@@ -147,8 +148,8 @@ const LicenciaScreen = ({ navigation }: any) => {
         {/* Consejo */}
         <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-8">
           <Text className="text-yellow-800 text-sm">
-            💡 Asegúrate de que la foto sea legible y que se vean claramente
-            tus datos y la fecha de vigencia.
+            💡 Asegúrate de que la foto sea legible y que se vean claramente tus
+            datos y la fecha de vigencia.
           </Text>
         </View>
 
