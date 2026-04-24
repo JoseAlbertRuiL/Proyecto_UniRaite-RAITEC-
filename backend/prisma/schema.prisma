@@ -31,7 +31,7 @@ model usuarios {
   contacto_emergencia  String?
 
   // Relaciones
-  conductor              conductores?        @relation("UsuarioAConductor", fields: [licencia_de_conducir], references: [id_licencia])
+  conductor              conductores?        
   solicitudes            solicitudes_viaje[]
   mensajes_enviados      mensajes_chat[]     @relation("EmisorMensajes")
   notificaciones         notificaciones[]
@@ -42,7 +42,7 @@ model usuarios {
 
 // Conductores (Ahora incluye datos del vehículo)
 model conductores {
-  id_licencia         String    @id // PK alfanumérica
+  id_licencia         String    @id
   foto_licencia       String?
   foto_circulacion    String?
   
@@ -54,7 +54,7 @@ model conductores {
   foto_auto_url       String?
   
   // Relaciones
-  usuario             usuarios? @relation("UsuarioAConductor")
+  usuario             usuarios? @relation(fields: [id_licencia], references: [licencia_de_conducir])
   viajes_publicados   viajes_publicados[] 
 }
 
@@ -68,8 +68,9 @@ model viajes_publicados {
   asientos_disponibles Int
   costo_estimado       Float
   es_recurrente        Boolean
+  comentario_extra     String?
 
-  // Relación directa al conductor (que ya contiene los datos del auto)
+  // Relación directa al conductor
   conductor            conductores @relation(fields: [id_licencia_conductor], references: [id_licencia])
 
   solicitudes          solicitudes_viaje[]
