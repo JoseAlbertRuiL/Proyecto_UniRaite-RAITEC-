@@ -343,69 +343,35 @@ app.put(
 );
 
 // Endpoint para publicar un viaje
-app.post("/api/viajes", async (req, res) => {
+// Endpoint para obtener todos los viajes disponibles
+app.get("/api/viajes", async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ error: "Token requerido" });
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const usuario = await prisma.usuarios.findUnique({
-      where: { id_usuario: decoded.id },
-    });
-    if (!usuario) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-    if (!usuario.licencia_de_conducir) {
-      return res
-        .status(403)
-        .json({ error: "Debes ser conductor registrado para publicar viajes" });
-    }
-    const conductor = await prisma.conductores.findUnique({
-      where: { id_licencia: usuario.licencia_de_conducir },
-    });
-    if (!conductor) {
-      return res
-        .status(404)
-        .json({ error: "Datos de conductor no encontrados" });
-    }
-    const { origen, destino, fecha, hora, asientos, precio } = req.body;
-    if (!origen || !destino || !asientos || !precio) {
-      return res.status(400).json({ error: "Faltan campos obligatorios" });
-    }
-
-    let fechaHoraSalida = new Date();
-    try {
-      if (fecha && fecha.includes("Hoy")) {
-        const [horaStr] = hora.split(":");
-        let horas = parseInt(horaStr);
-        if (hora.includes("PM") && horas !== 12) horas += 12;
-        if (hora.includes("AM") && horas === 12) horas = 0;
-        fechaHoraSalida.setHours(horas, 0, 0, 0);
-      }
-    } catch (error) {
-      fechaHoraSalida = new Date();
-    }
-
-    const nuevoViaje = await prisma.viajes_publicados.create({
-      data: {
-        id_licencia_conductor: conductor.id_licencia,
-        origen_texto: origen,
-        destino_texto: destino,
-        fecha_hora_salida: fechaHoraSalida,
-        asientos_disponibles: asientos,
-        costo_estimado: precio,
-        es_recurrente: false,
+    const viajes = await prisma.viajes_publicados.findMany({
+      where: {
+        asientos_disponibles: { gt: 0 },
+        fecha_hora_salida: { gt: new Date() },
       },
+      include: {
+        conductor: {
+          include: {
+            usuario: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+                reputacion_promedio: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { fecha_hora_salida: "asc" },
     });
-    res.json({
-      success: true,
-      message: "Viaje publicado exitosamente",
-      viaje: nuevoViaje,
-    });
+    res.json({ success: true, viajes });
   } catch (error) {
-    console.error("Error al publicar viaje:", error);
-    res.status(500).json({ error: "Error al publicar el viaje" });
+    console.error("Error al obtener viajes:", error);
+    res.status(500).json({ error: "Error al obtener viajes" });
   }
 });
 
@@ -479,6 +445,36 @@ app.post("/api/viajes/:id/solicitar", async (req, res) => {
   } catch (error) {
     console.error("Error al solicitar viaje:", error);
     res.status(500).json({ error: "Error al solicitar viaje" });
+  }
+});
+
+// Endpoint para obtener perfil público de un usuario
+app.get("/api/usuarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await prisma.usuarios.findUnique({
+      where: { id_usuario: id },
+      select: {
+        id_usuario: true,
+        nombre: true,
+        apellido_paterno: true,
+        apellido_materno: true,
+        carrera: true,
+        foto_perfil: true,
+        reputacion_promedio: true,
+        created_at: true,
+        es_conductor: true,
+      },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    res.json({ success: true, user: usuario });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener perfil" });
   }
 });
 
