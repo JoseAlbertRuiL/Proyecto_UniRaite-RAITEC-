@@ -48,3 +48,4 @@ yarn-error.*
 /backend/uploads/perfiles
 /backend/uploads/licencias
 /backend/uploads/vehiculos
+backend/.env
