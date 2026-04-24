@@ -1,5 +1,3 @@
-// src/screens/Principal/CirculacionScreen.tsx
-
 import React, { useState } from "react";
 import {
   View,
@@ -17,7 +15,8 @@ import { API_URL } from "../../services/api";
 import HeaderBack from "../../components/common/HeaderBack";
 
 const CirculacionScreen = ({ navigation, route }: any) => {
-  const { fotoLicencia } = route.params;
+  const modoEdicion  = route.params?.modoEdicion ?? false;
+  const fotoLicencia = route.params?.fotoLicencia ?? null;
 
 
   const [fotoCirculacion, setFotoCirculacion] = useState<string | null>(null);
@@ -32,9 +31,9 @@ const CirculacionScreen = ({ navigation, route }: any) => {
 
   const seleccionarFoto = () => {
     Alert.alert("Subir tarjeta de circulación", "¿Cómo quieres subir la imagen?", [
-      { text: "📷 Tomar foto",        onPress: tomarFoto },
-      { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
       { text: "Cancelar",             style: "cancel" },
+      { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
+      { text: "📷 Tomar foto",        onPress: tomarFoto },
     ]);
   };
 
@@ -98,19 +97,21 @@ const CirculacionScreen = ({ navigation, route }: any) => {
 
   const handleRegistrar = async () => {
     if (!validarCampos()) return;
-
     setCargando(true);
+
     try {
       const token = await AsyncStorage.getItem("token");
-
       const formData = new FormData();
 
       // Fotos
-      formData.append("foto_licencia", {
-        uri: fotoLicencia,
-        name: "licencia.jpg",
-        type: "image/jpeg",
-      } as any);
+      if (!modoEdicion) {
+        formData.append("foto_licencia", {
+          uri: fotoLicencia,
+          name: "licencia.jpg",
+          type: "image/jpeg",
+        } as any);
+      }
+
       formData.append("foto_circulacion", {
         uri: fotoCirculacion,
         name: "circulacion.jpg",
@@ -123,8 +124,10 @@ const CirculacionScreen = ({ navigation, route }: any) => {
       formData.append("placas",               placas.trim().toUpperCase());
       formData.append("capacidad_pasajeros",  capacidadPasajeros);
 
-      const response = await fetch(`${API_URL}/registro-conductor`, {
-        method: "POST",
+      const endpoint = modoEdicion ? `${API_URL}/vehiculo` : `${API_URL}/registro-conductor`;
+      
+      const response = await fetch(endpoint, {
+        method: modoEdicion ? "PUT" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -134,16 +137,27 @@ const CirculacionScreen = ({ navigation, route }: any) => {
       const data = await response.json();
 
       if (response.ok) {
+        if (!modoEdicion) {
+          const userStr = await AsyncStorage.getItem("user");
+          if (userStr) {
+            const userCacheado = JSON.parse(userStr);
+            userCacheado.es_conductor = true;
+            await AsyncStorage.setItem("user", JSON.stringify(userCacheado));
+          }
+        }
+        
         Alert.alert(
-          "¡Listo!",
-          "Tu información fue enviada. Una vez verificada, se activará tu modo conductor.",
-          [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+          "¡LISTO!",
+          modoEdicion
+            ? "Tu vehiculo fue actualizado correctamente."
+            : "Tus documentos fueron validados. Ya eres conductor en UNIRAITE.",
+          [{ text: "OK", onPress: () => navigation.navigate("ConfigP") }]
         );
       } else {
-        Alert.alert("Error", data.error || "Ocurrió un error al registrar.");
+        Alert.alert("Error", data.error || "Ocurrió un error.");
       }
     } catch (error) {
-      console.error("Error en registro conductor:", error);
+      console.error("Error:", error);
       Alert.alert("Error", "No se pudo conectar al servidor.");
     } finally {
       setCargando(false);
@@ -152,11 +166,14 @@ const CirculacionScreen = ({ navigation, route }: any) => {
 
   const handleCancelar = () => {
     Alert.alert(
-      "Cancelar registro",
-      "¿Seguro que quieres cancelar? Tendrás que volver a subir tu licencia.",
+      "Cancelar",
+      "¿Seguro que quieres cancelar? Se perderán los cambios no guardados.",
       [
-        { text: "Continuar registro", style: "cancel" },
-        { text: "Sí, cancelar", onPress: () => navigation.navigate("Home") },
+        { text: "Continuar", style: "cancel" },
+        {
+          text: "Sí, cancelar",
+          onPress: () => navigation.navigate(modoEdicion ? "ConfigP" : "Home")
+        },
       ]
     );
   };
@@ -176,13 +193,14 @@ const CirculacionScreen = ({ navigation, route }: any) => {
       >
         {/* Encabezado */}
         <Text className="text-2xl font-bold text-blue-900 mb-1">
-          Tarjeta de Circulación
+          {modoEdicion ? "Actualizar vehículo" : "Tarjeta de Circulación"}
         </Text>
         <Text className="text-gray-500 mb-2">
-          Paso 2 de 2 — Registro del vehículo
+          {modoEdicion
+            ? "Sube la nueva tarjeta de circulación e ingresa los datos del vehículo"
+            : "Paso 2 de 2 — Registro del vehículo"}
         </Text>
 
-        {/* Divider */}
         <View className="h-px bg-gray-200 mb-6" />
 
         {/* Foto de tarjeta de circulación */}
@@ -307,7 +325,11 @@ const CirculacionScreen = ({ navigation, route }: any) => {
           activeOpacity={0.8}
         >
           <Text className="text-white text-base font-semibold">
-            {cargando ? "Enviando..." : "Registrarme como conductor"}
+            {cargando
+              ? "Verificando..."
+              : modoEdicion
+                ? "Actualizar información"
+                : "Registrarme como conductor"}
           </Text>
         </TouchableOpacity>
 

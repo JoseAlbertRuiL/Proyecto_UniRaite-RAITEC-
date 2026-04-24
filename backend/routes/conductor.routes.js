@@ -221,4 +221,138 @@ router.post(
   }
 );
 
+// PUT /api/vehiculo — actualizar vehículo existente con nueva validación de IA
+router.put(
+  "/vehiculo",
+  upload.fields([{ name: "foto_circulacion", maxCount: 1 }]),
+  async (req, res) => {
+    const borrarArchivo = () => {
+      if (req.files?.foto_circulacion?.[0]) {
+        fs.unlinkSync(path.join(vehiculosDir, req.files.foto_circulacion[0].filename));
+      }
+    };
+
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      if (!token) return res.status(401).json({ error: "Token requerido" });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const userId  = decoded.id;
+
+      const usuario = await prisma.usuarios.findUnique({
+        where: { id_usuario: userId },
+      });
+
+      const vehiculoActual = await prisma.vehiculos.findFirst({
+        where: { id_usuario: userId },
+      });
+
+      const foto_circulacion = req.files?.foto_circulacion?.[0]?.filename || null;
+      if (!foto_circulacion) {
+        return res.status(400).json({ error: "Falta la foto de circulación" });
+      }
+
+      const { modelo, color, placas, capacidad_pasajeros } = req.body;
+      if (!modelo || !color || !placas || !capacidad_pasajeros) {
+        borrarArchivo();
+        return res.status(400).json({ error: "Faltan datos del vehículo" });
+      }
+
+      const placaNormalizada = placas.trim().toUpperCase();
+
+      const placaDuplicada = await prisma.vehiculos.findFirst({
+        where: {
+          placas:      placaNormalizada,
+          id_vehiculo: { not: vehiculoActual.id_vehiculo }, // ignorar el vehículo actual
+        },
+      });
+      if (placaDuplicada) {
+        borrarArchivo();
+        return res.status(400).json({ error: "Esas placas ya están registradas por otro usuario" });
+      }
+
+      console.log("🔍 Validando Tarjeta de Circulación con IA...");
+      const rutaTarjeta    = path.join(vehiculosDir, foto_circulacion);
+      const textoTarjetaRaw = await extraerTextoDeImagen(rutaTarjeta);
+      const txtTarjeta     = normalizarTexto(textoTarjetaRaw);
+
+      if (!txtTarjeta.includes("CIRCULA")) {
+        borrarArchivo();
+        return res.status(400).json({ error: "El documento no parece ser una Tarjeta de Circulación oficial." });
+      }
+      if (!txtTarjeta.includes(placaNormalizada)) {
+        borrarArchivo();
+        return res.status(400).json({ error: "Las placas no coinciden con la Tarjeta de Circulación." });
+      }
+      if (!txtTarjeta.includes(normalizarTexto(color))) {
+        borrarArchivo();
+        return res.status(400).json({ error: "El color del vehículo no coincide con la Tarjeta de Circulación." });
+      }
+
+      const palabrasModelo = modelo.split(" ");
+      const modeloValido   = palabrasModelo.some(
+        (p) => p.length > 2 && txtTarjeta.includes(normalizarTexto(p))
+      );
+      if (!modeloValido) {
+        borrarArchivo();
+        return res.status(400).json({ error: "La marca o modelo no coinciden con la Tarjeta de Circulación." });
+      }
+
+      const fotoAnterior = path.join(vehiculosDir, vehiculoActual.foto_auto_url || "");
+      if (vehiculoActual.foto_auto_url && fs.existsSync(fotoAnterior)) {
+        fs.unlinkSync(fotoAnterior);
+      }
+
+      const vehiculoActualizado = await prisma.vehiculos.update({
+        where: { id_vehiculo: vehiculoActual.id_vehiculo },
+        data: {
+          modelo:              modelo.trim(),
+          color:               color.trim(),
+          placas:              placaNormalizada,
+          capacidad_pasajeros: parseInt(capacidad_pasajeros),
+          foto_auto_url:       foto_circulacion,
+        },
+      });
+
+      await prisma.usuarios.update({
+        where: { id_usuario: userId },
+        data:  { foto_circulacion: foto_circulacion },
+      });
+
+      res.json({
+        success: true,
+        message: "Vehículo actualizado correctamente.",
+        vehiculo: vehiculoActualizado,
+      });
+
+    } catch (error) {
+      console.error("Error al actualizar vehículo:", error);
+      res.status(500).json({ error: "Error en el servidor" });
+    }
+  }
+);
+
+// GET /api/vehiculo — obtener vehículo del conductor autenticado
+router.get("/vehiculo", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Token requerido" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const vehiculo = await prisma.vehiculos.findFirst({
+      where: { id_usuario: decoded.id },
+      select: {
+        modelo:              true,
+        color:               true,
+        placas:              true,
+        capacidad_pasajeros: true,
+      },
+    });
+
+    res.json({ success: true, vehiculo });
+  } catch (error) {
+    res.status(401).json({ error: "Token inválido" });
+  }
+});
+
 module.exports = router;
