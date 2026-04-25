@@ -8,11 +8,12 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/common/HeaderBack';
 import { API_URL } from '../../services/api';
-
 
 interface TripForm {
   origen: string;
@@ -22,26 +23,69 @@ interface TripForm {
   asientos: number;
   precio: string;
   comentario: string;
-
 }
 
 const INITIAL_FORM: TripForm = {
   origen: '',
   destino: 'Tecnológico de Morelia (ITM)',
-  fecha: 'Hoy, 17 abr',
-  hora: '6:00 AM',
+  fecha: '',
+  hora: '',
   asientos: 4,
   precio: '25',
   comentario: '',
-
 };
 
 const PublishTripScreen = ({ navigation }: any) => {
   const [form, setForm] = useState<TripForm>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Estados para los pickers
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
   const updateField = <K extends keyof TripForm>(field: K, value: TripForm[K]) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Formatea fecha como "Hoy, 17 abr" o "Mañana, 18 abr"
+  const formatFecha = (d: Date): string => {
+    const hoy = new Date();
+    const manana = new Date();
+    manana.setDate(hoy.getDate() + 1);
+
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                   'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const dia = d.getDate();
+    const mes = meses[d.getMonth()];
+
+    if (d.toDateString() === hoy.toDateString()) return `Hoy, ${dia} ${mes}`;
+    if (d.toDateString() === manana.toDateString()) return `Mañana, ${dia} ${mes}`;
+    return `${dia} ${mes}`;
+  };
+
+  // Formatea hora como "6:00 AM"
+  const formatHora = (d: Date): string => {
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
+  const onChangeFecha = (_: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate);
+      updateField('fecha', formatFecha(selectedDate));
+    }
+  };
+
+  const onChangeHora = (_: any, selectedDate?: Date) => {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      updateField('hora', formatHora(selectedDate));
+    }
   };
 
   const incrementarAsientos = () => {
@@ -53,18 +97,26 @@ const PublishTripScreen = ({ navigation }: any) => {
   };
 
   const publicarViaje = async () => {
-  if (!form.origen.trim()) {
-    Alert.alert('Faltan datos', 'Por favor ingresa el origen del viaje.');
-    return;
-  }
-  if (!form.destino.trim()) {
-    Alert.alert('Faltan datos', 'Por favor ingresa el destino del viaje.');
-    return;
-  }
-  if (!form.precio || parseFloat(form.precio) <= 0) {
-    Alert.alert('Faltan datos', 'Por favor ingresa un precio válido.');
-    return;
-  }
+    if (!form.origen.trim()) {
+      Alert.alert('Faltan datos', 'Por favor ingresa el origen del viaje.');
+      return;
+    }
+    if (!form.destino.trim()) {
+      Alert.alert('Faltan datos', 'Por favor ingresa el destino del viaje.');
+      return;
+    }
+    if (!form.fecha) {
+      Alert.alert('Faltan datos', 'Por favor selecciona la fecha del viaje.');
+      return;
+    }
+    if (!form.hora) {
+      Alert.alert('Faltan datos', 'Por favor selecciona la hora del viaje.');
+      return;
+    }
+    if (!form.precio || parseFloat(form.precio) <= 0) {
+      Alert.alert('Faltan datos', 'Por favor ingresa un precio válido.');
+      return;
+    }
 
     setIsLoading(true);
 
@@ -147,27 +199,58 @@ const PublishTripScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/*  Fecha y Hora  */}
+          {/* Fecha y Hora */}
           <View>
-            <Text className="text-sm font-semibold text-gray-700 mb-2">Fecha:                                    Hora:</Text>
+            <Text className="text-sm font-semibold text-gray-700 mb-2">Fecha y Hora</Text>
             <View className="flex-row gap-2">
+
               <TouchableOpacity
-                className="flex-1 flex-row items-center gap-2 border border-gray-200 rounded-xl px-3 py-3"
-                onPress={() => {}}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-3"
+                onPress={() => setShowDatePicker(true)}
               >
-                <Text className="text-sm text-gray-700">{form.fecha}</Text>
+                <Text className="text-xs text-gray-400 mb-0.5">Fecha</Text>
+                <Text className={`text-sm font-medium ${form.fecha ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {form.fecha || 'Seleccionar'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                className="flex-1 flex-row items-center gap-2 border border-gray-200 rounded-xl px-3 py-3"
-                onPress={() => {}}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-3"
+                onPress={() => setShowTimePicker(true)}
               >
-                <Text className="text-sm text-gray-700">{form.hora}</Text>
+                <Text className="text-xs text-gray-400 mb-0.5">Hora</Text>
+                <Text className={`text-sm font-medium ${form.hora ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {form.hora || 'Seleccionar'}
+                </Text>
               </TouchableOpacity>
+
             </View>
           </View>
 
-          {/*  Asientos disponibles  */}
+          {/* Date Picker */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={onChangeFecha}
+              locale="es-MX"
+            />
+          )}
+
+          {/* Time Picker */}
+          {showTimePicker && (
+            <DateTimePicker
+              value={date}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              is24Hour={false}
+              onChange={onChangeHora}
+            />
+          )}
+
+          {/* Asientos disponibles */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Lugares disponibles</Text>
             <View className="flex-row items-center justify-between border border-gray-200 rounded-xl px-4 py-3">
@@ -207,7 +290,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/*  Precio  */}
+          {/* Precio */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Precio por persona</Text>
             <View className="flex-row items-center gap-3 border border-gray-200 rounded-xl px-4 py-3">
@@ -226,7 +309,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/*  Comentario  */}
+          {/* Comentario */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Comentario adicional</Text>
             <TextInput
@@ -241,7 +324,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/*  Publicar  */}
+          {/* Publicar */}
           <TouchableOpacity
             onPress={publicarViaje}
             disabled={isLoading}
