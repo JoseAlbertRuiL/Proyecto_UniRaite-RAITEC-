@@ -6,11 +6,20 @@ const path    = require("path");
 const fs      = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const { PrismaClient } = require("@prisma/client");
+const cloudinary = require("../plugins");
 
 // Importamos la función de extracción de texto desde vision.service.js
 const { extraerTextoDeImagen } = require("../services/vision.service");
 
 const prisma = new PrismaClient();
+
+const uploadToCloudinary = async (localPath, folder) => {
+  const result = await cloudinary.uploader.upload(localPath, {
+    folder,
+    resource_type: "image",
+  });
+  return result.secure_url;
+};
 
 // Crear carpetas si no existen
 const licenciasDir = "./uploads/licencias";
@@ -92,12 +101,15 @@ router.post(
         });
       }
 
-      const foto_licencia    = req.files?.foto_licencia?.[0]?.filename    || null;
-      const foto_circulacion = req.files?.foto_circulacion?.[0]?.filename || null;
+      const fotoLicenciaFile = req.files?.foto_licencia?.[0] || null;
+      const fotoCirculacionFile = req.files?.foto_circulacion?.[0] || null;
 
-      if (!foto_licencia || !foto_circulacion) {
+      if (!fotoLicenciaFile || !fotoCirculacionFile) {
         return res.status(400).json({ error: "Faltan las fotos requeridas" });
       }
+
+      const foto_licencia = fotoLicenciaFile.filename;
+      const foto_circulacion = fotoCirculacionFile.filename;
 
       const { modelo, color, placas, capacidad_pasajeros } = req.body;
 
@@ -188,11 +200,16 @@ router.post(
 
       console.log("Validación completada exitosamente.");
 
+      const licenciaUrl = await uploadToCloudinary(rutaLicencia, "uniraite/licencias");
+      const circulacionUrl = await uploadToCloudinary(rutaTarjeta, "uniraite/circulaciones");
+      fs.unlinkSync(rutaLicencia);
+      fs.unlinkSync(rutaTarjeta);
+
       await prisma.usuarios.update({
         where: { id_usuario: userId },
         data: {
-          foto_licencia:    foto_licencia,
-          foto_circulacion: foto_circulacion,
+          foto_licencia:    licenciaUrl,
+          foto_circulacion: circulacionUrl,
           es_conductor:     true,
         },
       });
@@ -246,10 +263,11 @@ router.put(
         where: { id_usuario: userId },
       });
 
-      const foto_circulacion = req.files?.foto_circulacion?.[0]?.filename || null;
-      if (!foto_circulacion) {
+      const fotoCirculacionFile = req.files?.foto_circulacion?.[0] || null;
+      if (!fotoCirculacionFile) {
         return res.status(400).json({ error: "Falta la foto de circulación" });
       }
+      const foto_circulacion = fotoCirculacionFile.filename;
 
       const { modelo, color, placas, capacidad_pasajeros } = req.body;
       if (!modelo || !color || !placas || !capacidad_pasajeros) {
@@ -302,6 +320,9 @@ router.put(
         fs.unlinkSync(fotoAnterior);
       }
 
+      const circulacionUrl = await uploadToCloudinary(rutaTarjeta, "uniraite/circulaciones");
+      fs.unlinkSync(rutaTarjeta);
+
       const vehiculoActualizado = await prisma.vehiculos.update({
         where: { id_vehiculo: vehiculoActual.id_vehiculo },
         data: {
@@ -309,13 +330,13 @@ router.put(
           color:               color.trim(),
           placas:              placaNormalizada,
           capacidad_pasajeros: parseInt(capacidad_pasajeros),
-          foto_auto_url:       foto_circulacion,
+          foto_auto_url:       circulacionUrl,
         },
       });
 
       await prisma.usuarios.update({
         where: { id_usuario: userId },
-        data:  { foto_circulacion: foto_circulacion },
+        data:  { foto_circulacion: circulacionUrl },
       });
 
       res.json({

@@ -9,6 +9,9 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@orpc/client": "^1.14.0",
+    "@orpc/openapi": "^1.14.0",
+    "@orpc/server": "^1.14.0",
     "@prisma/client": "^7.5.0",
     "@prisma/react-native": "^6.0.1",
     "@react-native-async-storage/async-storage": "2.2.0",

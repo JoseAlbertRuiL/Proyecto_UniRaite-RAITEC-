@@ -6,11 +6,20 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { PrismaClient } = require("@prisma/client");
+const cloudinary = require("../plugins");
 
 require("dotenv").config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+
+const uploadToCloudinary = async (localPath, folder) => {
+  const result = await cloudinary.uploader.upload(localPath, {
+    folder,
+    resource_type: "image",
+  });
+  return result.secure_url;
+};
 
 app.use(cors());
 app.use(express.json());
@@ -86,8 +95,23 @@ app.post(
         carrera,
       } = req.body;
 
-      const foto_credencial = req.files?.foto_credencial?.[0]?.filename || null;
-      const foto_perfil = req.files?.foto_perfil?.[0]?.filename || null;
+      const fotoCredencialFile = req.files?.foto_credencial?.[0] || null;
+      const fotoPerfilFile = req.files?.foto_perfil?.[0] || null;
+
+      let foto_credencial = null;
+      let foto_perfil = null;
+
+      if (fotoCredencialFile) {
+        const localPath = fotoCredencialFile.path;
+        foto_credencial = await uploadToCloudinary(localPath, "uniraite/credenciales");
+        fs.unlinkSync(localPath);
+      }
+
+      if (fotoPerfilFile) {
+        const localPath = fotoPerfilFile.path;
+        foto_perfil = await uploadToCloudinary(localPath, "uniraite/perfiles");
+        fs.unlinkSync(localPath);
+      }
 
       if (!isValidEmail(correo_inst)) {
         return res
