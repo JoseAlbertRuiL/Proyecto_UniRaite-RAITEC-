@@ -14,6 +14,7 @@ import PublishTripScreen from "./src/screens/trip/PublishTripScreen";
 import LicenciaScreen from "./src/screens/Principal/LicenciaScreen";
 import CirculacionScreen from "./src/screens/Principal/CirculacionScreen";
 import ChatHistory from "./src/screens/Principal/ChatHistoryScreen";
+import PerfilPublicoScreen from "./src/screens/Principal/PerfilPublicoScreen";
 
 type ScreenName =
   | "Login"
@@ -28,7 +29,8 @@ type ScreenName =
   | "Licencia"
   | "Circulacion"
   | "PublicarViaje"
-  | "ChatHistory";
+  | "ChatHistory"
+  | "PerfilPublico";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("PublicarViaje");
@@ -37,19 +39,20 @@ export default function App() {
   const navigation = {
     navigate: (name: string, params?: any) => {
       if (params) setRoute({ params });
-      if (name === "Register")       setScreen("Register");
-      if (name === "Login")          setScreen("Login");
-      if (name === "Home")           setScreen("Home");
-      if (name === "Forget")         setScreen("Forget");
-      if (name === "Code")           setScreen("Code");
-      if (name === "ConfigP")        setScreen("ConfigP");
+      if (name === "Register") setScreen("Register");
+      if (name === "Login") setScreen("Login");
+      if (name === "Home") setScreen("Home");
+      if (name === "Forget") setScreen("Forget");
+      if (name === "Code") setScreen("Code");
+      if (name === "ConfigP") setScreen("ConfigP");
       if (name === "ChangePassword") setScreen("ChangePassword");
-      if (name === "Map")            setScreen("Map");
-      if (name === "Chat")           setScreen("Chat");
-      if (name === "Licencia")       setScreen("Licencia");
-      if (name === "Circulacion")    setScreen("Circulacion");
-      if (name === "PublicarViaje")  setScreen("PublicarViaje");
-      if (name === "ChatHistory")    setScreen("ChatHistory");
+      if (name === "Map") setScreen("Map");
+      if (name === "Chat") setScreen("Chat");
+      if (name === "Licencia") setScreen("Licencia");
+      if (name === "Circulacion") setScreen("Circulacion");
+      if (name === "PublicarViaje") setScreen("PublicarViaje");
+      if (name === "ChatHistory") setScreen("ChatHistory");
+      if (name === "PerfilPublico") setScreen("PerfilPublico");
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -78,6 +81,8 @@ export default function App() {
         <CirculacionScreen navigation={navigation} route={route} />
       ) : screen === "PublicarViaje" ? (
         <PublishTripScreen navigation={navigation} />
+      ) : screen === "PerfilPublico" ? (
+        <PerfilPublicoScreen navigation={navigation} route={route} />
       ) : screen === "ChatHistory" ? (
         <ChatHistory navigation={navigation} />
       ) : (

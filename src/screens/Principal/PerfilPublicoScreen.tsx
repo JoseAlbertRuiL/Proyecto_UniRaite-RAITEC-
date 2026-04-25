@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, ActivityIndicator, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ActivityIndicator,
+  ScrollView,
+  StatusBar,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../services/api";
 import HeaderBack from "../../components/common/HeaderBack";
@@ -38,9 +45,14 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
   }
 
   return (
-    <View className="flex-1 bg-white">
+    <View
+      className="flex-1 bg-white"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
       <HeaderBack navigation={navigation} />
+
       <ScrollView className="px-6 pt-6">
+        {/* Foto de perfil */}
         <View className="items-center mb-6">
           {perfil?.foto_perfil ? (
             <Image
@@ -54,17 +66,14 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
               <Text className="text-5xl">👤</Text>
             </View>
           )}
-          <Text className="text-2xl font-bold text-gray-900 mt-4">
-            {perfil?.nombre} {perfil?.apellido_paterno}
-          </Text>
-          <View className="flex-row items-center mt-2">
-            <Text className="text-yellow-500 mr-1">★</Text>
-            <Text className="text-gray-600">
-              {perfil?.reputacion_promedio?.toFixed(1) || "Sin calificaciones"}
-            </Text>
-          </View>
         </View>
 
+        {/* Nombre completo */}
+        <Text className="text-2xl font-bold text-center text-gray-900 mb-2">
+          {perfil?.nombre} {perfil?.apellido_paterno} {perfil?.apellido_materno}
+        </Text>
+
+        {/* Carrera */}
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-gray-500 text-sm">Carrera</Text>
           <Text className="text-gray-900 font-semibold">
@@ -72,6 +81,15 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
           </Text>
         </View>
 
+        {/* Número de control */}
+        <View className="bg-gray-50 rounded-xl p-4 mb-4">
+          <Text className="text-gray-500 text-sm">Número de control</Text>
+          <Text className="text-gray-900 font-semibold">
+            {perfil?.num_control || "No disponible"}
+          </Text>
+        </View>
+
+        {/* Universidad */}
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-gray-500 text-sm">Universidad</Text>
           <Text className="text-gray-900 font-semibold">
@@ -79,6 +97,7 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
           </Text>
         </View>
 
+        {/* Miembro desde */}
         <View className="bg-gray-50 rounded-xl p-4">
           <Text className="text-gray-500 text-sm">Miembro desde</Text>
           <Text className="text-gray-900 font-semibold">

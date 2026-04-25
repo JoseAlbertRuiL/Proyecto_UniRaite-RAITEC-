@@ -7,6 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const { PrismaClient } = require("@prisma/client");
 const cloudinary = require("../plugins");
+const orpcServer = require("./orpc/server");
 
 require("dotenv").config();
 const app = express();
@@ -24,6 +25,7 @@ const uploadToCloudinary = async (localPath, folder) => {
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+app.use("/api", orpcServer);
 
 const uploadDir = "./uploads";
 if (!fs.existsSync(uploadDir)) {
@@ -103,7 +105,10 @@ app.post(
 
       if (fotoCredencialFile) {
         const localPath = fotoCredencialFile.path;
-        foto_credencial = await uploadToCloudinary(localPath, "uniraite/credenciales");
+        foto_credencial = await uploadToCloudinary(
+          localPath,
+          "uniraite/credenciales",
+        );
         fs.unlinkSync(localPath);
       }
 
@@ -367,6 +372,160 @@ app.put(
 );
 
 // Endpoint para publicar un viaje
+app.post("/api/viajes", async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ error: "Token requerido" });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const usuario = await prisma.usuarios.findUnique({
+      where: { id_usuario: decoded.id },
+    });
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    if (!usuario.licencia_de_conducir) {
+      return res
+        .status(403)
+        .json({ error: "Debes ser conductor registrado para publicar viajes" });
+    }
+    const conductor = await prisma.conductores.findUnique({
+      where: { id_licencia: usuario.licencia_de_conducir },
+    });
+    if (!conductor) {
+      return res
+        .status(404)
+        .json({ error: "Datos de conductor no encontrados" });
+    }
+    const { origen, destino, fecha, hora, asientos, precio } = req.body;
+
+    console.log("📅 Fecha recibida:", fecha);
+    console.log("⏰ Hora recibida:", hora);
+
+    if (!origen || !destino || !asientos || !precio) {
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+
+    const meses = {
+      ene: 0,
+      feb: 1,
+      mar: 2,
+      abr: 3,
+      may: 4,
+      jun: 5,
+      jul: 6,
+      ago: 7,
+      sep: 8,
+      oct: 9,
+      nov: 10,
+      dic: 11,
+    };
+
+    let fechaHoraSalida = new Date();
+    const ahora = new Date();
+
+    try {
+      let dia = ahora.getDate();
+      let mes = ahora.getMonth();
+      let año = ahora.getFullYear();
+
+      if (fecha.includes("Hoy")) {
+        dia = ahora.getDate();
+        mes = ahora.getMonth();
+        año = ahora.getFullYear();
+      } else if (fecha.includes("Mañana")) {
+        const manana = new Date();
+        manana.setDate(ahora.getDate() + 1);
+        dia = manana.getDate();
+        mes = manana.getMonth();
+        año = manana.getFullYear();
+      } else {
+        const partes = fecha.trim().split(" ");
+        if (partes.length >= 2) {
+          dia = parseInt(partes[0]);
+          const nombreMes = partes[1].toLowerCase();
+          mes =
+            meses[nombreMes] !== undefined
+              ? meses[nombreMes]
+              : ahora.getMonth();
+        }
+      }
+
+      let horas = 0;
+      let minutos = 0;
+      const horaMatch = hora.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (horaMatch) {
+        horas = parseInt(horaMatch[1]);
+        minutos = parseInt(horaMatch[2]);
+        const ampm = horaMatch[3].toUpperCase();
+        if (ampm === "PM" && horas !== 12) horas += 12;
+        if (ampm === "AM" && horas === 12) horas = 0;
+      }
+
+      fechaHoraSalida = new Date(año, mes, dia, horas, minutos);
+      console.log("📅 Fecha construida:", fechaHoraSalida);
+    } catch (error) {
+      console.error("Error al parsear fecha:", error);
+      fechaHoraSalida = new Date();
+    }
+
+    const nuevoViaje = await prisma.viajes_publicados.create({
+      data: {
+        id_licencia_conductor: conductor.id_licencia,
+        origen_texto: origen,
+        destino_texto: destino,
+        fecha_hora_salida: fechaHoraSalida,
+        asientos_disponibles: asientos,
+        costo_estimado: precio,
+        es_recurrente: false,
+      },
+    });
+
+    console.log("✅ Viaje creado con fecha:", nuevoViaje.fecha_hora_salida);
+
+    res.json({
+      success: true,
+      message: "Viaje publicado exitosamente",
+      viaje: nuevoViaje,
+    });
+  } catch (error) {
+    console.error("Error al publicar viaje:", error);
+    res.status(500).json({ error: "Error al publicar el viaje" });
+  }
+});
+
+// Endpoint para obtener perfil público de un usuario
+app.get("/api/usuarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario = await prisma.usuarios.findUnique({
+      where: { id_usuario: id },
+      select: {
+        id_usuario: true,
+        nombre: true,
+        apellido_paterno: true,
+        apellido_materno: true,
+        carrera: true,
+        num_control: true,
+        foto_perfil: true,
+        reputacion_promedio: true,
+        created_at: true,
+        es_conductor: true,
+      },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    res.json({ success: true, user: usuario });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener perfil" });
+  }
+});
+
 // Endpoint para obtener todos los viajes disponibles
 app.get("/api/viajes", async (req, res) => {
   try {
@@ -392,37 +551,7 @@ app.get("/api/viajes", async (req, res) => {
       },
       orderBy: { fecha_hora_salida: "asc" },
     });
-    res.json({ success: true, viajes });
-  } catch (error) {
-    console.error("Error al obtener viajes:", error);
-    res.status(500).json({ error: "Error al obtener viajes" });
-  }
-});
-
-// Endpoint para obtener todos los viajes disponibles
-app.get("/api/viajes", async (req, res) => {
-  try {
-    const viajes = await prisma.viajes_publicados.findMany({
-      where: {
-        asientos_disponibles: { gt: 0 },
-        fecha_hora_salida: { gt: new Date() },
-      },
-      include: {
-        conductor: {
-          include: {
-            usuario: {
-              select: {
-                nombre: true,
-                apellido_paterno: true,
-                foto_perfil: true,
-                reputacion_promedio: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { fecha_hora_salida: "asc" },
-    });
+    console.log("Viajes encontrados (futuros):", viajes.length);
     res.json({ success: true, viajes });
   } catch (error) {
     console.error("Error al obtener viajes:", error);
@@ -472,36 +601,6 @@ app.post("/api/viajes/:id/solicitar", async (req, res) => {
   }
 });
 
-// Endpoint para obtener perfil público de un usuario
-app.get("/api/usuarios/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const usuario = await prisma.usuarios.findUnique({
-      where: { id_usuario: id },
-      select: {
-        id_usuario: true,
-        nombre: true,
-        apellido_paterno: true,
-        apellido_materno: true,
-        carrera: true,
-        foto_perfil: true,
-        reputacion_promedio: true,
-        created_at: true,
-        es_conductor: true,
-      },
-    });
-
-    if (!usuario) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    res.json({ success: true, user: usuario });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error al obtener perfil" });
-  }
-});
-
 // Endpoint para aceptar o rechazar una solicitud
 app.put("/api/solicitudes/:id", async (req, res) => {
   try {
@@ -548,10 +647,6 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "OK", message: "Servidor UNIRAITE funcionando" });
 });
 
-// Rutas del chat (si las tienes)
-// const chatRoutes = require("../routes/chat.routes");
-// app.use("/api", chatRoutes);
-
 async function main() {
   try {
     await prisma.$connect();
@@ -570,6 +665,7 @@ async function main() {
       console.log(`   POST   /api/viajes/:id/solicitar`);
       console.log(`   PUT    /api/solicitudes/:id`);
       console.log(`   GET    /api/health`);
+      console.log(`   ORPC   /api/orpc/*`);
     });
   } catch (error) {
     console.error("❌ Error al conectar:", error);

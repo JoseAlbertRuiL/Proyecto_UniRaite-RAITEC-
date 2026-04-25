@@ -73,22 +73,7 @@ const DriverCard = ({ viaje, onPress, onVerPerfil }: DriverCardProps) => {
           {/* Botón Ver Perfil */}
           <TouchableOpacity
             className="bg-gray-200 rounded-lg px-3 py-2"
-            onPress={() => {
-              console.log("Datos completos del viaje:", viaje);
-              console.log("Conductor:", viaje.conductor);
-              console.log("Usuario:", viaje.conductor?.usuario);
-              console.log("ID Usuario:", viaje.conductor?.usuario?.id_usuario);
-              console.log("ID Conductor:", viaje.conductor?.id_licencia);
-
-              // Intentar diferentes formas de obtener el ID
-              const idUsuario =
-                viaje.conductor?.usuario?.id_usuario ||
-                viaje.conductor?.usuarioId ||
-                viaje.id_conductor;
-
-              console.log("ID a enviar:", idUsuario);
-              onVerPerfil(idUsuario);
-            }}
+            onPress={() => onVerPerfil(viaje.conductor.usuario.id_usuario)}
           >
             <Text className="text-blue-800 font-semibold text-xs">
               Ver Perfil

@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Image,
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
@@ -22,6 +24,9 @@ const StartScreen = ({ navigation }: any) => {
   const [viajes, setViajes] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
+  const [cargandoPerfil, setCargandoPerfil] = useState(false);
 
   const cargarViajes = async () => {
     try {
@@ -36,23 +41,17 @@ const StartScreen = ({ navigation }: any) => {
       });
       const perfilData = await perfilRes.json();
       const usuarioActualId = perfilData.user?.id_usuario;
-      console.log("Usuario actual ID:", usuarioActualId); // ← Verifica
 
       const viajesRes = await fetch(`${API_URL}/viajes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const viajesData = await viajesRes.json();
-      console.log("Todos los viajes:", viajesData.viajes); // ← Verifica
 
       if (viajesData.success) {
-        const viajesFiltrados = viajesData.viajes.filter((viaje: any) => {
-          console.log(
-            "Viaje conductor ID:",
-            viaje.conductor.usuario?.id_usuario,
-          ); // ← Verifica
-          return viaje.conductor.usuario?.id_usuario !== usuarioActualId;
-        });
-        console.log("Viajes filtrados:", viajesFiltrados.length); // ← Verifica
+        const viajesFiltrados = viajesData.viajes.filter(
+          (viaje: any) =>
+            viaje.conductor.usuario?.id_usuario !== usuarioActualId,
+        );
         setViajes(viajesFiltrados);
       }
     } catch (error) {
@@ -60,6 +59,26 @@ const StartScreen = ({ navigation }: any) => {
     } finally {
       setCargando(false);
       setRefrescando(false);
+    }
+  };
+
+  const handleVerPerfil = async (usuarioId: string) => {
+    setCargandoPerfil(true);
+    setModalVisible(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const response = await fetch(`${API_URL}/usuarios/${usuarioId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPerfilSeleccionado(data.user);
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "No se pudo cargar el perfil");
+    } finally {
+      setCargandoPerfil(false);
     }
   };
 
@@ -88,12 +107,6 @@ const StartScreen = ({ navigation }: any) => {
 
   const handleSolicitarViaje = (viajeId: number) => {
     navigation.navigate("SolicitarViaje", { viajeId });
-  };
-
-  const handleVerPerfil = (usuarioId: string) => {
-    console.log("Click en Ver Perfil - ID:", usuarioId);
-    Alert.alert("Prueba", `Ver perfil del usuario: ${usuarioId}`);
-    // navigation.navigate("PerfilPublico", { usuarioId });
   };
 
   const onRefresh = () => {
@@ -183,6 +196,90 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal de perfil flotante */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
+        >
+          <View className="bg-white rounded-2xl w-full max-w-md p-6">
+            {cargandoPerfil ? (
+              <View className="items-center py-8">
+                <ActivityIndicator size="large" color="#1e3a8a" />
+                <Text className="text-gray-500 mt-4">Cargando perfil...</Text>
+              </View>
+            ) : (
+              <>
+                {/* Foto de perfil */}
+                <View className="items-center mb-4">
+                  {perfilSeleccionado?.foto_perfil ? (
+                    <Image
+                      source={{
+                        uri: `${API_URL.replace("/api", "")}/uploads/perfiles/${perfilSeleccionado.foto_perfil}`,
+                      }}
+                      className="w-24 h-24 rounded-full"
+                    />
+                  ) : (
+                    <View className="w-24 h-24 bg-gray-300 rounded-full items-center justify-center">
+                      <Text className="text-4xl">👤</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Nombre con inicial del apellido */}
+                <Text className="text-xl font-bold text-center text-gray-900">
+                  {perfilSeleccionado?.nombre}{" "}
+                  {perfilSeleccionado?.apellido_paterno?.charAt(0)}.
+                </Text>
+
+                {/* Carrera */}
+                <View className="bg-gray-50 rounded-xl p-3 mt-4">
+                  <Text className="text-gray-500 text-xs">Carrera</Text>
+                  <Text className="text-gray-900 font-semibold">
+                    {perfilSeleccionado?.carrera || "No especificada"}
+                  </Text>
+                </View>
+
+                {/* Universidad */}
+                <View className="bg-gray-50 rounded-xl p-3 mt-2">
+                  <Text className="text-gray-500 text-xs">Universidad</Text>
+                  <Text className="text-gray-900 font-semibold">
+                    TecNM Campus Morelia
+                  </Text>
+                </View>
+
+                {/* Reputación */}
+                <View className="bg-gray-50 rounded-xl p-3 mt-2">
+                  <Text className="text-gray-500 text-xs">Reputación</Text>
+                  <View className="flex-row items-center mt-1">
+                    <Text className="text-yellow-500 text-lg mr-1">★</Text>
+                    <Text className="text-gray-900 font-semibold text-lg">
+                      {perfilSeleccionado?.reputacion_promedio?.toFixed(1) ||
+                        "Nuevo"}
+                    </Text>
+                    <Text className="text-gray-400 text-sm ml-1">/ 5.0</Text>
+                  </View>
+                </View>
+
+                {/* Botón cerrar */}
+                <TouchableOpacity
+                  className="bg-blue-900 rounded-xl py-3 mt-6 items-center"
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text className="text-white font-semibold">Cerrar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <EmergencyButton />
       <Footer navigation={navigation} />
