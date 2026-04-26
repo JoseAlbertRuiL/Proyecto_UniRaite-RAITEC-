@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
-// Helper: parsea la fecha/hora que manda el cliente ("Hoy", "Mañana", "15 abr", "10:30 AM")
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
     ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
@@ -46,7 +45,6 @@ function parseFechaHora(fecha: string, hora: string): Date {
   return new Date(año, mes, dia, horas, minutos)
 }
 
-// GET /api/viajes  — listar viajes disponibles
 export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
@@ -63,6 +61,7 @@ export const listarViajes = baseProcedure.handler(async () => {
               apellido_paterno: true,
               foto_perfil: true,
               reputacion_promedio: true,
+              viajes_completados: true,
             },
           },
         },
@@ -71,10 +70,22 @@ export const listarViajes = baseProcedure.handler(async () => {
     orderBy: { fecha_hora_salida: 'asc' },
   })
 
-  return { success: true, viajes }
+  const viajesConDatos = viajes.map((viaje: any) => ({
+    ...viaje,
+    asientos_totales: 4,
+    conductor: {
+      ...viaje.conductor,
+      usuario: {
+        ...viaje.conductor.usuario,
+        reputacion_promedio: viaje.conductor.usuario.reputacion_promedio || 0,
+        total_viajes: viaje.conductor.usuario.viajes_completados || 0,
+      },
+    },
+  }))
+
+  return { success: true, viajes: viajesConDatos }
 })
 
-// POST /api/viajes  — publicar un viaje (solo conductores)
 export const publicarViaje = protectedProcedure
   .input(
     z.object({
@@ -129,3 +140,65 @@ export const publicarViaje = protectedProcedure
       viaje: nuevoViaje,
     }
   })
+
+  // GET /api/viajes/conductor/activos
+export const obtenerViajesActivos = protectedProcedure
+  .handler(async ({ context }) => {
+    const viajes = await prisma.viajes_publicados.findMany({
+      where: {
+        conductor: {
+          usuario: { id_usuario: context.user.id }
+        },
+        fecha_hora_salida: { gt: new Date() },
+        asientos_disponibles: { gt: 0 }
+      },
+      include: {
+        conductor: {
+          include: {
+            usuario: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { fecha_hora_salida: 'asc' }
+    });
+
+    return { success: true, viajes };
+  });
+
+// GET /api/viajes/conductor/historial
+export const obtenerHistorialConductor = protectedProcedure
+  .handler(async ({ context }) => {
+    const viajes = await prisma.viajes_publicados.findMany({
+      where: {
+        conductor: {
+          usuario: { id_usuario: context.user.id }
+        },
+        fecha_hora_salida: { lt: new Date() }
+      },
+      include: {
+        conductor: {
+          include: {
+            usuario: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: { fecha_hora_salida: 'desc' },
+      take: 20
+    });
+
+    return { success: true, viajes };
+  });

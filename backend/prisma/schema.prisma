@@ -29,6 +29,7 @@ model usuarios {
   created_at           DateTime  @default(now())
   updated_at           DateTime  @updatedAt
   contacto_emergencia  String?
+  viajes_completados Int @default(0)
 
   // Relaciones
   conductor              conductores?        

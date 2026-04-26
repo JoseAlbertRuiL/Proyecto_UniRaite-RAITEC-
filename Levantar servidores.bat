@@ -1,13 +1,18 @@
 @echo off
 title UNIRAITE - Levantar Servidores
 
-echo [1/2] Iniciando BACKEND (Node.js + Prisma)...
+echo [1/3] Iniciando BACKEND (Node.js + Prisma)...
 start "UNIRAITE Backend" cmd /k "cd backend && npm run dev"
 
 timeout /t 2 /nobreak >nul
 
-echo [2/2] Iniciando FRONTEND (Expo)...
+echo [2/3] Iniciando FRONTEND (Expo)...
 start "UNIRAITE Frontend" cmd /k "npx expo start -c"
+
+timeout /t 2 /nobreak >nul
+
+echo [3/3] Iniciando DATABASE (Prisma)...
+start "UNIRAITE DATABASE" cmd /k "cd backend && npx prisma studio"
 
 echo.
 echo ========================================

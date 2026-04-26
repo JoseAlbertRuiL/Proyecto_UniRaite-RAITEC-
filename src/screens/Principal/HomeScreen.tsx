@@ -1,4 +1,3 @@
-// src/screens/Principal/HomeScreen.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -21,6 +20,7 @@ import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { listarViajes } from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const StartScreen = ({ navigation }: any) => {
   const [viajes, setViajes] = useState<any[]>([]);
@@ -29,6 +29,9 @@ const StartScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
+
+  // Hook para manejar el botón de atrás (doble clic para salir)
+  useBackHandler(navigation, "main");
 
   const cargarViajes = async () => {
     try {
@@ -39,7 +42,8 @@ const StartScreen = ({ navigation }: any) => {
 
       if (viajesData.success) {
         const viajesFiltrados = viajesData.viajes.filter(
-          (viaje: any) => viaje.conductor.usuario?.id_usuario !== usuarioActualId,
+          (viaje: any) =>
+            viaje.conductor.usuario?.id_usuario !== usuarioActualId,
         );
         setViajes(viajesFiltrados);
       }
@@ -95,15 +99,23 @@ const StartScreen = ({ navigation }: any) => {
   }, []);
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
-      <Header navigation={navigation} />
+    <View
+      className="flex-1 bg-white"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
+      <Header navigation={navigation} title="Inicio" />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
           className="px-6"
-          refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefresh} />}
+          refreshControl={
+            <RefreshControl refreshing={refrescando} onRefresh={onRefresh} />
+          }
         >
           <View className="w-full h-48 bg-green-200 rounded-lg mb-4" />
 
@@ -112,29 +124,39 @@ const StartScreen = ({ navigation }: any) => {
               className="bg-blue-600 rounded-lg py-3 px-4 flex-1 mr-2"
               onPress={() => navigation.navigate("Map")}
             >
-              <Text className="text-white font-bold text-center text-sm">Establecer ruta</Text>
+              <Text className="text-white font-bold text-center text-sm">
+                Establecer ruta
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="bg-green-500 rounded-lg py-3 px-4 flex-1 ml-2"
               onPress={handleOfrecerViaje}
             >
-              <Text className="text-white font-bold text-center text-sm">Ofrecer Viaje</Text>
+              <Text className="text-white font-bold text-center text-sm">
+                Ofrecer Viaje
+              </Text>
             </TouchableOpacity>
           </View>
 
           <View className="items-center justify-center mb-12">
-            <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">UNIRAITE</Text>
+            <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">
+              UNIRAITE
+            </Text>
 
             <View className="flex-row items-center mb-6 w-full">
               <View className="flex-1 h-px bg-gray-200" />
-              <Text className="mx-4 text-sm text-gray-500">Viajes disponibles</Text>
+              <Text className="mx-4 text-sm text-gray-500">
+                Viajes disponibles
+              </Text>
               <View className="flex-1 h-px bg-gray-200" />
             </View>
 
             {cargando ? (
               <ActivityIndicator size="large" color="#1e3a8a" />
             ) : viajes.length === 0 ? (
-              <Text className="text-gray-500 text-center">No hay viajes disponibles</Text>
+              <Text className="text-gray-500 text-center">
+                No hay viajes disponibles
+              </Text>
             ) : (
               viajes.map((viaje: any) => (
                 <DriverCard
@@ -156,7 +178,12 @@ const StartScreen = ({ navigation }: any) => {
       </KeyboardAvoidingView>
 
       {/* Modal de perfil flotante */}
-      <Modal animationType="fade" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
         <TouchableOpacity
           className="flex-1 bg-black/50 justify-center items-center px-6"
           activeOpacity={1}
@@ -173,7 +200,9 @@ const StartScreen = ({ navigation }: any) => {
                 <View className="items-center mb-4">
                   {perfilSeleccionado?.foto_perfil ? (
                     <Image
-                      source={{ uri: `${BASE_URL}/uploads/perfiles/${perfilSeleccionado.foto_perfil}` }}
+                      source={{
+                        uri: `${BASE_URL}/uploads/perfiles/${perfilSeleccionado.foto_perfil}`,
+                      }}
                       className="w-24 h-24 rounded-full"
                     />
                   ) : (
@@ -190,12 +219,16 @@ const StartScreen = ({ navigation }: any) => {
 
                 <View className="bg-gray-50 rounded-xl p-3 mt-4">
                   <Text className="text-gray-500 text-xs">Carrera</Text>
-                  <Text className="text-gray-900 font-semibold">{perfilSeleccionado?.carrera || "No especificada"}</Text>
+                  <Text className="text-gray-900 font-semibold">
+                    {perfilSeleccionado?.carrera || "No especificada"}
+                  </Text>
                 </View>
 
                 <View className="bg-gray-50 rounded-xl p-3 mt-2">
                   <Text className="text-gray-500 text-xs">Universidad</Text>
-                  <Text className="text-gray-900 font-semibold">TecNM Campus Morelia</Text>
+                  <Text className="text-gray-900 font-semibold">
+                    TecNM Campus Morelia
+                  </Text>
                 </View>
 
                 <View className="bg-gray-50 rounded-xl p-3 mt-2">
@@ -203,7 +236,8 @@ const StartScreen = ({ navigation }: any) => {
                   <View className="flex-row items-center mt-1">
                     <Text className="text-yellow-500 text-lg mr-1">★</Text>
                     <Text className="text-gray-900 font-semibold text-lg">
-                      {perfilSeleccionado?.reputacion_promedio?.toFixed(1) || "Nuevo"}
+                      {perfilSeleccionado?.reputacion_promedio?.toFixed(1) ||
+                        "Nuevo"}
                     </Text>
                     <Text className="text-gray-400 text-sm ml-1">/ 5.0</Text>
                   </View>

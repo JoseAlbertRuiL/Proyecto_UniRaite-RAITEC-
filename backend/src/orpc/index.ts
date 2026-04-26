@@ -8,8 +8,17 @@ import {
 } from './routers/auth'
 import { getPerfil, getUsuarioById } from './routers/usuarios'
 import { registroConductor, actualizarVehiculo } from './routers/conductor'
-import { listarViajes, publicarViaje } from './routers/viajes'
-import { solicitarViaje, responderSolicitud } from './routers/solicitudes'
+import { 
+  listarViajes, 
+  publicarViaje,
+  obtenerViajesActivos,
+  obtenerHistorialConductor
+} from './routers/viajes'
+import { 
+  solicitarViaje, 
+  responderSolicitud,
+  obtenerSolicitudesRecibidas
+} from './routers/solicitudes'
 
 export const router = {
   auth: {
@@ -31,10 +40,13 @@ export const router = {
   viajes: {
     listar: listarViajes,
     publicar: publicarViaje,
-    solicitar: solicitarViaje,
+    activos: obtenerViajesActivos,
+    historialConductor: obtenerHistorialConductor,
   },
   solicitudes: {
+    solicitar: solicitarViaje,
     responder: responderSolicitud,
+    recibidas: obtenerSolicitudesRecibidas,
   },
 }
 

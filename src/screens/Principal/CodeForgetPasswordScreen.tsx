@@ -9,11 +9,14 @@ import {
   Alert,
 } from "react-native";
 import { orpc } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const CodeForgetPasswordScreen = ({ navigation, route }: any) => {
   const { email } = route.params;
   const [codigo, setCodigo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useBackHandler(navigation, "normal");
 
   const verificarCodigo = async () => {
     if (!codigo || codigo.length !== 6) {

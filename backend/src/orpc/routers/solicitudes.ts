@@ -84,3 +84,47 @@ export const responderSolicitud = protectedProcedure
 
     return { success: true, solicitud: solicitudActualizada }
   })
+
+  // GET /api/solicitudes/recibidas
+export const obtenerSolicitudesRecibidas = protectedProcedure
+  .handler(async ({ context }) => {
+    const solicitudes = await prisma.solicitudes_viaje.findMany({
+      where: {
+        viaje: {
+          conductor: {
+            usuario: { id_usuario: context.user.id }
+          }
+        },
+        estado_solicitud: 'pendiente'
+      },
+      include: {
+        viaje: {
+          include: {
+            conductor: {
+              include: {
+                usuario: {
+                  select: {
+                    id_usuario: true,
+                    nombre: true,
+                    apellido_paterno: true,
+                    foto_perfil: true,
+                  }
+                }
+              }
+            }
+          }
+        },
+        pasajero: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            apellido_paterno: true,
+            foto_perfil: true,
+          }
+        }
+      },
+      orderBy: { fecha_solicitud: 'desc' }
+    });
+
+    return { success: true, solicitudes };
+  });

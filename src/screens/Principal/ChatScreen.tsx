@@ -14,9 +14,12 @@ import {
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import { orpc } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 export default function ChatScreen({ navigation, route }: any) {
   const { idViaje = 1, idUsuario = "" } = route?.params || {};
+
+  useBackHandler(navigation, "normal");
 
   const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
@@ -69,7 +72,10 @@ export default function ChatScreen({ navigation, route }: any) {
       cargarMensajes();
     } catch (error: any) {
       if (error?.status === 403 || error?.code === 403) {
-        Alert.alert("Acceso Denegado", "Solo puedes chatear si tienes un match confirmado.");
+        Alert.alert(
+          "Acceso Denegado",
+          "Solo puedes chatear si tienes un match confirmado.",
+        );
       } else {
         Alert.alert("Error", error?.message || "No se pudo enviar el mensaje.");
       }
@@ -80,21 +86,41 @@ export default function ChatScreen({ navigation, route }: any) {
   const renderItem = ({ item }: any) => {
     const esMio = item.remitente === "yo";
     return (
-      <View className={`p-3 m-2 rounded-2xl max-w-[85%] ${esMio ? "bg-blue-900 self-end rounded-tr-none" : "bg-gray-200 self-start rounded-tl-none"}`}>
-        {!esMio && <Text className="text-[10px] text-blue-900 font-bold mb-1">{item.nombre}</Text>}
-        <Text className={esMio ? "text-white" : "text-gray-800"}>{item.texto}</Text>
+      <View
+        className={`p-3 m-2 rounded-2xl max-w-[85%] ${esMio ? "bg-blue-900 self-end rounded-tr-none" : "bg-gray-200 self-start rounded-tl-none"}`}
+      >
+        {!esMio && (
+          <Text className="text-[10px] text-blue-900 font-bold mb-1">
+            {item.nombre}
+          </Text>
+        )}
+        <Text className={esMio ? "text-white" : "text-gray-800"}>
+          {item.texto}
+        </Text>
       </View>
     );
   };
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
-      <Header navigation={navigation} />
+    <View
+      className="flex-1 bg-white"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
+      <Header navigation={navigation} title="Chat" />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
-        <View className={`py-2 ${estaFinalizado ? "bg-red-100" : "bg-green-50"}`}>
-          <Text className={`text-center text-xs font-bold ${estaFinalizado ? "text-red-600" : "text-green-600"}`}>
-            {estaFinalizado ? "VIAJE FINALIZADO - CHAT CERRADO" : `CHATEANDO EN VIAJE #${idViaje}`}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <View
+          className={`py-2 ${estaFinalizado ? "bg-red-100" : "bg-green-50"}`}
+        >
+          <Text
+            className={`text-center text-xs font-bold ${estaFinalizado ? "text-red-600" : "text-green-600"}`}
+          >
+            {estaFinalizado
+              ? "VIAJE FINALIZADO - CHAT CERRADO"
+              : `CHATEANDO EN VIAJE #${idViaje}`}
           </Text>
         </View>
 
@@ -109,7 +135,11 @@ export default function ChatScreen({ navigation, route }: any) {
         <View className="flex-row items-center p-3 border-t border-gray-100 bg-white">
           <TextInput
             className={`flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mr-2 ${estaFinalizado ? "text-gray-400" : "text-black"}`}
-            placeholder={estaFinalizado ? "El chat ya no está disponible" : "Escribe un mensaje..."}
+            placeholder={
+              estaFinalizado
+                ? "El chat ya no está disponible"
+                : "Escribe un mensaje..."
+            }
             value={mensajeEscrito}
             onChangeText={setMensajeEscrito}
             editable={!estaFinalizado}
