@@ -15,6 +15,7 @@ import Header from "../../components/common/Header";
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc } from "../../services/api/apiClient";
 import { BASE_URL } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
@@ -22,6 +23,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
   const [fotoSeleccionada, setFotoSeleccionada] = useState<string | null>(null);
+
+  useBackHandler(navigation, "normal");
 
   useEffect(() => {
     obtenerPerfil();
