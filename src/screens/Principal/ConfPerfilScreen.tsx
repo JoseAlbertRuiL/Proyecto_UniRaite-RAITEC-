@@ -162,9 +162,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             source={{ uri: 'https://i.pravatar.cc/150' }}
             className="w-28 h-28 rounded-full"
           />
-          <View className="absolute bottom-0 right-0 bg-blue-600 w-8 h-8 rounded-full items-center justify-center">
-            <Text className="text-white text-xs">✎</Text>
-          </View>
         </TouchableOpacity>
         <Text className="text-lg font-bold mt-3">
           {user ? `${user.nombre} ${user.apellido_paterno} ${user.apellido_materno}` : 'Cargando...'}
@@ -246,11 +243,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <TextInput value={apellidoPaterno} onChangeText={setApellidoPaterno} className="border border-gray-300 rounded-xl px-4 py-3" placeholder="Nuevo Apellido Paterno" />
             <TextInput value={apellidoMaterno} onChangeText={setApellidoMaterno} className="border border-gray-300 rounded-xl px-4 py-3" placeholder="Nuevo Apellido Materno" />
             <View className="flex-row justify-between mt-4">
-              <TouchableOpacity onPress={() => setModalVisible(false)} className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center">
-                <Text className="text-white font-semibold text-lg">Cancelar</Text>
-              </TouchableOpacity>
               <TouchableOpacity onPress={guardarCambios} className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center">
                 <Text className="text-white font-semibold text-lg">Guardar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)} className="bg-blue-600 mt-4 py-3 px-10 rounded-xl items-center">
+                <Text className="text-white font-semibold text-lg">Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
