@@ -14,6 +14,7 @@ import Header from '../../components/common/HeaderBack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPerfil, logout } from '../../services/auth/authService';
 import { orpc } from '../../services/api/apiClient';
+import { UPLOAD_URL } from '../../services/api/apiClient';
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
@@ -159,7 +160,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       <View className="items-center mt-6 mb-6">
         <TouchableOpacity onPress={() => console.log('Cambiar foto')}>
           <Image
-            source={{ uri: 'https://i.pravatar.cc/150' }}
+            source={{
+              uri: user?.foto_perfil
+                ? `${UPLOAD_URL}/uploads/perfiles/${user.foto_perfil}`
+                : 'https://i.pravatar.cc/150'
+            }}
             className="w-28 h-28 rounded-full"
           />
         </TouchableOpacity>
@@ -237,7 +242,15 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         <View className="flex-1 justify-center bg-black/50 px-6">
           <View className="bg-white p-5 rounded-2xl">
             <Text className="text-lg font-semibold mb-3">Editar Nombre</Text>
-            <Image source={{ uri: 'https://i.pravatar.cc/150' }} className="w-28 h-28 rounded-full self-center" />
+            <Image
+              source={{
+                uri: user?.foto_perfil
+                  ? `${UPLOAD_URL}/uploads/perfiles/${user.foto_perfil}`
+                  : 'https://i.pravatar.cc/150'
+              }}
+              className="w-28 h-28 rounded-full"
+              self-center
+            />
             <Text className="text-lg font-bold mt-3 text-center">Foto de perfil</Text>
             <TextInput value={nombre} onChangeText={setNombre} className="border border-gray-300 rounded-xl px-4 py-3" placeholder="Nuevo nombre" />
             <TextInput value={apellidoPaterno} onChangeText={setApellidoPaterno} className="border border-gray-300 rounded-xl px-4 py-3" placeholder="Nuevo Apellido Paterno" />
@@ -325,7 +338,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
       <View className="flex-row items-center mb-6">
         <View className="flex-1 h-px bg-gray-200" />
-        <Text className="mx-4 text-sm text-gray-500">o</Text>
         <View className="flex-1 h-px bg-gray-200" />
       </View>
 
