@@ -78,6 +78,11 @@ app.use('/rpc', async (req, res, next) => {
   if (!matched) next()
 })
 
+// Upload foto de perfil
+app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
+  res.json({ foto_perfil: req.file?.filename || null });
+});
+
 // express.json() va DESPUÉS del mount de oRPC
 app.use(express.json())
 
@@ -138,3 +143,4 @@ app.listen(PORT, () => {
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
 })
+

@@ -12,9 +12,12 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import HeaderBack from "../../components/common/HeaderBack";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const LicenciaScreen = ({ navigation }: any) => {
   const [fotoLicencia, setFotoLicencia] = useState<string | null>(null);
+
+  useBackHandler(navigation, "normal");
 
   const seleccionarFoto = () => {
     Alert.alert("Subir licencia", "¿Cómo quieres subir la imagen?", [
@@ -79,7 +82,7 @@ const LicenciaScreen = ({ navigation }: any) => {
       className="flex-1 bg-white"
       style={{ paddingTop: StatusBar.currentHeight || 0 }}
     >
-      <HeaderBack navigation={navigation} />
+      <HeaderBack navigation={navigation} title="" />
 
       <ScrollView
         className="px-6 pt-6"

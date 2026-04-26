@@ -10,10 +10,13 @@ import {
   StatusBar,
 } from "react-native";
 import { orpc } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const ForgetPasswordScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useBackHandler(navigation, "normal");
 
   const enviarCodigo = async () => {
     if (!email) {

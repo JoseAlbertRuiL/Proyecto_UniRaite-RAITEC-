@@ -11,10 +11,13 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 export default function ChatHistoryScreen({ navigation }: any) {
   const [historial, setHistorial] = useState<any[]>([]);
   const [usuarioId, setUsuarioId] = useState<string>("");
+
+  useBackHandler(navigation, "normal");
 
   useEffect(() => {
     cargarHistorial();
@@ -38,7 +41,12 @@ export default function ChatHistoryScreen({ navigation }: any) {
   const renderItem = ({ item }: any) => (
     <TouchableOpacity
       className="flex-row items-center p-4 border-b border-gray-100 bg-white"
-      onPress={() => navigation.navigate("Chat", { idViaje: item.idViaje, idUsuario: usuarioId })}
+      onPress={() =>
+        navigation.navigate("Chat", {
+          idViaje: item.idViaje,
+          idUsuario: usuarioId,
+        })
+      }
     >
       <View className="w-12 h-12 bg-blue-100 rounded-full justify-center items-center mr-4">
         <Text className="text-blue-900 font-bold text-lg">
@@ -47,19 +55,27 @@ export default function ChatHistoryScreen({ navigation }: any) {
       </View>
       <View className="flex-1">
         <View className="flex-row justify-between mb-1">
-          <Text className="font-bold text-gray-800 text-base">Viaje #{item.idViaje}</Text>
-          <Text className="text-xs text-gray-400">{formatearHora(item.fecha)}</Text>
+          <Text className="font-bold text-gray-800 text-base">
+            Viaje #{item.idViaje}
+          </Text>
+          <Text className="text-xs text-gray-400">
+            {formatearHora(item.fecha)}
+          </Text>
         </View>
         <Text className="text-gray-500 text-sm" numberOfLines={1}>
-          {item.esMio ? "Tú: " : `${item.remitente}: `}{item.texto}
+          {item.esMio ? "Tú: " : `${item.remitente}: `}
+          {item.texto}
         </Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View className="flex-1 bg-gray-50" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
-      <Header navigation={navigation} />
+    <View
+      className="flex-1 bg-gray-50"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
+      <Header navigation={navigation} title="Chat" />
       <View className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <Text className="text-2xl font-bold text-blue-900">Mensajes</Text>
       </View>
@@ -68,7 +84,9 @@ export default function ChatHistoryScreen({ navigation }: any) {
         keyExtractor={(item) => item.idViaje.toString()}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text className="text-center text-gray-500 mt-10">No tienes mensajes recientes.</Text>
+          <Text className="text-center text-gray-500 mt-10">
+            No tienes mensajes recientes.
+          </Text>
         }
       />
       <Footer navigation={navigation} />
