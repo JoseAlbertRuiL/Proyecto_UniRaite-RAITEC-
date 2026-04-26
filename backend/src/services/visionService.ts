@@ -1,6 +1,5 @@
 import path from 'path'
-
-const vision = require('@google-cloud/vision')
+import vision from '@google-cloud/vision'
 
 const client = new vision.ImageAnnotatorClient({
   keyFilename: path.join(__dirname, '../../google-key.json'),

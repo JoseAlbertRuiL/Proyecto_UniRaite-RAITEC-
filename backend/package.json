@@ -2,12 +2,13 @@
   "name": "uniraite-backend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "ts-node-dev --respawn --transpile-only --ignore-watch uploads src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",
+    "@google-cloud/vision": "^5.3.5",
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@prisma/client": "^5.0.0",

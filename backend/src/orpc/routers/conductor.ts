@@ -7,15 +7,18 @@ import { prisma } from '../context'
 import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService' // Importa las funciones de Vision CloudService
 
 
-const cloudinary = require('../../../plugins')
+// -----------------------------------------------------------------------------------------------
+// Función para subir a Cloudinary: Código comentado para evitar errores con la carpeta plugins.
+// -----------------------------------------------------------------------------------------------
 
-const subirACloudinary = async (localPath: string, folder: string): Promise<string> => {
-  const result = await cloudinary.uploader.upload(localPath, {
-    folder,
-    resource_type: 'image',
-  })
-  return result.secure_url
-}
+// const cloudinary = require('../../../plugins')
+// const subirACloudinary = async (localPath: string, folder: string): Promise<string> => {
+//   const result = await cloudinary.uploader.upload(localPath, {
+//     folder,
+//     resource_type: 'image',
+//   })
+//   return result.secure_url
+// }
 
 // POST ___ /rpc/conductor.registroConductor ________________________________________
 // NOTA: El cliente primero sube los archivos a POST /upload/conductor (Express),
@@ -28,13 +31,13 @@ export const registroConductor = protectedProcedure
       placas: z.string().min(1),
       capacidad_pasajeros: z.number().int().min(1),
       // URLs de Cloudinary devueltas por el endpoint de upload
-      foto_licencia_filename: z.string().min(1),
-      foto_circulacion_filename: z.string().min(1),
+      foto_licencia: z.string().min(1),
+      foto_circulacion: z.string().min(1),
     })
   )
   .handler(async ({ input, context }) => {
-    const rutaLicencia = path.join(process.cwd(), 'uploads', 'licencias', input.foto_licencia_filename)
-    const rutaCirculacion = path.join(process.cwd(), 'uploads', 'circulaciones', input.foto_circulacion_filename)
+    const rutaLicencia = path.join(process.cwd(), 'uploads', 'licencias', input.foto_licencia)
+    const rutaCirculacion = path.join(process.cwd(), 'uploads', 'circulaciones', input.foto_circulacion)
 
     const borrarArchivos = () => {
       if (fs.existsSync(rutaLicencia))    fs.unlinkSync(rutaLicencia)
@@ -130,13 +133,23 @@ export const registroConductor = protectedProcedure
     }
 
     // ==========================================================================
-    // Subir fotos a Cloudinary y guardar datos en BD
+    // Guardar datos en BD (ADAPTADO A LOCAL TEMPORALMENTE)
     // ==========================================================================
 
-    console.log('Validación completada. Subiendo a Cloudinary...')
-    const licenciaUrl = await subirACloudinary(rutaLicencia, 'uniraite/licencias')
-    const circulacionUrl = await subirACloudinary(rutaCirculacion, 'uniraite/circulaciones')
-    borrarArchivos()
+    console.log('Validación completada. Guardando en almacenamiento local...')
+    
+    const licenciaUrl = `uploads/licencias/${input.foto_licencia}`
+    const circulacionUrl = `uploads/circulaciones/${input.foto_circulacion}`
+
+    // ==========================================================================
+    // NOTA: Código comentado para subir fotos a Cloudinary y guardar datos en BD
+    // ==========================================================================
+    // 
+    // console.log('Validación completada. Guardando localmente...')
+    // const licenciaUrl = `uploads/licencias/${input.foto_licencia}`
+    // const circulacionUrl = `uploads/circulaciones/${input.foto_circulacion}`
+    // borrarArchivos()
+    // --------------------------------------------------------------------------
 
     const id_licencia = `LIC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`
 
@@ -171,12 +184,12 @@ export const actualizarVehiculo = protectedProcedure
       color: z.string().min(1),
       placas: z.string().min(1),
       capacidad_pasajeros: z.number().int().min(1),
-      foto_circulacion_filename: z.string().min(1),
+      foto_circulacion: z.string().min(1),
     })
   )
   .handler(async ({ input, context }) => {
     const rutaCirculacion = path.join(
-      process.cwd(), 'uploads', 'circulaciones', input.foto_circulacion_filename
+      process.cwd(), 'uploads', 'circulaciones', input.foto_circulacion
     )
 
     const borrarArchivo = () => {
@@ -248,9 +261,16 @@ export const actualizarVehiculo = protectedProcedure
     // Subir nueva foto de circulación a Cloudinary y actualizar datos en BD
     // ==========================================================================
 
-    console.log('Validación completada. Subiendo a Cloudinary...')
-    const circulacionUrl = await subirACloudinary(rutaCirculacion, 'uniraite/circulaciones')
-    borrarArchivo()
+    console.log('Validación completada. Guardando imagen actualizada localmente...')
+    const circulacionUrl = `uploads/circulaciones/${input.foto_circulacion}`
+
+    // ==========================================================================
+    // NOTA: Código comentado para subir foto a Cloudinary y actualizar datos en BD
+    // ==========================================================================
+    // console.log('Validación completada. Subiendo a Cloudinary...')
+    // const circulacionUrl = await subirACloudinary(rutaCirculacion, 'uniraite/circulaciones')
+    // borrarArchivo()
+    // --------------------------------------------------------------------------
 
     await prisma.conductores.update({
       where: { id_licencia: conductorActual.id_licencia },
