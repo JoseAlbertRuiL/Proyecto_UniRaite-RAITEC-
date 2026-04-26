@@ -142,6 +142,7 @@ export const publicarViaje = protectedProcedure
   })
 
 // GET /api/viajes/conductor/activos
+// GET /api/viajes/conductor/activos
 export const obtenerViajesActivos = protectedProcedure
   .handler(async ({ context }) => {
     const viajes = await prisma.viajes_publicados.findMany({
@@ -150,7 +151,7 @@ export const obtenerViajesActivos = protectedProcedure
           usuario: { id_usuario: context.user.id }
         },
         fecha_hora_salida: { gt: new Date() },
-        asientos_disponibles: { gt: 0 },
+        // asientos_disponibles: { gt: 0 },  // ← COMENTA O ELIMINA ESTA LÍNEA
       },
       include: {
         conductor: {

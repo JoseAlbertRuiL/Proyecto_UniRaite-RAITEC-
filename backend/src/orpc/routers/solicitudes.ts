@@ -42,7 +42,7 @@ export const solicitarViaje = protectedProcedure
     return { success: true, solicitud };
   });
 
-// PUT /api/solicitudes/:id  — aceptar o rechazar (solo el conductor dueño del viaje)
+// PUT /api/solicitudes/:id
 export const responderSolicitud = protectedProcedure
   .input(
     z.object({
@@ -60,7 +60,6 @@ export const responderSolicitud = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Solicitud no encontrada' })
     }
 
-    // Verificar que quien responde es el conductor del viaje
     const conductor = await prisma.conductores.findUnique({
       where: { id_licencia: solicitud.viaje.id_licencia_conductor },
       include: { usuario: true },
@@ -68,6 +67,23 @@ export const responderSolicitud = protectedProcedure
 
     if (conductor?.usuario?.id_usuario !== context.user.id) {
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
+    }
+
+    // CONTAR SOLICITUDES YA ACEPTADAS
+    const solicitudesAceptadas = await prisma.solicitudes_viaje.count({
+      where: {
+        id_viaje_pub: solicitud.id_viaje_pub,
+        estado_solicitud: 'aceptada',
+      },
+    })
+
+    // VALIDAR QUE NO SUPERE LOS ASIENTOS DISPONIBLES
+    if (input.estado === 'aceptada') {
+      if (solicitudesAceptadas >= solicitud.viaje.asientos_disponibles) {
+        throw new ORPCError('BAD_REQUEST', { 
+          message: 'No hay suficientes asientos disponibles. El viaje ya está completo.' 
+        })
+      }
     }
 
     const solicitudActualizada = await prisma.solicitudes_viaje.update({
