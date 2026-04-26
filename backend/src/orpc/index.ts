@@ -12,12 +12,16 @@ import {
   listarViajes, 
   publicarViaje,
   obtenerViajesActivos,
-  obtenerHistorialConductor
+  obtenerHistorialConductor,
+  cancelarViaje
 } from './routers/viajes'
 import { 
   solicitarViaje, 
   responderSolicitud,
-  obtenerSolicitudesRecibidas
+  obtenerSolicitudesRecibidas,
+  obtenerEstadoPorViaje,
+  misSolicitudes,
+  obtenerSolicitudesActivas
 } from './routers/solicitudes'
 
 export const router = {
@@ -43,11 +47,15 @@ export const router = {
     publicar: publicarViaje,
     activos: obtenerViajesActivos,
     historialConductor: obtenerHistorialConductor,
+    cancelar: cancelarViaje,
   },
   solicitudes: {
     solicitar: solicitarViaje,
     responder: responderSolicitud,
     recibidas: obtenerSolicitudesRecibidas,
+    obtenerEstadoPorViaje,
+    misSolicitudes,
+    activas: obtenerSolicitudesActivas,
   },
 }
 

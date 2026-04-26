@@ -19,11 +19,12 @@ export const publicarViaje = async (params: {
   return orpc.viajes.publicar(params)
 }
 
-export const solicitarViaje = async (viajeId: number) => {
-  return orpc.viajes.solicitar({ viajeId })
-}
-
 // ─── Solicitudes ──────────────────────────────────────────────────────────────
+
+// CORREGIDO: usar orpc.solicitudes.solicitar en lugar de orpc.viajes.solicitar
+export const solicitarViaje = async (viajeId: number) => {
+  return orpc.solicitudes.solicitar({ viajeId })
+}
 
 export const responderSolicitud = async (
   solicitudId: number,
@@ -31,6 +32,19 @@ export const responderSolicitud = async (
 ) => {
   return orpc.solicitudes.responder({ solicitudId, estado })
 }
+
+export const obtenerEstadoSolicitud = async (viajeId: number) => {
+  try {
+    const result = await orpc.solicitudes.obtenerEstadoPorViaje({ viajeId });
+    return result.estado;
+  } catch (error) {
+    return null;
+  }
+};
+
+export const obtenerMisSolicitudes = async () => {
+  return orpc.solicitudes.misSolicitudes();
+};
 
 // ─── Conductor ────────────────────────────────────────────────────────────────
 
@@ -42,7 +56,6 @@ export const registroConductor = async (params: {
   foto_licencia_uri: string
   foto_circulacion_uri: string
 }) => {
-  // 1. Subir fotos
   const formData = new FormData()
   formData.append('foto_licencia', {
     uri: params.foto_licencia_uri,
@@ -61,7 +74,6 @@ export const registroConductor = async (params: {
   })
   const uploadData = await uploadRes.json()
 
-  // 2. Registrar conductor con oRPC
   return orpc.conductor.registroConductor({
     modelo: params.modelo,
     color: params.color,
@@ -72,6 +84,11 @@ export const registroConductor = async (params: {
   })
 }
 
+// Obtener solicitudes activas del usuario (pendiente o aceptada)
+export const obtenerSolicitudesActivas = async () => {
+  return orpc.solicitudes.activas();
+};
+
 export const actualizarVehiculo = async (params: {
   modelo: string
   color: string
@@ -81,7 +98,6 @@ export const actualizarVehiculo = async (params: {
 }) => {
   let foto_circulacion: string | undefined
 
-  // Subir foto nueva si se proporcionó
   if (params.foto_circulacion_uri) {
     const formData = new FormData()
     formData.append('foto_circulacion', {

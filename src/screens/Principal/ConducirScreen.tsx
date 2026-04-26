@@ -45,8 +45,37 @@ const ConducirScreen = ({ navigation }: any) => {
     }
   };
 
+  const cancelarViaje = async (viajeId: number) => {
+    Alert.alert(
+      "Cancelar viaje",
+      "¿Estás seguro de que deseas cancelar este viaje?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Sí, cancelar",
+          onPress: async () => {
+            try {
+              const result = await orpc.viajes.cancelar({ viajeId });
+              if (result.success) {
+                Alert.alert("Éxito", "Viaje cancelado correctamente");
+                cargarDatos();
+              }
+            } catch (error: any) {
+              Alert.alert(
+                "Error",
+                error.message || "No se pudo cancelar el viaje",
+              );
+            }
+          },
+          style: "destructive",
+        },
+      ],
+    );
+  };
+
   const responderSolicitud = async (
     solicitudId: number,
+    viajeId: number,
     estado: "aceptada" | "rechazada",
   ) => {
     try {
@@ -76,6 +105,7 @@ const ConducirScreen = ({ navigation }: any) => {
     viaje: any,
     showActions = false,
     solicitudId?: number,
+    isActive = false,
   ) => (
     <View
       key={viaje.id_viaje_pub}
@@ -129,26 +159,45 @@ const ConducirScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {showActions && (
-        <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
+      {/* Botones de acción */}
+      <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
+        {isActive && (
           <TouchableOpacity
-            className="bg-green-500 rounded-lg px-4 py-2 mr-2"
-            onPress={() =>
-              responderSolicitud(solicitudId || viaje.id, "aceptada")
-            }
+            className="bg-red-500 rounded-lg px-4 py-2 mr-2"
+            onPress={() => cancelarViaje(viaje.id_viaje_pub)}
           >
-            <Text className="text-white font-semibold text-sm">Aceptar</Text>
+            <Text className="text-white font-semibold text-sm">Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            className="bg-red-500 rounded-lg px-4 py-2"
-            onPress={() =>
-              responderSolicitud(solicitudId || viaje.id, "rechazada")
-            }
-          >
-            <Text className="text-white font-semibold text-sm">Rechazar</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        )}
+        {showActions && (
+          <>
+            <TouchableOpacity
+              className="bg-green-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() =>
+                responderSolicitud(
+                  solicitudId || viaje.id,
+                  viaje.id_viaje_pub,
+                  "aceptada",
+                )
+              }
+            >
+              <Text className="text-white font-semibold text-sm">Aceptar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg px-4 py-2"
+              onPress={() =>
+                responderSolicitud(
+                  solicitudId || viaje.id,
+                  viaje.id_viaje_pub,
+                  "rechazada",
+                )
+              }
+            >
+              <Text className="text-white font-semibold text-sm">Rechazar</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
     </View>
   );
 
@@ -181,7 +230,9 @@ const ConducirScreen = ({ navigation }: any) => {
           </View>
         );
       }
-      return viajesActivos.map((viaje) => renderViajeCard(viaje, false));
+      return viajesActivos.map((viaje) =>
+        renderViajeCard(viaje, false, undefined, true),
+      );
     }
 
     if (activeTab === "solicitudes") {
@@ -197,7 +248,12 @@ const ConducirScreen = ({ navigation }: any) => {
       }
       return solicitudes.map((solicitud) => (
         <View key={solicitud.id_solicitud}>
-          {renderViajeCard(solicitud.viaje, true, solicitud.id_solicitud)}
+          {renderViajeCard(
+            solicitud.viaje,
+            true,
+            solicitud.id_solicitud,
+            false,
+          )}
         </View>
       ));
     }
@@ -213,7 +269,9 @@ const ConducirScreen = ({ navigation }: any) => {
           </View>
         );
       }
-      return historial.map((viaje) => renderViajeCard(viaje, false));
+      return historial.map((viaje) =>
+        renderViajeCard(viaje, false, undefined, false),
+      );
     }
 
     return null;
@@ -226,7 +284,6 @@ const ConducirScreen = ({ navigation }: any) => {
     >
       <Header navigation={navigation} title="Conducir" />
 
-      {/* Tabs */}
       <View className="flex-row border-b border-gray-200">
         <TouchableOpacity
           className={`flex-1 py-3 items-center ${activeTab === "activos" ? "border-b-2 border-blue-900" : ""}`}
@@ -269,7 +326,6 @@ const ConducirScreen = ({ navigation }: any) => {
         {renderContent()}
       </ScrollView>
 
-      {/* Botón flotante para ofrecer viaje */}
       <TouchableOpacity
         className="absolute bottom-20 right-6 bg-blue-900 w-14 h-14 rounded-full items-center justify-center shadow-lg"
         onPress={() => navigation.navigate("PublicarViaje")}

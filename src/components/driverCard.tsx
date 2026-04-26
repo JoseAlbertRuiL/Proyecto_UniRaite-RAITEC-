@@ -27,7 +27,8 @@ interface DriverCardProps {
   };
   onPress: (id: number) => void;
   onVerPerfil: (usuarioId: string) => void;
-  estadoSolicitud?: "pendiente" | "aceptada" | null;
+  estadoSolicitud?: string | null;
+  onEliminar?: (id: number) => void;
 }
 
 const DriverCard = ({
@@ -54,17 +55,21 @@ const DriverCard = ({
   const getBotonTexto = () => {
     if (estadoSolicitud === "pendiente") return "Pendiente ⏳";
     if (estadoSolicitud === "aceptada") return "Aceptado ✅";
+    if (estadoSolicitud === "rechazada") return "Rechazado ❌";
+    if (estadoSolicitud === "cancelado") return "Cancelado 🚫";
     return "Solicitar";
   };
 
   const getBotonEstilo = () => {
     if (estadoSolicitud === "pendiente") return "bg-yellow-500";
     if (estadoSolicitud === "aceptada") return "bg-green-500";
+    if (estadoSolicitud === "rechazada") return "bg-red-500";
+    if (estadoSolicitud === "cancelado") return "bg-gray-500";
     return "bg-blue-900";
   };
 
   const getBotonDisabled = () => {
-    return estadoSolicitud === "pendiente" || estadoSolicitud === "aceptada";
+    return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
@@ -77,7 +82,6 @@ const DriverCard = ({
       <View className="p-4 border-b border-gray-100">
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center flex-1">
-            {/* Foto de perfil */}
             {fotoUrl ? (
               <Image
                 source={{ uri: fotoUrl }}
@@ -107,7 +111,6 @@ const DriverCard = ({
                 </TouchableOpacity>
               </View>
 
-              {/* Reputación */}
               <View className="flex-row items-center mt-0.5">
                 {totalViajes > 0 ? (
                   <>

@@ -141,7 +141,7 @@ export const publicarViaje = protectedProcedure
     }
   })
 
-  // GET /api/viajes/conductor/activos
+// GET /api/viajes/conductor/activos
 export const obtenerViajesActivos = protectedProcedure
   .handler(async ({ context }) => {
     const viajes = await prisma.viajes_publicados.findMany({
@@ -150,7 +150,7 @@ export const obtenerViajesActivos = protectedProcedure
           usuario: { id_usuario: context.user.id }
         },
         fecha_hora_salida: { gt: new Date() },
-        asientos_disponibles: { gt: 0 }
+        asientos_disponibles: { gt: 0 },
       },
       include: {
         conductor: {
@@ -167,10 +167,10 @@ export const obtenerViajesActivos = protectedProcedure
         }
       },
       orderBy: { fecha_hora_salida: 'asc' }
-    });
+    })
 
-    return { success: true, viajes };
-  });
+    return { success: true, viajes }
+  })
 
 // GET /api/viajes/conductor/historial
 export const obtenerHistorialConductor = protectedProcedure
@@ -198,7 +198,37 @@ export const obtenerHistorialConductor = protectedProcedure
       },
       orderBy: { fecha_hora_salida: 'desc' },
       take: 20
-    });
+    })
 
-    return { success: true, viajes };
-  });
+    return { success: true, viajes }
+  })
+
+// Cancelar un viaje (solo conductor)
+export const cancelarViaje = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.viajeId },
+      include: { conductor: { include: { usuario: true } } },
+    })
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' })
+    }
+
+    if (viaje.conductor.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
+    }
+
+    // Primero eliminar las solicitudes relacionadas
+    await prisma.solicitudes_viaje.deleteMany({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    // Luego eliminar el viaje
+    await prisma.viajes_publicados.delete({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    return { success: true, message: 'Viaje cancelado' }
+  })

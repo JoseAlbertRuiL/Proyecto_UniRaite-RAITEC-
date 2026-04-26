@@ -17,7 +17,12 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
-import { listarViajes } from "../../services/trip/tripService";
+import {
+  listarViajes,
+  solicitarViaje,
+  obtenerEstadoSolicitud,
+  obtenerSolicitudesActivas,
+} from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
 import { useBackHandler } from "../../hooks/useBackHandler";
@@ -29,23 +34,73 @@ const StartScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
+  const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
+    [key: number]: string;
+  }>({});
+  const [solicitudActiva, setSolicitudActiva] = useState<{
+    tieneSolicitud: boolean;
+    estado: string | null;
+    viajeId?: number;
+  }>({ tieneSolicitud: false, estado: null });
 
-  // Hook para manejar el botón de atrás (doble clic para salir)
   useBackHandler(navigation, "main");
+
+  const verificarSolicitudActiva = async () => {
+    try {
+      const result = await obtenerSolicitudesActivas();
+      if (
+        result.success &&
+        result.solicitudes &&
+        result.solicitudes.length > 0
+      ) {
+        const solicitud = result.solicitudes[0];
+        setSolicitudActiva({
+          tieneSolicitud: true,
+          estado: solicitud.estado_solicitud,
+          viajeId: solicitud.id_viaje_pub,
+        });
+      } else {
+        setSolicitudActiva({ tieneSolicitud: false, estado: null });
+      }
+    } catch (error) {
+      console.log("Error al verificar solicitud activa:", error);
+    }
+  };
+
+  const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
+    const nuevosEstados: { [key: number]: string } = {};
+    for (const viaje of viajesLista) {
+      try {
+        const estado = await obtenerEstadoSolicitud(viaje.id_viaje_pub);
+        if (estado) {
+          nuevosEstados[viaje.id_viaje_pub] = estado;
+        }
+      } catch (error) {
+        // No hay solicitud para este viaje
+      }
+    }
+    setEstadosSolicitudes(nuevosEstados);
+  };
 
   const cargarViajes = async () => {
     try {
       const perfilData = await getPerfil();
+      if (!perfilData || !perfilData.user) {
+        navigation.navigate("Login");
+        return;
+      }
       const usuarioActualId = perfilData.user?.id_usuario;
 
       const viajesData = await listarViajes();
 
-      if (viajesData.success) {
+      if (viajesData && viajesData.success) {
         const viajesFiltrados = viajesData.viajes.filter(
           (viaje: any) =>
-            viaje.conductor.usuario?.id_usuario !== usuarioActualId,
+            viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
         );
         setViajes(viajesFiltrados);
+        await cargarEstadosSolicitudes(viajesFiltrados);
+        await verificarSolicitudActiva();
       }
     } catch (error) {
       console.error("Error:", error);
@@ -61,7 +116,7 @@ const StartScreen = ({ navigation }: any) => {
     setModalVisible(true);
     try {
       const data = await getUsuarioById(usuarioId);
-      if (data.success) {
+      if (data && data.success) {
         setPerfilSeleccionado(data.user);
       }
     } catch (error) {
@@ -75,7 +130,7 @@ const StartScreen = ({ navigation }: any) => {
   const handleOfrecerViaje = async () => {
     try {
       const data = await getPerfil();
-      if (data.user?.es_conductor) {
+      if (data && data.user && data.user?.es_conductor) {
         navigation.navigate("PublicarViaje");
       } else {
         navigation.navigate("Licencia");
@@ -85,8 +140,39 @@ const StartScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleSolicitarViaje = (viajeId: number) => {
-    navigation.navigate("SolicitarViaje", { viajeId });
+  const handleSolicitarViaje = async (viajeId: number) => {
+    if (solicitudActiva.tieneSolicitud) {
+      if (solicitudActiva.estado === "pendiente") {
+        Alert.alert(
+          "Solicitud pendiente",
+          "Ya tienes una solicitud pendiente. Espera a que el conductor responda.",
+        );
+      } else if (solicitudActiva.estado === "aceptada") {
+        Alert.alert(
+          "Viaje aceptado",
+          "Ya tienes un viaje aceptado. No puedes solicitar otro viaje.",
+        );
+      }
+      return;
+    }
+
+    try {
+      const result = await solicitarViaje(viajeId);
+      if (result && result.success) {
+        setEstadosSolicitudes((prev) => ({ ...prev, [viajeId]: "pendiente" }));
+        setSolicitudActiva({
+          tieneSolicitud: true,
+          estado: "pendiente",
+          viajeId,
+        });
+        Alert.alert(
+          "Solicitud enviada",
+          "Tu solicitud ha sido enviada al conductor",
+        );
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo enviar la solicitud");
+    }
   };
 
   const onRefresh = () => {
@@ -164,6 +250,9 @@ const StartScreen = ({ navigation }: any) => {
                   viaje={viaje}
                   onPress={handleSolicitarViaje}
                   onVerPerfil={handleVerPerfil}
+                  estadoSolicitud={
+                    estadosSolicitudes[viaje.id_viaje_pub] || null
+                  }
                 />
               ))
             )}

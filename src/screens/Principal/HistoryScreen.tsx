@@ -52,8 +52,6 @@ const HistoryScreen = ({ navigation }: any) => {
               <Text className="mx-4 text-sm text-gray-500">Conductores</Text>
               <View className="flex-1 h-px bg-gray-200" />
             </View>
-
-            <DriverCard />
           </View>
 
           {/* Divider */}
