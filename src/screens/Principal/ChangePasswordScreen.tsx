@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { orpc } from "../../services/api/apiClient";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const ChangePasswordScreen = ({ navigation, route }: any) => {
   const { email } = route.params;
@@ -17,6 +18,8 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useBackHandler(navigation, "normal");
 
   const cambiarPassword = async () => {
     if (!password || password.length < 6) {
@@ -30,12 +33,18 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
 
     setLoading(true);
     try {
-      await orpc.auth.resetPassword({ correo_inst: email, newPassword: password });
+      await orpc.auth.resetPassword({
+        correo_inst: email,
+        newPassword: password,
+      });
       Alert.alert("Éxito", "Contraseña actualizada correctamente", [
         { text: "OK", onPress: () => navigation.navigate("Login") },
       ]);
     } catch (error: any) {
-      Alert.alert("Error", error?.message || "No se pudo cambiar la contraseña");
+      Alert.alert(
+        "Error",
+        error?.message || "No se pudo cambiar la contraseña",
+      );
     } finally {
       setLoading(false);
     }

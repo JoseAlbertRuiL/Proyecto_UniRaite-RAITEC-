@@ -57,3 +57,14 @@ export const getUsuarioById = baseProcedure
 
     return { success: true, user: usuario }
   })
+
+  // PUT /api/usuarios/foto-perfil
+export const actualizarFotoPerfil = protectedProcedure
+  .input(z.object({ foto_perfil: z.string() }))
+  .handler(async ({ input, context }) => {
+    await prisma.usuarios.update({
+      where: { id_usuario: context.user.id },
+      data: { foto_perfil: input.foto_perfil },
+    });
+    return { success: true, message: "Foto actualizada" };
+  });

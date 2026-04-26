@@ -11,11 +11,14 @@ import {
 import { getUsuarioById } from "../../services/auth/authService";
 import { BASE_URL } from "../../services/api/apiClient";
 import HeaderBack from "../../components/common/HeaderBack";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const PerfilPublicoScreen = ({ navigation, route }: any) => {
   const { usuarioId } = route.params;
   const [perfil, setPerfil] = useState<any>(null);
   const [cargando, setCargando] = useState(true);
+
+  useBackHandler(navigation, "normal");
 
   useEffect(() => {
     const cargarPerfil = async () => {
@@ -40,15 +43,20 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
   }
 
   return (
-    <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
-      <HeaderBack navigation={navigation} />
+    <View
+      className="flex-1 bg-white"
+      style={{ paddingTop: StatusBar.currentHeight || 0 }}
+    >
+      <HeaderBack navigation={navigation} title="Perfil" />
 
       <ScrollView className="px-6 pt-6">
         {/* Foto de perfil */}
         <View className="items-center mb-6">
           {perfil?.foto_perfil ? (
             <Image
-              source={{ uri: `${BASE_URL}/uploads/perfiles/${perfil.foto_perfil}` }}
+              source={{
+                uri: `${BASE_URL}/uploads/perfiles/${perfil.foto_perfil}`,
+              }}
               className="w-32 h-32 rounded-full"
             />
           ) : (
@@ -64,23 +72,31 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
 
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-gray-500 text-sm">Carrera</Text>
-          <Text className="text-gray-900 font-semibold">{perfil?.carrera || "No especificada"}</Text>
+          <Text className="text-gray-900 font-semibold">
+            {perfil?.carrera || "No especificada"}
+          </Text>
         </View>
 
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-gray-500 text-sm">Número de control</Text>
-          <Text className="text-gray-900 font-semibold">{perfil?.num_control || "No disponible"}</Text>
+          <Text className="text-gray-900 font-semibold">
+            {perfil?.num_control || "No disponible"}
+          </Text>
         </View>
 
         <View className="bg-gray-50 rounded-xl p-4 mb-4">
           <Text className="text-gray-500 text-sm">Universidad</Text>
-          <Text className="text-gray-900 font-semibold">TecNM Campus Morelia</Text>
+          <Text className="text-gray-900 font-semibold">
+            TecNM Campus Morelia
+          </Text>
         </View>
 
         <View className="bg-gray-50 rounded-xl p-4">
           <Text className="text-gray-500 text-sm">Miembro desde</Text>
           <Text className="text-gray-900 font-semibold">
-            {perfil?.created_at ? new Date(perfil.created_at).toLocaleDateString("es-MX") : "Reciente"}
+            {perfil?.created_at
+              ? new Date(perfil.created_at).toLocaleDateString("es-MX")
+              : "Reciente"}
           </Text>
         </View>
       </ScrollView>

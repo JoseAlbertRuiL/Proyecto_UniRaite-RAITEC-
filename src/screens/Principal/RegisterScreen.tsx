@@ -11,8 +11,11 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { register, verificarCorreo } from "../../services/auth/authService";
+import { useBackHandler } from "../../hooks/useBackHandler";
 
 const RegisterScreen = ({ navigation }: any) => {
+  useBackHandler(navigation, "normal");
+
   // Paso 1 - Datos personales
   const [nombre, setNombre] = useState("");
   const [apellidoPaterno, setApellidoPaterno] = useState("");
@@ -92,7 +95,10 @@ const RegisterScreen = ({ navigation }: any) => {
     } else if (paso === 2) {
       if (email && password) {
         if (!validarCorreo(email)) {
-          Alert.alert("Error", "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx");
+          Alert.alert(
+            "Error",
+            "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx",
+          );
           return;
         }
         try {
@@ -170,7 +176,9 @@ const RegisterScreen = ({ navigation }: any) => {
         )}
       </View>
 
-      <Text className="text-4xl font-bold text-blue-900 text-center">UNIRAITE</Text>
+      <Text className="text-4xl font-bold text-blue-900 text-center">
+        UNIRAITE
+      </Text>
       <Text className="text-center text-gray-500 mt-1">Paso {paso} de 4</Text>
 
       {paso === 1 && (
@@ -265,7 +273,10 @@ const RegisterScreen = ({ navigation }: any) => {
           >
             {fotoCredencial ? (
               <View className="items-center">
-                <Image source={{ uri: fotoCredencial }} className="w-32 h-32 rounded-lg" />
+                <Image
+                  source={{ uri: fotoCredencial }}
+                  className="w-32 h-32 rounded-lg"
+                />
                 <Text className="text-green-600 mt-2">✓ Foto seleccionada</Text>
               </View>
             ) : (
@@ -286,7 +297,10 @@ const RegisterScreen = ({ navigation }: any) => {
           >
             {fotoPerfil ? (
               <View className="items-center">
-                <Image source={{ uri: fotoPerfil }} className="w-32 h-32 rounded-full" />
+                <Image
+                  source={{ uri: fotoPerfil }}
+                  className="w-32 h-32 rounded-full"
+                />
                 <Text className="text-green-600 mt-2">✓ Foto seleccionada</Text>
               </View>
             ) : (
