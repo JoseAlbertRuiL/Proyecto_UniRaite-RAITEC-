@@ -138,3 +138,7 @@ app.listen(PORT, () => {
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
 })
+
+app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
+  res.json({ foto_perfil: req.file?.filename || null });
+});

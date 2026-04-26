@@ -6,7 +6,7 @@ import {
   verifyCode,
   resetPassword
 } from './routers/auth'
-import { getPerfil, getUsuarioById } from './routers/usuarios'
+import { getPerfil, getUsuarioById, actualizarFotoPerfil } from './routers/usuarios'
 import { registroConductor, actualizarVehiculo } from './routers/conductor'
 import { 
   listarViajes, 
@@ -32,6 +32,7 @@ export const router = {
   usuarios: {
     getPerfil,
     getUsuarioById,
+    actualizarFotoPerfil,
   },
   conductor: {
     registroConductor,
