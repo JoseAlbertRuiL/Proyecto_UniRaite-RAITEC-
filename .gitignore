@@ -4,6 +4,9 @@
 .env
 google-key.json
 
+backend/.env
+backend/google-key.json
+
 
 # dependencies
 node_modules/
@@ -50,3 +53,6 @@ yarn-error.*
 /backend/uploads/vehiculos
 backend/.env
 /backend/uploads/circulaciones
+backend/.env
+backend/.env
+backend/.env
