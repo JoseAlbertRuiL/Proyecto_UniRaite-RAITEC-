@@ -7,9 +7,10 @@ import {
   resetPassword
 } from './routers/auth'
 import { getPerfil, getUsuarioById } from './routers/usuarios'
-import { registroConductor, actualizarVehiculo } from './routers/conductor'
+import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
 import { listarViajes, publicarViaje } from './routers/viajes'
 import { solicitarViaje, responderSolicitud } from './routers/solicitudes'
+import { get } from 'http'
 
 export const router = {
   auth: {
@@ -27,6 +28,7 @@ export const router = {
   conductor: {
     registroConductor,
     actualizarVehiculo,
+    getVehiculo,
   },
   viajes: {
     listar: listarViajes,

@@ -13,6 +13,7 @@ import {
 import Header from '../../components/common/HeaderBack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getPerfil, logout } from '../../services/auth/authService';
+import { getVehiculo } from '../../services/trip/tripService'
 import { orpc } from '../../services/api/apiClient';
 import { UPLOAD_URL } from '../../services/api/apiClient';
 
@@ -68,7 +69,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   const obtenerVehiculo = async () => {
     try {
-      const data = await orpc.conductor.getVehiculo();
+      const data = await getVehiculo();
       if (data.success) setVehiculo(data.vehiculo);
     } catch (error) {
       console.log('Error al obtener vehículo:', error);

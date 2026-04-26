@@ -42,7 +42,7 @@ export const registroConductor = async (params: {
   foto_licencia_uri: string
   foto_circulacion_uri: string
 }) => {
-  // 1. Subir fotos
+  // Express guarda los archivos en disco y devuelve los filenames
   const formData = new FormData()
   formData.append('foto_licencia', {
     uri: params.foto_licencia_uri,
@@ -61,7 +61,11 @@ export const registroConductor = async (params: {
   })
   const uploadData = await uploadRes.json()
 
-  // 2. Registrar conductor con oRPC
+  if (!uploadData.foto_licencia || !uploadData.foto_circulacion) {
+    throw new Error('Error al subir las fotos al servidor')
+  }
+
+  // oRPC valida con Vision AI, sube a Cloudinary y guarda en BD
   return orpc.conductor.registroConductor({
     modelo: params.modelo,
     color: params.color,
@@ -79,30 +83,38 @@ export const actualizarVehiculo = async (params: {
   capacidad_pasajeros: number
   foto_circulacion_uri?: string
 }) => {
-  let foto_circulacion: string | undefined
-
-  // Subir foto nueva si se proporcionó
-  if (params.foto_circulacion_uri) {
-    const formData = new FormData()
-    formData.append('foto_circulacion', {
-      uri: params.foto_circulacion_uri,
-      type: 'image/jpeg',
-      name: 'circulacion.jpg',
-    } as any)
-
-    const uploadRes = await fetch(`${UPLOAD_URL}/upload/circulacion`, {
-      method: 'POST',
-      body: formData,
-    })
-    const uploadData = await uploadRes.json()
-    foto_circulacion = uploadData.foto_circulacion
+  if (!params.foto_circulacion_uri) {
+    throw new Error('Se requiere foto de circulación para actualizar el vehículo')
   }
 
+  // Express guarda el archivo en disco
+  const formData = new FormData()
+  formData.append('foto_circulacion', {
+    uri: params.foto_circulacion_uri,
+    type: 'image/jpeg',
+    name: 'circulacion.jpg',
+  } as any)
+
+  const uploadRes = await fetch(`${UPLOAD_URL}/upload/circulacion`, {
+    method: 'POST',
+    body: formData,
+  })
+  const uploadData = await uploadRes.json()
+
+  if (!uploadData.foto_circulacion) {
+    throw new Error('Error al subir la foto de circulación')
+  }
+
+  // oRPC valida con Vision AI, sube a Cloudinary y actualiza BD
   return orpc.conductor.actualizarVehiculo({
     modelo: params.modelo,
     color: params.color,
     placas: params.placas,
     capacidad_pasajeros: params.capacidad_pasajeros,
-    foto_circulacion,
+    foto_circulacion_filename: uploadData.foto_circulacion,
   })
+}
+
+export const getVehiculo = async () => {
+  return orpc.conductor.getVehiculo()
 }
