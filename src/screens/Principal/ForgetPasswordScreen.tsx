@@ -1,3 +1,4 @@
+// src/screens/Principal/ForgetPasswordScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -8,7 +9,7 @@ import {
   Alert,
   StatusBar,
 } from "react-native";
-import { API_URL } from "../../services/api";
+import { orpc } from "../../services/api/apiClient";
 
 const ForgetPasswordScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
@@ -22,23 +23,12 @@ const ForgetPasswordScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo_inst: email }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Éxito", "Código enviado a tu correo");
-        navigation.navigate("Code", { email: email });
-      } else {
-        Alert.alert("Error", data.error || "Correo no registrado");
-      }
-    } catch (error) {
+      await orpc.auth.forgotPassword({ correo_inst: email });
+      Alert.alert("Éxito", "Código enviado a tu correo");
+      navigation.navigate("Code", { email });
+    } catch (error: any) {
       console.log(error);
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      Alert.alert("Error", error?.message || "Correo no registrado");
     } finally {
       setLoading(false);
     }

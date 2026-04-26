@@ -1,3 +1,4 @@
+// src/screens/Principal/ChangePasswordScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { API_URL } from "../../services/api";
+import { orpc } from "../../services/api/apiClient";
 
 const ChangePasswordScreen = ({ navigation, route }: any) => {
   const { email } = route.params;
@@ -22,7 +23,6 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
       Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres");
       return;
     }
-
     if (password !== confirmPassword) {
       Alert.alert("Error", "Las contraseñas no coinciden");
       return;
@@ -30,23 +30,12 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo_inst: email, newPassword: password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Éxito", "Contraseña actualizada correctamente", [
-          { text: "OK", onPress: () => navigation.navigate("Login") },
-        ]);
-      } else {
-        Alert.alert("Error", data.error || "No se pudo cambiar la contraseña");
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      await orpc.auth.resetPassword({ correo_inst: email, newPassword: password });
+      Alert.alert("Éxito", "Contraseña actualizada correctamente", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo cambiar la contraseña");
     } finally {
       setLoading(false);
     }
@@ -98,9 +87,7 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
       </View>
 
       <TouchableOpacity
-        className={`bg-blue-900 p-4 rounded-xl mt-8 ${
-          loading ? "opacity-50" : ""
-        }`}
+        className={`bg-blue-900 p-4 rounded-xl mt-8 ${loading ? "opacity-50" : ""}`}
         onPress={cambiarPassword}
         disabled={loading}
       >

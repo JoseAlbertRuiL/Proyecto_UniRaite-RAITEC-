@@ -1,3 +1,4 @@
+// src/screens/trip/PublishTripScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,9 +12,8 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/common/HeaderBack';
-import { API_URL } from '../../services/api';
+import { publicarViaje } from '../../services/trip/tripService';
 
 interface TripForm {
   origen: string;
@@ -38,8 +38,6 @@ const INITIAL_FORM: TripForm = {
 const PublishTripScreen = ({ navigation }: any) => {
   const [form, setForm] = useState<TripForm>(INITIAL_FORM);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Estados para los pickers
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -48,23 +46,18 @@ const PublishTripScreen = ({ navigation }: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  // Formatea fecha como "Hoy, 17 abr" o "Mañana, 18 abr"
   const formatFecha = (d: Date): string => {
     const hoy = new Date();
     const manana = new Date();
     manana.setDate(hoy.getDate() + 1);
-
-    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                   'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
     const dia = d.getDate();
     const mes = meses[d.getMonth()];
-
     if (d.toDateString() === hoy.toDateString()) return `Hoy, ${dia} ${mes}`;
     if (d.toDateString() === manana.toDateString()) return `Mañana, ${dia} ${mes}`;
     return `${dia} ${mes}`;
   };
 
-  // Formatea hora como "6:00 AM"
   const formatHora = (d: Date): string => {
     let hours = d.getHours();
     const minutes = d.getMinutes().toString().padStart(2, '0');
@@ -75,72 +68,34 @@ const PublishTripScreen = ({ navigation }: any) => {
 
   const onChangeFecha = (_: any, selectedDate?: Date) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      setDate(selectedDate);
-      updateField('fecha', formatFecha(selectedDate));
-    }
+    if (selectedDate) { setDate(selectedDate); updateField('fecha', formatFecha(selectedDate)); }
   };
 
   const onChangeHora = (_: any, selectedDate?: Date) => {
     setShowTimePicker(false);
-    if (selectedDate) {
-      updateField('hora', formatHora(selectedDate));
-    }
+    if (selectedDate) updateField('hora', formatHora(selectedDate));
   };
 
-  const incrementarAsientos = () => {
-    if (form.asientos < 4) updateField('asientos', form.asientos + 1);
-  };
+  const incrementarAsientos = () => { if (form.asientos < 4) updateField('asientos', form.asientos + 1); };
+  const decrementarAsientos = () => { if (form.asientos > 1) updateField('asientos', form.asientos - 1); };
 
-  const decrementarAsientos = () => {
-    if (form.asientos > 1) updateField('asientos', form.asientos - 1);
-  };
-
-  const publicarViaje = async () => {
-    if (!form.origen.trim()) {
-      Alert.alert('Faltan datos', 'Por favor ingresa el origen del viaje.');
-      return;
-    }
-    if (!form.destino.trim()) {
-      Alert.alert('Faltan datos', 'Por favor ingresa el destino del viaje.');
-      return;
-    }
-    if (!form.fecha) {
-      Alert.alert('Faltan datos', 'Por favor selecciona la fecha del viaje.');
-      return;
-    }
-    if (!form.hora) {
-      Alert.alert('Faltan datos', 'Por favor selecciona la hora del viaje.');
-      return;
-    }
-    if (!form.precio || parseFloat(form.precio) <= 0) {
-      Alert.alert('Faltan datos', 'Por favor ingresa un precio válido.');
-      return;
-    }
+  const handlePublicar = async () => {
+    if (!form.origen.trim())                       { Alert.alert('Faltan datos', 'Por favor ingresa el origen del viaje.'); return; }
+    if (!form.destino.trim())                      { Alert.alert('Faltan datos', 'Por favor ingresa el destino del viaje.'); return; }
+    if (!form.fecha)                               { Alert.alert('Faltan datos', 'Por favor selecciona la fecha del viaje.'); return; }
+    if (!form.hora)                                { Alert.alert('Faltan datos', 'Por favor selecciona la hora del viaje.'); return; }
+    if (!form.precio || parseFloat(form.precio) <= 0) { Alert.alert('Faltan datos', 'Por favor ingresa un precio válido.'); return; }
 
     setIsLoading(true);
-
     try {
-      const token = await AsyncStorage.getItem('token');
-
-      const res = await fetch(`${API_URL}/viajes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          origen: form.origen,
-          destino: form.destino,
-          fecha: form.fecha,
-          hora: form.hora,
-          asientos: form.asientos,
-          precio: parseFloat(form.precio),
-          comentario: form.comentario,
-        }),
+      const data = await publicarViaje({
+        origen:   form.origen,
+        destino:  form.destino,
+        fecha:    form.fecha,
+        hora:     form.hora,
+        asientos: form.asientos,
+        precio:   parseFloat(form.precio),
       });
-
-      const data = await res.json();
 
       if (data.success) {
         Alert.alert('¡Viaje publicado!', 'Tu viaje ya está disponible para pasajeros.');
@@ -148,9 +103,9 @@ const PublishTripScreen = ({ navigation }: any) => {
       } else {
         Alert.alert('Error', 'No se pudo publicar el viaje.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log('Error al publicar viaje:', error);
-      Alert.alert('Error', 'Ocurrió un problema. Intenta de nuevo.');
+      Alert.alert('Error', error?.message || 'Ocurrió un problema. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
@@ -166,36 +121,21 @@ const PublishTripScreen = ({ navigation }: any) => {
           {/* Origen / Destino */}
           <View className="bg-blue-50 rounded-2xl p-4">
             <View className="flex-row items-stretch gap-3">
-
               <View className="items-center mt-1">
                 <View className="w-3 h-3 rounded-full bg-blue-600" />
                 <View className="w-0.5 flex-1 bg-gray-300 my-1" style={{ minHeight: 36 }} />
                 <View className="w-3 h-3 rounded-full border-2 border-blue-600 bg-white" />
               </View>
-
               <View className="flex-1 gap-3">
                 <View>
                   <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Origen</Text>
-                  <TextInput
-                    value={form.origen}
-                    onChangeText={text => updateField('origen', text)}
-                    className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-200"
-                    placeholder="¿Desde dónde sales?"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                  <TextInput value={form.origen} onChangeText={text => updateField('origen', text)} className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-200" placeholder="¿Desde dónde sales?" placeholderTextColor="#9CA3AF" />
                 </View>
                 <View>
                   <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Destino</Text>
-                  <TextInput
-                    value={form.destino}
-                    onChangeText={text => updateField('destino', text)}
-                    className="text-base text-gray-900"
-                    placeholder="¿A dónde vas?"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                  <TextInput value={form.destino} onChangeText={text => updateField('destino', text)} className="text-base text-gray-900" placeholder="¿A dónde vas?" placeholderTextColor="#9CA3AF" />
                 </View>
               </View>
-
             </View>
           </View>
 
@@ -203,88 +143,43 @@ const PublishTripScreen = ({ navigation }: any) => {
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Fecha y Hora</Text>
             <View className="flex-row gap-2">
-
-              <TouchableOpacity
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-3"
-                onPress={() => setShowDatePicker(true)}
-              >
+              <TouchableOpacity className="flex-1 border border-gray-200 rounded-xl px-3 py-3" onPress={() => setShowDatePicker(true)}>
                 <Text className="text-xs text-gray-400 mb-0.5">Fecha</Text>
-                <Text className={`text-sm font-medium ${form.fecha ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {form.fecha || 'Seleccionar'}
-                </Text>
+                <Text className={`text-sm font-medium ${form.fecha ? 'text-gray-900' : 'text-gray-400'}`}>{form.fecha || 'Seleccionar'}</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-3"
-                onPress={() => setShowTimePicker(true)}
-              >
+              <TouchableOpacity className="flex-1 border border-gray-200 rounded-xl px-3 py-3" onPress={() => setShowTimePicker(true)}>
                 <Text className="text-xs text-gray-400 mb-0.5">Hora</Text>
-                <Text className={`text-sm font-medium ${form.hora ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {form.hora || 'Seleccionar'}
-                </Text>
+                <Text className={`text-sm font-medium ${form.hora ? 'text-gray-900' : 'text-gray-400'}`}>{form.hora || 'Seleccionar'}</Text>
               </TouchableOpacity>
-
             </View>
           </View>
 
-          {/* Date Picker */}
           {showDatePicker && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              minimumDate={new Date()}
-              onChange={onChangeFecha}
-              locale="es-MX"
-            />
+            <DateTimePicker value={date} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} minimumDate={new Date()} onChange={onChangeFecha} locale="es-MX" />
           )}
-
-          {/* Time Picker */}
           {showTimePicker && (
-            <DateTimePicker
-              value={date}
-              mode="time"
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              is24Hour={false}
-              onChange={onChangeHora}
-            />
+            <DateTimePicker value={date} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} is24Hour={false} onChange={onChangeHora} />
           )}
 
-          {/* Asientos disponibles */}
+          {/* Asientos */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Lugares disponibles</Text>
             <View className="flex-row items-center justify-between border border-gray-200 rounded-xl px-4 py-3">
               <Text className="text-sm text-gray-700">Asientos Disponibles</Text>
               <View className="flex-row items-center gap-4">
-                <TouchableOpacity
-                  onPress={decrementarAsientos}
-                  className="w-8 h-8 rounded-full border border-blue-600 items-center justify-center"
-                >
+                <TouchableOpacity onPress={decrementarAsientos} className="w-8 h-8 rounded-full border border-blue-600 items-center justify-center">
                   <Text className="text-blue-600 text-lg font-medium leading-none">−</Text>
                 </TouchableOpacity>
-
                 <Text className="text-xl font-bold text-gray-900 w-5 text-center">{form.asientos}</Text>
-
-                <TouchableOpacity
-                  onPress={incrementarAsientos}
-                  className="w-8 h-8 rounded-full bg-blue-600 items-center justify-center"
-                >
+                <TouchableOpacity onPress={incrementarAsientos} className="w-8 h-8 rounded-full bg-blue-600 items-center justify-center">
                   <Text className="text-white text-lg font-medium leading-none">+</Text>
                 </TouchableOpacity>
               </View>
             </View>
-
             <View className="flex-row gap-2 mt-2">
               {[1, 2, 3, 4].map((i) => (
-                <View
-                  key={i}
-                  className={`w-8 h-8 rounded-full border items-center justify-center ${
-                    i <= form.asientos ? 'bg-blue-50 border-blue-600' : 'bg-white border-gray-200'
-                  }`}
-                >
-                  <Text className={`text-xs ${i <= form.asientos ? 'text-blue-600' : 'text-gray-300'}`}>
-                    👤
-                  </Text>
+                <View key={i} className={`w-8 h-8 rounded-full border items-center justify-center ${i <= form.asientos ? 'bg-blue-50 border-blue-600' : 'bg-white border-gray-200'}`}>
+                  <Text className={`text-xs ${i <= form.asientos ? 'text-blue-600' : 'text-gray-300'}`}>👤</Text>
                 </View>
               ))}
             </View>
@@ -294,17 +189,8 @@ const PublishTripScreen = ({ navigation }: any) => {
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Precio por persona</Text>
             <View className="flex-row items-center gap-3 border border-gray-200 rounded-xl px-4 py-3">
-              <View className="bg-blue-50 rounded-lg px-2 py-1">
-                <Text className="text-blue-600 font-bold text-base">$</Text>
-              </View>
-              <TextInput
-                value={form.precio}
-                onChangeText={text => updateField('precio', text)}
-                keyboardType="numeric"
-                className="flex-1 text-2xl font-bold text-gray-900"
-                placeholder="0.00"
-                placeholderTextColor="#9CA3AF"
-              />
+              <View className="bg-blue-50 rounded-lg px-2 py-1"><Text className="text-blue-600 font-bold text-base">$</Text></View>
+              <TextInput value={form.precio} onChangeText={text => updateField('precio', text)} keyboardType="numeric" className="flex-1 text-2xl font-bold text-gray-900" placeholder="0.00" placeholderTextColor="#9CA3AF" />
               <Text className="text-xs text-gray-400">MXN / persona</Text>
             </View>
           </View>
@@ -312,31 +198,12 @@ const PublishTripScreen = ({ navigation }: any) => {
           {/* Comentario */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">Comentario adicional</Text>
-            <TextInput
-              value={form.comentario}
-              onChangeText={text => updateField('comentario', text)}
-              multiline
-              numberOfLines={3}
-              placeholder="Saldré de casa a las 5:45 para evitar tráfico"
-              placeholderTextColor="#9CA3AF"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700"
-              style={{ textAlignVertical: 'top', minHeight: 80 }}
-            />
+            <TextInput value={form.comentario} onChangeText={text => updateField('comentario', text)} multiline numberOfLines={3} placeholder="Saldré de casa a las 5:45 para evitar tráfico" placeholderTextColor="#9CA3AF" className="border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700" style={{ textAlignVertical: 'top', minHeight: 80 }} />
           </View>
 
           {/* Publicar */}
-          <TouchableOpacity
-            onPress={publicarViaje}
-            disabled={isLoading}
-            className={`rounded-2xl py-4 items-center mb-6 ${
-              isLoading ? 'bg-blue-300' : 'bg-blue-600'
-            }`}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="text-white text-base font-bold">Publicar viaje</Text>
-            )}
+          <TouchableOpacity onPress={handlePublicar} disabled={isLoading} className={`rounded-2xl py-4 items-center mb-6 ${isLoading ? 'bg-blue-300' : 'bg-blue-600'}`}>
+            {isLoading ? <ActivityIndicator color="#fff" /> : <Text className="text-white text-base font-bold">Publicar viaje</Text>}
           </TouchableOpacity>
 
         </View>

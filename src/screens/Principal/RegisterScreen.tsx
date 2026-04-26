@@ -1,3 +1,4 @@
+// src/screens/Principal/RegisterScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -9,7 +10,7 @@ import {
   Image,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { API_URL } from "../../services/api";
+import { register, verificarCorreo } from "../../services/auth/authService";
 
 const RegisterScreen = ({ navigation }: any) => {
   // Paso 1 - Datos personales
@@ -32,24 +33,10 @@ const RegisterScreen = ({ navigation }: any) => {
 
   const [paso, setPaso] = useState(1);
 
-  // Validar correo institucional (l + 8 números empezando con 2 + @morelia.tecnm.mx)
+  // Validar correo institucional
   const validarCorreo = (correo: string) => {
     const regex = /^l[2][0-9]{7}@morelia\.tecnm\.mx$/;
     return regex.test(correo);
-  };
-
-  //Validar si el correo electrónico institucional ya está registrado en la BD
-  const verificarCorreoExistente = async (correo: string) => {
-    try {
-      const response = await fetch(
-        `${API_URL}/verificar-correo?correo=${correo}`,
-      );
-      const data = await response.json();
-      return data.existe;
-    } catch (error) {
-      console.log(error);
-      return false;
-    }
   };
 
   // Tomar foto con cámara o galería
@@ -67,19 +54,14 @@ const RegisterScreen = ({ navigation }: any) => {
       Alert.alert("Permiso", "Necesitamos acceso a la cámara");
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled) {
-      if (tipo === "credencial") {
-        setFotoCredencial(result.assets[0].uri);
-      } else {
-        setFotoPerfil(result.assets[0].uri);
-      }
+      if (tipo === "credencial") setFotoCredencial(result.assets[0].uri);
+      else setFotoPerfil(result.assets[0].uri);
     }
   };
 
@@ -89,19 +71,14 @@ const RegisterScreen = ({ navigation }: any) => {
       Alert.alert("Permiso", "Necesitamos acceso a la galería");
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
-
     if (!result.canceled) {
-      if (tipo === "credencial") {
-        setFotoCredencial(result.assets[0].uri);
-      } else {
-        setFotoPerfil(result.assets[0].uri);
-      }
+      if (tipo === "credencial") setFotoCredencial(result.assets[0].uri);
+      else setFotoPerfil(result.assets[0].uri);
     }
   };
 
@@ -115,24 +92,11 @@ const RegisterScreen = ({ navigation }: any) => {
     } else if (paso === 2) {
       if (email && password) {
         if (!validarCorreo(email)) {
-          Alert.alert(
-            "Error",
-            "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx",
-          );
+          Alert.alert("Error", "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx");
           return;
         }
-
-        // Verificar si el correo ya existe
         try {
-          const url = `${API_URL}/verificar-correo?correo=${encodeURIComponent(email)}`;
-          console.log("Consultando:", url);
-
-          const response = await fetch(url);
-          const text = await response.text();
-          console.log("Respuesta cruda:", text);
-
-          const data = JSON.parse(text);
-
+          const data = await verificarCorreo(email);
           if (data.existe) {
             Alert.alert("Error", "Este correo ya está registrado");
             return;
@@ -142,11 +106,8 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "No se pudo verificar el correo");
           return;
         }
-
         const numeros = email.match(/\d+/);
-        if (numeros) {
-          setNumControl(numeros[0]);
-        }
+        if (numeros) setNumControl(numeros[0]);
         setPaso(3);
       } else {
         Alert.alert("Error", "Faltan campos");
@@ -168,52 +129,29 @@ const RegisterScreen = ({ navigation }: any) => {
 
   const enviarRegistro = async () => {
     try {
-      const formData = new FormData();
-      formData.append("nombre", nombre);
-      formData.append("apellido_paterno", apellidoPaterno);
-      formData.append("apellido_materno", apellidoMaterno);
-      formData.append("correo_inst", email);
-      formData.append("password", password);
-      formData.append("num_control", numControl);
-      formData.append("carrera", carrera);
-
-      formData.append("foto_credencial", {
-        uri: fotoCredencial,
-        name: "credencial.jpg",
-        type: "image/jpeg",
-      } as any);
-
-      formData.append("foto_perfil", {
-        uri: fotoPerfil,
-        name: "perfil.jpg",
-        type: "image/jpeg",
-      } as any);
-
-      const res = await fetch(`${API_URL}/register`, {
-        method: "POST",
-        body: formData,
-        headers: { "Content-Type": "multipart/form-data" },
+      await register({
+        nombre,
+        apellido_paterno: apellidoPaterno,
+        apellido_materno: apellidoMaterno,
+        correo_inst: email,
+        password,
+        num_control: numControl,
+        carrera,
+        foto_credencial_uri: fotoCredencial ?? undefined,
+        foto_perfil_uri: fotoPerfil ?? undefined,
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        Alert.alert("Listo!", "Te registraste correctamente", [
-          { text: "OK", onPress: () => navigation.navigate("Login") },
-        ]);
-      } else {
-        Alert.alert("Error", data.error || "algo salio mal");
-      }
-    } catch (error) {
+      Alert.alert("Listo!", "Te registraste correctamente", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
+    } catch (error: any) {
       console.log(error);
-      Alert.alert("Error", "No se pudo conectar al servidor");
+      Alert.alert("Error", error?.message || "No se pudo conectar al servidor");
     }
   };
 
   const volver = () => {
-    if (paso > 1) {
-      setPaso(paso - 1);
-    }
+    if (paso > 1) setPaso(paso - 1);
   };
 
   return (
@@ -232,9 +170,7 @@ const RegisterScreen = ({ navigation }: any) => {
         )}
       </View>
 
-      <Text className="text-4xl font-bold text-blue-900 text-center">
-        UNIRAITE
-      </Text>
+      <Text className="text-4xl font-bold text-blue-900 text-center">UNIRAITE</Text>
       <Text className="text-center text-gray-500 mt-1">Paso {paso} de 4</Text>
 
       {paso === 1 && (
@@ -260,8 +196,6 @@ const RegisterScreen = ({ navigation }: any) => {
             value={apellidoMaterno}
             onChangeText={setApellidoMaterno}
           />
-
-          {/* Botón para ir al login */}
           <TouchableOpacity
             className="mt-6 p-4 bg-gray-200 rounded-xl"
             onPress={() => navigation.navigate("Login")}
@@ -287,7 +221,6 @@ const RegisterScreen = ({ navigation }: any) => {
           <Text className="text-xs text-gray-500 mt-1">
             Formato: l + 8 números (empieza con 2) + @morelia.tecnm.mx
           </Text>
-
           <Text className="mb-1 mt-4 text-gray-700">Contraseña *</Text>
           <View className="flex-row items-center border border-gray-300 rounded-xl bg-gray-50">
             <TextInput
@@ -325,7 +258,6 @@ const RegisterScreen = ({ navigation }: any) => {
             value={carrera}
             onChangeText={setCarrera}
           />
-
           <Text className="mb-1 mt-4 text-gray-700">Foto de credencial *</Text>
           <TouchableOpacity
             className="bg-gray-200 p-4 rounded-xl mt-1 items-center"
@@ -333,10 +265,7 @@ const RegisterScreen = ({ navigation }: any) => {
           >
             {fotoCredencial ? (
               <View className="items-center">
-                <Image
-                  source={{ uri: fotoCredencial }}
-                  className="w-32 h-32 rounded-lg"
-                />
+                <Image source={{ uri: fotoCredencial }} className="w-32 h-32 rounded-lg" />
                 <Text className="text-green-600 mt-2">✓ Foto seleccionada</Text>
               </View>
             ) : (
@@ -357,10 +286,7 @@ const RegisterScreen = ({ navigation }: any) => {
           >
             {fotoPerfil ? (
               <View className="items-center">
-                <Image
-                  source={{ uri: fotoPerfil }}
-                  className="w-32 h-32 rounded-full"
-                />
+                <Image source={{ uri: fotoPerfil }} className="w-32 h-32 rounded-full" />
                 <Text className="text-green-600 mt-2">✓ Foto seleccionada</Text>
               </View>
             ) : (
@@ -379,7 +305,6 @@ const RegisterScreen = ({ navigation }: any) => {
             <Text className="text-white text-center font-bold">Atrás</Text>
           </TouchableOpacity>
         )}
-
         <TouchableOpacity
           className={`${paso > 1 ? "flex-1 ml-2" : "flex-1"} bg-blue-900 p-4 rounded-xl`}
           onPress={siguiente}

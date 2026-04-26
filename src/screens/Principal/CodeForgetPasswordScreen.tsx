@@ -1,3 +1,4 @@
+// src/screens/Principal/CodeForgetPasswordScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -7,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { API_URL } from "../../services/api";
+import { orpc } from "../../services/api/apiClient";
 
 const CodeForgetPasswordScreen = ({ navigation, route }: any) => {
   const { email } = route.params;
@@ -22,21 +23,10 @@ const CodeForgetPasswordScreen = ({ navigation, route }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/verify-code`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo_inst: email, codigo: codigo }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        navigation.navigate("ChangePassword", { email: email });
-      } else {
-        Alert.alert("Error", data.error || "Código incorrecto");
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo verificar el código");
+      await orpc.auth.verifyCode({ correo_inst: email, codigo });
+      navigation.navigate("ChangePassword", { email });
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Código incorrecto");
     } finally {
       setLoading(false);
     }
