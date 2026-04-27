@@ -98,6 +98,7 @@ model mensajes_chat {
   id_emisor         String
   contenido         String
   fecha_envio       DateTime
+  leido             Boolean  @default(false)
 
   viaje             viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
   emisor            usuarios @relation("EmisorMensajes", fields: [id_emisor], references: [id_usuario])

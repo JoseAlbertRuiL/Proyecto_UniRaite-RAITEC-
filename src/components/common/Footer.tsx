@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Platform, Alert } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { orpc } from "../../services/api/apiClient";
+import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
 
 interface FooterProps {
   navigation: any;
@@ -14,6 +15,43 @@ const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill
 const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 8.94 10h-2.02A7 7 0 1 1 13 5V3zm-1 5h2v6l5 3-1 1.73-6-3.73V8z"/></svg>`;
 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
+
+  const cargarMensajesNoLeidos = async () => {
+    try {
+      const data = await orpc.chat.contarMensajesNoLeidos();
+      console.log("📊 Respuesta del backend:", data);
+      if (data.success) {
+        setMensajesNoLeidos(data.total);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
+  useEffect(() => {
+    cargarMensajesNoLeidos();
+
+    const socket = getSocket();
+    if (socket) {
+      const handleNewMessage = () => {
+        cargarMensajesNoLeidos();
+      };
+
+      const handleMensajesLeidos = () => {
+        cargarMensajesNoLeidos();
+      };
+
+      onNewMessage(handleNewMessage);
+      socket.on("mensajes_leidos", handleMensajesLeidos);
+
+      return () => {
+        offNewMessage();
+        socket.off("mensajes_leidos", handleMensajesLeidos);
+      };
+    }
+  }, []);
+
   const verificarConductor = async () => {
     try {
       const data = await orpc.usuarios.getPerfil();
@@ -59,10 +97,19 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        className="items-center"
+        className="items-center relative"
         onPress={() => navigation.navigate("ChatHistory")}
       >
-        <SvgXml xml={chatSvg} width={24} height={24} fill="#6B7280" />
+        <View>
+          <SvgXml xml={chatSvg} width={24} height={24} fill="#6B7280" />
+          {mensajesNoLeidos > 0 && (
+            <View className="absolute -top-2 -right-3 bg-red-500 rounded-full min-w-[18px] h-[18px] items-center justify-center px-1">
+              <Text className="text-white text-xs font-bold">
+                {mensajesNoLeidos > 9 ? "9+" : mensajesNoLeidos}
+              </Text>
+            </View>
+          )}
+        </View>
         <Text className="text-xs text-gray-600">Chat</Text>
       </TouchableOpacity>
 

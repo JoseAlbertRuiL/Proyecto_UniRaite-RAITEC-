@@ -176,7 +176,6 @@ const StartScreen = ({ navigation }: any) => {
       Alert.alert("Error", error?.message || "No se pudo enviar la solicitud");
     }
   };
-
   const onRefresh = () => {
     setRefrescando(true);
     cargarViajes();

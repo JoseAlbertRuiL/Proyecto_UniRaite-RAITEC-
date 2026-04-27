@@ -38,9 +38,20 @@ export default function ChatScreen({ navigation, route }: any) {
   const [error, setError] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
+  const marcarMensajesComoLeidos = async () => {
+    try {
+      console.log("📱 Marcando mensajes como leídos para viaje:", idViaje);
+      await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
+    } catch (error) {
+      console.error("Error al marcar mensajes como leídos:", error);
+    }
+  };
+
   useEffect(() => {
     const inicializarChat = async () => {
       try {
+        await marcarMensajesComoLeidos();
+
         const perfil = await orpc.usuarios.getPerfil();
         setMyId(perfil.user.id_usuario);
 

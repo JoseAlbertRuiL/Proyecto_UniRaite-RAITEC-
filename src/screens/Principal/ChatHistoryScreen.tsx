@@ -33,7 +33,6 @@ export default function ChatHistoryScreen({ navigation }: any) {
     }
   };
 
-  // Recargar historial cuando llega un nuevo mensaje
   const handleNewMessage = (data: any) => {
     console.log("💬 Nuevo mensaje recibido, actualizando historial:", data);
     cargarHistorial();
@@ -57,6 +56,20 @@ export default function ChatHistoryScreen({ navigation }: any) {
     return fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  const formatearFecha = (fechaString: string) => {
+    const fecha = new Date(fechaString);
+    const hoy = new Date();
+    const manana = new Date();
+    manana.setDate(hoy.getDate() + 1);
+
+    if (fecha.toDateString() === hoy.toDateString()) return "Hoy";
+    if (fecha.toDateString() === manana.toDateString()) return "Mañana";
+    return fecha.toLocaleDateString("es-MX", {
+      day: "numeric",
+      month: "short",
+    });
+  };
+
   const renderItem = ({ item }: any) => (
     <TouchableOpacity
       className="flex-row items-center p-4 border-b border-gray-100 bg-white"
@@ -68,13 +81,13 @@ export default function ChatHistoryScreen({ navigation }: any) {
     >
       <View className="w-12 h-12 bg-blue-100 rounded-full justify-center items-center mr-4">
         <Text className="text-blue-900 font-bold text-lg">
-          {item.remitente.charAt(0).toUpperCase()}
+          {item.destino?.charAt(0).toUpperCase() || "V"}
         </Text>
       </View>
       <View className="flex-1">
         <View className="flex-row justify-between mb-1">
           <Text className="font-bold text-gray-800 text-base">
-            Viaje #{item.idViaje}
+            {item.destino || `Viaje #${item.idViaje}`}
           </Text>
           <Text className="text-xs text-gray-400">
             {formatearHora(item.fecha)}
@@ -84,6 +97,11 @@ export default function ChatHistoryScreen({ navigation }: any) {
           {item.esMio ? "Tú: " : `${item.remitente}: `}
           {item.texto}
         </Text>
+        {item.fechaViaje && (
+          <Text className="text-xs text-gray-400 mt-1">
+            📅 {formatearFecha(item.fechaViaje)}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -112,7 +130,7 @@ export default function ChatHistoryScreen({ navigation }: any) {
         renderItem={renderItem}
         ListEmptyComponent={
           <Text className="text-center text-gray-500 mt-10">
-            No tienes mensajes recientes.
+            No tienes conversaciones activas.
           </Text>
         }
       />

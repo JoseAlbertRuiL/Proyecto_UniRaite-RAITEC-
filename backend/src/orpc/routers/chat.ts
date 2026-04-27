@@ -19,7 +19,6 @@ export const getMensajes = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
     }
 
-    // Verificar que el usuario esté relacionado con el viaje
     const esConductor = viaje.conductor?.usuario?.id_usuario === context.user.id;
     const esPasajero = await prisma.solicitudes_viaje.findFirst({
       where: {
@@ -67,7 +66,6 @@ export const enviarMensaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
     }
 
-    // Verificar que el usuario sea conductor o pasajero aceptado
     const esConductor = viaje.conductor?.usuario?.id_usuario === context.user.id;
     const esPasajero = await prisma.solicitudes_viaje.findFirst({
       where: {
@@ -87,6 +85,7 @@ export const enviarMensaje = protectedProcedure
         id_emisor: context.user.id,
         contenido: input.contenido,
         fecha_envio: new Date(),
+        leido: false
       },
       include: {
         emisor: {
@@ -98,7 +97,6 @@ export const enviarMensaje = protectedProcedure
       }
     });
 
-    // Emitir evento WebSocket
     const { io } = require('../../server');
     if (io) {
       io.to(`chat_${input.id_viaje_pub}`).emit('new_message', mensaje);
@@ -107,38 +105,39 @@ export const enviarMensaje = protectedProcedure
     return mensaje;
   });
 
-// Obtener chats del usuario (historial)
+// Obtener chats del usuario - SOLO VIAJES ACTIVOS (futuros)
 export const misChats = protectedProcedure
   .handler(async ({ context }) => {
-    // Obtener viajes donde el usuario es conductor
+    const ahora = new Date();
+
     const viajesConductor = await prisma.viajes_publicados.findMany({
       where: {
         conductor: {
           usuario: { id_usuario: context.user.id }
-        }
+        },
+        fecha_hora_salida: { gt: ahora }
       },
       select: { id_viaje_pub: true, destino_texto: true }
     });
 
-    // Obtener viajes donde el usuario es pasajero aceptado
     const solicitudesAceptadas = await prisma.solicitudes_viaje.findMany({
       where: {
         id_pasajero: context.user.id,
-        estado_solicitud: 'aceptada'
+        estado_solicitud: 'aceptada',
+        viaje: {
+          fecha_hora_salida: { gt: ahora }
+        }
       },
       select: { id_viaje_pub: true }
     });
 
-    // Combinar IDs de viajes
-    const idsViajes = [
-      ...viajesConductor.map(v => v.id_viaje_pub),
-      ...solicitudesAceptadas.map(s => s.id_viaje_pub)
+    const idsViajes: number[] = [
+      ...(viajesConductor?.map(v => v.id_viaje_pub) || []),
+      ...(solicitudesAceptadas?.map(s => s.id_viaje_pub) || [])
     ];
 
-    // Eliminar duplicados
     const idsUnicos = [...new Set(idsViajes)];
 
-    // Obtener último mensaje de cada viaje
     const chats = [];
     for (const viajeId of idsUnicos) {
       const ultimoMensaje = await prisma.mensajes_chat.findFirst({
@@ -147,8 +146,15 @@ export const misChats = protectedProcedure
         include: { emisor: { select: { nombre: true } } }
       });
 
+      const viaje = await prisma.viajes_publicados.findUnique({
+        where: { id_viaje_pub: viajeId },
+        select: { destino_texto: true, fecha_hora_salida: true }
+      });
+
       chats.push({
         idViaje: viajeId,
+        destino: viaje?.destino_texto || 'Viaje',
+        fechaViaje: viaje?.fecha_hora_salida,
         remitente: ultimoMensaje?.emisor?.nombre || 'Usuario',
         texto: ultimoMensaje?.contenido || 'Sin mensajes',
         fecha: ultimoMensaje?.fecha_envio || new Date(),
@@ -156,13 +162,12 @@ export const misChats = protectedProcedure
       });
     }
 
-    // Ordenar por fecha descendente
     chats.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
     return { success: true, chats, idUsuario: context.user.id };
   });
 
-// Obtener estado del viaje (para el chat)
+// Obtener estado del viaje
 export const getEstado = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
@@ -177,4 +182,73 @@ export const getEstado = protectedProcedure
 
     const estado = viaje.fecha_hora_salida < new Date() ? 'finalizado' : 'activo';
     return { estado };
+  });
+
+// Contar mensajes no leídos del usuario
+export const contarMensajesNoLeidos = protectedProcedure
+  .handler(async ({ context }) => {
+    const ahora = new Date();
+
+    const viajesConductor = await prisma.viajes_publicados.findMany({
+      where: {
+        conductor: {
+          usuario: { id_usuario: context.user.id }
+        },
+        fecha_hora_salida: { gt: ahora }
+      },
+      select: { id_viaje_pub: true }
+    });
+
+    const solicitudesAceptadas = await prisma.solicitudes_viaje.findMany({
+      where: {
+        id_pasajero: context.user.id,
+        estado_solicitud: 'aceptada',
+        viaje: {
+          fecha_hora_salida: { gt: ahora }
+        }
+      },
+      select: { id_viaje_pub: true }
+    });
+
+    const idsViajes = [
+      ...viajesConductor.map(v => v.id_viaje_pub),
+      ...solicitudesAceptadas.map(s => s.id_viaje_pub)
+    ];
+
+    const idsUnicos = [...new Set(idsViajes)];
+
+    let totalNoLeidos = 0;
+    for (const viajeId of idsUnicos) {
+      const count = await prisma.mensajes_chat.count({
+        where: {
+          id_viaje_pub: viajeId,
+          id_emisor: { not: context.user.id },
+          leido: false
+        }
+      });
+      totalNoLeidos += count;
+    }
+
+    return { success: true, total: totalNoLeidos };
+  });
+
+// Marcar mensajes como leídos en un viaje
+export const marcarComoLeidos = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input, context }) => {
+    await prisma.mensajes_chat.updateMany({
+      where: {
+        id_viaje_pub: input.viajeId,
+        id_emisor: { not: context.user.id },
+        leido: false
+      },
+      data: { leido: true }
+    });
+    
+    const { io } = require('../../server');
+    if (io) {
+      io.emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
+    }
+    
+    return { success: true };
   });
