@@ -12,6 +12,8 @@
     "@orpc/client": "^1.14.0",
     "@orpc/server": "^1.14.0",
     "@prisma/client": "^6.19.3",
+    "@react-native-picker/picker": "2.11.1",
+    "@turf/turf": "^7.3.5",
     "@types/socket.io": "^3.0.1",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.0.0",

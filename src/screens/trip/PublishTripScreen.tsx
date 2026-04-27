@@ -1,5 +1,5 @@
 // src/screens/trip/PublishTripScreen.tsx
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,15 +10,34 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Modal,
 } from "react-native";
+import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
+import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Header from "../../components/common/HeaderBack";
-import { publicarViaje } from "../../services/trip/tripService";
+import { publicarViaje, getVehiculo } from "../../services/trip/tripService";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { orpc } from "../../services/api/apiClient";
+
+const REGION_MORELIA = {
+  latitude:      19.7069,
+  longitude:    -101.1945,
+  latitudeDelta:  0.05,
+  longitudeDelta: 0.05,
+};
+
+const ITM_COORDS = { latitude: 19.7226, longitude: -101.1858 };
+
+interface Coordenada {
+  latitude:  number;
+  longitude: number;
+  texto:     string;
+}
 
 interface TripForm {
-  origen: string;
-  destino: string;
+  origen: Coordenada | null;
+  destino: Coordenada | null;
   fecha: string;
   hora: string;
   asientos: number;
@@ -27,11 +46,11 @@ interface TripForm {
 }
 
 const INITIAL_FORM: TripForm = {
-  origen: "",
-  destino: "Tecnológico de Morelia (ITM)",
+  origen: null,
+  destino: null,
   fecha: "",
   hora: "",
-  asientos: 4,
+  asientos: 1,
   precio: "25",
   comentario: "",
 };
@@ -43,6 +62,13 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [capacidadMaxima, setCapacidadMaxima] = useState(4);
+
+  const [mapVisible,    setMapVisible]    = useState(false);
+  const [mapTipo,       setMapTipo]       = useState<"origen" | "destino">("origen");
+  const [markerTemp,    setMarkerTemp]    = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geocodingLoad, setGeocodingLoad] = useState(false);
+  const mapRef = useRef<MapView>(null);
 
   const updateField = <K extends keyof TripForm>(
     field: K,
@@ -50,6 +76,26 @@ const PublishTripScreen = ({ navigation }: any) => {
   ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    const cargarCapacidad = async () => {
+      try {
+        const data = await getVehiculo();
+        if (data.success && data.vehiculo?.capacidad_pasajeros) {
+          const capacidad = data.vehiculo.capacidad_pasajeros;
+          setCapacidadMaxima(capacidad);
+          // Si el valor actual de asientos excede la capacidad real, ajustarlo
+          setForm((prev) => ({
+            ...prev,
+            asientos: Math.min(prev.asientos, capacidad),
+          }));
+        }
+      } catch (error) {
+        console.log("No se pudo cargar la capacidad del vehículo:", error);
+      }
+    };
+    cargarCapacidad();
+  }, []);
 
   const formatFecha = (d: Date): string => {
     const hoy = new Date();
@@ -89,28 +135,86 @@ const PublishTripScreen = ({ navigation }: any) => {
     setShowDatePicker(false);
     if (selectedDate) {
       setDate(selectedDate);
-      updateField("fecha", formatFecha(selectedDate));
+      setForm((p) => ({ ...p, fecha: formatFecha(selectedDate) }));
     }
   };
 
   const onChangeHora = (_: any, selectedDate?: Date) => {
     setShowTimePicker(false);
-    if (selectedDate) updateField("hora", formatHora(selectedDate));
+    if (selectedDate) setForm((p) => ({ ...p, hora: formatHora(selectedDate) }));
   };
 
   const incrementarAsientos = () => {
-    if (form.asientos < 4) updateField("asientos", form.asientos + 1);
+    if (form.asientos < capacidadMaxima) setForm((p) => ({ ...p, asientos: p.asientos + 1 }));
   };
   const decrementarAsientos = () => {
-    if (form.asientos > 1) updateField("asientos", form.asientos - 1);
+    if (form.asientos > 1) setForm((p) => ({ ...p, asientos: p.asientos - 1 }));
+  };
+
+  const abrirMapa = (tipo: "origen" | "destino") => {
+    setMapTipo(tipo);
+    // Si ya hay un punto seleccionado, centrar en él; si no, pedir ubicación actual
+    const puntoExistente = tipo === "origen" ? form.origen : form.destino;
+    if (puntoExistente) {
+      setMarkerTemp({ latitude: puntoExistente.latitude, longitude: puntoExistente.longitude });
+    } else {
+      setMarkerTemp(null);
+    }
+    setMapVisible(true);
+  };
+
+  const centrarEnUbicacion = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc = await Location.getCurrentPositionAsync({});
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setMarkerTemp(coords);
+      mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+    } catch (e) {
+      Alert.alert("Error", "No se pudo obtener tu ubicación.");
+    }
+  };
+
+  const onMapPress = (e: MapPressEvent) => {
+    setMarkerTemp(e.nativeEvent.coordinate);
+  };
+
+  const confirmarPunto = async () => {
+    if (!markerTemp) {
+      Alert.alert("Selecciona un punto", "Toca el mapa para elegir la ubicación.");
+      return;
+    }
+    setGeocodingLoad(true);
+    try {
+      const resultados = await Location.reverseGeocodeAsync(markerTemp);
+      const r    = resultados[0];
+      // Construir texto: "Calle número, Colonia, Ciudad"
+      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
+      const texto  = partes.length > 0 ? partes.join(", ") : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+
+      const coordenada: Coordenada = { ...markerTemp, texto };
+      setForm((prev) => ({
+        ...prev,
+        [mapTipo]: coordenada,
+      }));
+      setMapVisible(false);
+    } catch (e) {
+      // Si falla la geocodificación, usar coordenadas como texto
+      const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+      setForm((prev) => ({ ...prev, [mapTipo]: { ...markerTemp!, texto } }));
+      setMapVisible(false);
+    } finally {
+      setGeocodingLoad(false);
+    }
   };
 
   const handlePublicar = async () => {
-    if (!form.origen.trim()) {
+    if (!form.origen) {
       Alert.alert("Faltan datos", "Por favor ingresa el origen del viaje.");
       return;
     }
-    if (!form.destino.trim()) {
+    if (!form.destino) {
       Alert.alert("Faltan datos", "Por favor ingresa el destino del viaje.");
       return;
     }
@@ -130,8 +234,12 @@ const PublishTripScreen = ({ navigation }: any) => {
     setIsLoading(true);
     try {
       const data = await publicarViaje({
-        origen: form.origen,
-        destino: form.destino,
+        origen_texto: form.origen.texto,
+        destino_texto: form.destino.texto,
+        latitud_origen: form.origen.latitude,
+        longitud_origen: form.origen.longitude,
+        latitud_destino: form.destino.latitude,
+        longitud_destino: form.destino.longitude,
         fecha: form.fecha,
         hora: form.hora,
         asientos: form.asientos,
@@ -165,6 +273,68 @@ const PublishTripScreen = ({ navigation }: any) => {
     >
       <Header navigation={navigation} title="Publica tu Viaje" />
 
+      {/* ── Modal mapa picker ── */}
+      <Modal visible={mapVisible} animationType="slide">
+        <View style={{ flex: 1 }}>
+          <MapView
+            ref={mapRef}
+            style={{ flex: 1 }}
+            initialRegion={
+              markerTemp
+                ? { ...markerTemp, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                : REGION_MORELIA
+            }
+            onPress={onMapPress}
+          >
+            {markerTemp && <Marker coordinate={markerTemp} />}
+          </MapView>
+
+          {/* Instrucción flotante */}
+          <View
+            style={{
+              position: "absolute", top: 16, left: 16, right: 16,
+              backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, padding: 12,
+            }}
+          >
+            <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
+              {mapTipo === "origen" ? "📍 Toca para elegir el punto de origen" : "🏁 Toca para elegir el destino"}
+            </Text>
+          </View>
+
+          {/* Botones inferiores */}
+          <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
+            <TouchableOpacity
+              onPress={centrarEnUbicacion}
+              style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+            >
+              <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setMapVisible(false)}
+                style={{ flex: 1, backgroundColor: "#e5e7eb", borderRadius: 14, padding: 14, alignItems: "center" }}
+              >
+                <Text style={{ color: "#374151", fontWeight: "600" }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmarPunto}
+                disabled={geocodingLoad || !markerTemp}
+                style={{
+                  flex: 2, borderRadius: 14, padding: 14, alignItems: "center",
+                  backgroundColor: markerTemp ? "#2563eb" : "#93c5fd",
+                }}
+              >
+                {geocodingLoad
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={{ color: "white", fontWeight: "700" }}>Confirmar punto</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-4 py-5 gap-5">
           {/* Origen / Destino */}
@@ -172,36 +342,27 @@ const PublishTripScreen = ({ navigation }: any) => {
             <View className="flex-row items-stretch gap-3">
               <View className="items-center mt-1">
                 <View className="w-3 h-3 rounded-full bg-blue-600" />
-                <View
-                  className="w-0.5 flex-1 bg-gray-300 my-1"
-                  style={{ minHeight: 36 }}
-                />
+                <View className="w-0.5 flex-1 bg-gray-300 my-1" style={{ minHeight: 36 }}/>
                 <View className="w-3 h-3 rounded-full border-2 border-blue-600 bg-white" />
               </View>
               <View className="flex-1 gap-3">
+                {/* Origen */}
                 <View>
-                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                    Origen
-                  </Text>
-                  <TextInput
-                    value={form.origen}
-                    onChangeText={(text) => updateField("origen", text)}
-                    className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-200"
-                    placeholder="¿Desde dónde sales?"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Origen</Text>
+                  <TouchableOpacity onPress={() => abrirMapa("origen")}>
+                    <Text className={`text-base font-semibold pb-2 border-b border-gray-200 ${form.origen ? "text-gray-900" : "text-gray-400"}`}>
+                      {form.origen ? form.origen.texto : "Toca para seleccionar en el mapa"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+                {/* Destino */}
                 <View>
-                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                    Destino
-                  </Text>
-                  <TextInput
-                    value={form.destino}
-                    onChangeText={(text) => updateField("destino", text)}
-                    className="text-base text-gray-900"
-                    placeholder="¿A dónde vas?"
-                    placeholderTextColor="#9CA3AF"
-                  />
+                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Destino</Text>
+                  <TouchableOpacity onPress={() => abrirMapa("destino")}>
+                    <Text className={`text-base ${form.destino ? "text-gray-900" : "text-gray-400"}`}>
+                      {form.destino ? form.destino.texto : "Toca para seleccionar en el mapa"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -290,7 +451,7 @@ const PublishTripScreen = ({ navigation }: any) => {
               </View>
             </View>
             <View className="flex-row gap-2 mt-2">
-              {[1, 2, 3, 4].map((i) => (
+              {Array.from({ length: capacidadMaxima }, (_, i) => i + 1).map((i) => (
                 <View
                   key={i}
                   className={`w-8 h-8 rounded-full border items-center justify-center ${i <= form.asientos ? "bg-blue-50 border-blue-600" : "bg-white border-gray-200"}`}
@@ -316,7 +477,7 @@ const PublishTripScreen = ({ navigation }: any) => {
               </View>
               <TextInput
                 value={form.precio}
-                onChangeText={(text) => updateField("precio", text)}
+                onChangeText={(text) => setForm((p) => ({ ...p, precio: text }))}
                 keyboardType="numeric"
                 className="flex-1 text-2xl font-bold text-gray-900"
                 placeholder="0.00"

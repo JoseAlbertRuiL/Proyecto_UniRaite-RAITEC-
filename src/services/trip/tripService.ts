@@ -9,8 +9,12 @@ export const listarViajes = async () => {
 }
 
 export const publicarViaje = async (params: {
-  origen: string
-  destino: string
+  origen_texto: string
+  destino_texto: string
+  latitud_origen: number
+  longitud_origen: number
+  latitud_destino: number
+  longitud_destino: number
   fecha: string
   hora: string
   asientos: number

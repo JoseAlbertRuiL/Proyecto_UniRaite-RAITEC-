@@ -59,17 +59,17 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         navigation.navigate("Conducir");
       } else {
         Alert.alert(
-          "No estás registrado como conductor",
-          "Para publicar viajes necesitas registrarte como conductor. ¿Deseas hacerlo ahora?",
+          "Necesitas registrarte como conductor",
+          "¿Quieres registrarte ahora?",
           [
+            {
+              text: "Sí, registrarme",
+              onPress: () => navigation.navigate("Licencia"),
+            },
             {
               text: "No",
               onPress: () => navigation.navigate("Start"),
               style: "cancel",
-            },
-            {
-              text: "Sí, registrarme",
-              onPress: () => navigation.navigate("Licencia"),
             },
           ],
         );

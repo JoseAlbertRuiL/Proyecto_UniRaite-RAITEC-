@@ -51,7 +51,6 @@ const ConducirScreen = ({ navigation }: any) => {
       "Cancelar viaje",
       "¿Estás seguro de que deseas cancelar este viaje?",
       [
-        { text: "No", style: "cancel" },
         {
           text: "Sí, cancelar",
           onPress: async () => {
@@ -70,6 +69,7 @@ const ConducirScreen = ({ navigation }: any) => {
           },
           style: "destructive",
         },
+        { text: "No", style: "cancel" },
       ],
     );
   };

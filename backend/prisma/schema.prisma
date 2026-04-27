@@ -65,15 +65,24 @@ model viajes_publicados {
   id_licencia_conductor String   
   origen_texto         String
   destino_texto        String
+  
+  // Coordenadas exactas para el algoritmo de Match
+  latitud_origen       Float
+  longitud_origen      Float
+  latitud_destino      Float
+  longitud_destino     Float
+
+  // Ruta dibujada de Google Maps
+  polyline             String?  @db.Text
+
   fecha_hora_salida    DateTime
   asientos_disponibles Int
   costo_estimado       Float
   es_recurrente        Boolean
   comentario_extra     String?
-
+  
   // Relación directa al conductor
   conductor            conductores @relation(fields: [id_licencia_conductor], references: [id_licencia])
-
   solicitudes          solicitudes_viaje[]
   mensajes             mensajes_chat[]
   viajes_activos       viajes_activos[]
