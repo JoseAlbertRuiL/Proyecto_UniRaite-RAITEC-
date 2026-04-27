@@ -16,6 +16,7 @@ import CirculacionScreen from "./src/screens/Principal/CirculacionScreen";
 import ChatHistory from "./src/screens/Principal/ChatHistoryScreen";
 import PerfilPublicoScreen from "./src/screens/Principal/PerfilPublicoScreen";
 import ConducirScreen from "./src/screens/Principal/ConducirScreen";
+import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 
 type ScreenName =
   | "Login"
@@ -32,7 +33,8 @@ type ScreenName =
   | "PublicarViaje"
   | "ChatHistory"
   | "PerfilPublico"
-  | "Conducir";
+  | "Conducir"
+  | "Notificaciones";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
@@ -56,6 +58,7 @@ export default function App() {
       if (name === "ChatHistory") setScreen("ChatHistory");
       if (name === "PerfilPublico") setScreen("PerfilPublico");
       if (name === "Conducir") setScreen("Conducir");
+      if (name === "Notificaciones") setScreen("Notificaciones");
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -90,6 +93,8 @@ export default function App() {
         <PerfilPublicoScreen navigation={navigation} route={route} />
       ) : screen === "ChatHistory" ? (
         <ChatHistory navigation={navigation} />
+      ) : screen === "Notificaciones" ? (
+        <NotificacionesScreen navigation={navigation} />
       ) : (
         <LoginScreen navigation={navigation} />
       )}

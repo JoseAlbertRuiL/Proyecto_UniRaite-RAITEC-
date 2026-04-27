@@ -1,5 +1,5 @@
 // src/screens/Principal/ChatScreen.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,51 +10,118 @@ import {
   Platform,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
+import {
+  getSocket,
+  joinChat,
+  sendMessage,
+  onNewMessage,
+  offNewMessage,
+} from "../../services/socket";
+
 export default function ChatScreen({ navigation, route }: any) {
-  const { idViaje = 1, idUsuario = "" } = route?.params || {};
+  const { idViaje = 1 } = route?.params || {};
 
   useBackHandler(navigation, "normal");
 
   const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
   const [estaFinalizado, setEstaFinalizado] = useState(false);
+  const [myId, setMyId] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  const marcarMensajesComoLeidos = async () => {
+    try {
+      console.log("📱 Marcando mensajes como leídos para viaje:", idViaje);
+      await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
+    } catch (error) {
+      console.error("Error al marcar mensajes como leídos:", error);
+    }
+  };
 
   useEffect(() => {
-    cargarMensajes();
-    checarEstadoViaje();
+    const inicializarChat = async () => {
+      try {
+        await marcarMensajesComoLeidos();
 
-    const intervalo = setInterval(() => {
-      cargarMensajes();
-      if (!estaFinalizado) checarEstadoViaje();
-    }, 3000);
+        const perfil = await orpc.usuarios.getPerfil();
+        setMyId(perfil.user.id_usuario);
 
-    return () => clearInterval(intervalo);
-  }, [idViaje, estaFinalizado]);
+        await cargarMensajes(perfil.user.id_usuario);
+        await checarEstadoViaje();
 
-  const cargarMensajes = async () => {
+        const socket = getSocket();
+        if (socket && socket.connected) {
+          joinChat(idViaje);
+          console.log(`📱 Unido al chat del viaje ${idViaje}`);
+        }
+      } catch (error: any) {
+        console.error("Error al inicializar chat:", error);
+        if (error?.code === "NOT_FOUND") {
+          setError("El viaje no existe o ya no está disponible");
+        } else if (error?.code === "FORBIDDEN") {
+          setError("No tienes acceso a este chat");
+        } else {
+          setError("Error al cargar el chat");
+        }
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    inicializarChat();
+
+    const handleNewMessage = (data: any) => {
+      if (data.id_viaje_pub === idViaje) {
+        const nuevoMensaje = {
+          id: data.id_mensaje.toString(),
+          texto: data.contenido,
+          remitente: data.id_emisor === myId ? "yo" : "otro",
+          nombre: data.emisor?.nombre || "Usuario",
+        };
+
+        setMensajes((prev) => [...prev, nuevoMensaje]);
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    };
+
+    onNewMessage(handleNewMessage);
+
+    return () => {
+      offNewMessage();
+    };
+  }, [idViaje, myId]);
+
+  const cargarMensajes = async (currentUserId: string) => {
     try {
       const data = await orpc.chat.getMensajes({ idViaje });
       const formateados = data.map((msg: any) => ({
         id: msg.id_mensaje.toString(),
         texto: msg.contenido,
-        remitente: msg.id_emisor === idUsuario ? "yo" : "otro",
+        remitente: msg.id_emisor === currentUserId ? "yo" : "otro",
         nombre: msg.emisor?.nombre || "Usuario",
       }));
       setMensajes(formateados);
     } catch (error) {
       console.error("Error al obtener mensajes:", error);
+      throw error;
     }
   };
 
   const checarEstadoViaje = async () => {
     try {
-      const data = await orpc.viajes.getEstado({ viajeId: idViaje });
+      const data = await orpc.chat.getEstado({ viajeId: idViaje });
       if (data.estado === "finalizado") setEstaFinalizado(true);
     } catch (error) {
       console.error("Error al checar estado:", error);
@@ -63,15 +130,15 @@ export default function ChatScreen({ navigation, route }: any) {
 
   const enviarMensaje = async () => {
     if (mensajeEscrito.trim() === "" || estaFinalizado) return;
+
     try {
       await orpc.chat.enviarMensaje({
         id_viaje_pub: idViaje,
         contenido: mensajeEscrito,
       });
       setMensajeEscrito("");
-      cargarMensajes();
     } catch (error: any) {
-      if (error?.status === 403 || error?.code === 403) {
+      if (error?.code === "FORBIDDEN") {
         Alert.alert(
           "Acceso Denegado",
           "Solo puedes chatear si tienes un match confirmado.",
@@ -79,7 +146,6 @@ export default function ChatScreen({ navigation, route }: any) {
       } else {
         Alert.alert("Error", error?.message || "No se pudo enviar el mensaje.");
       }
-      console.error("Error al enviar:", error);
     }
   };
 
@@ -100,6 +166,36 @@ export default function ChatScreen({ navigation, route }: any) {
       </View>
     );
   };
+
+  if (cargando) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text className="mt-2 text-gray-500">Cargando chat...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View
+        className="flex-1 justify-center items-center bg-white p-6"
+        style={{ paddingTop: StatusBar.currentHeight || 0 }}
+      >
+        <Header navigation={navigation} title="Chat" />
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-red-500 text-lg text-center mb-4">{error}</Text>
+          <TouchableOpacity
+            className="bg-blue-900 px-6 py-3 rounded-xl"
+            onPress={() => navigation.goBack()}
+          >
+            <Text className="text-white font-semibold">Volver</Text>
+          </TouchableOpacity>
+        </View>
+        <Footer navigation={navigation} />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -125,11 +221,15 @@ export default function ChatScreen({ navigation, route }: any) {
         </View>
 
         <FlatList
+          ref={flatListRef}
           data={mensajes}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           className="flex-1 px-2"
           contentContainerStyle={{ paddingBottom: 20 }}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
         />
 
         <View className="flex-row items-center p-3 border-t border-gray-100 bg-white">
@@ -153,7 +253,6 @@ export default function ChatScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
       <Footer navigation={navigation} />
     </View>
   );

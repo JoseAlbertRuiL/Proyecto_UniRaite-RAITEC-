@@ -6,7 +6,14 @@ import {
   verifyCode,
   resetPassword
 } from './routers/auth'
-import { getPerfil, getUsuarioById, actualizarFotoPerfil } from './routers/usuarios'
+import { 
+  getPerfil, 
+  getUsuarioById, 
+  actualizarFotoPerfil,
+  cambiarPassword,
+  actualizarPerfil,
+  actualizarCarrera
+} from './routers/usuarios'
 import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
 import { 
   listarViajes, 
@@ -23,7 +30,20 @@ import {
   misSolicitudes,
   obtenerSolicitudesActivas
 } from './routers/solicitudes'
-import { get } from 'http'
+import { 
+  getMensajes,
+  enviarMensaje,
+  misChats,
+  getEstado,
+  contarMensajesNoLeidos,
+  marcarComoLeidos
+} from './routers/chat'
+import { 
+  obtenerTodas,
+  marcarLeida,
+  marcarTodasLeidas,
+  eliminar
+} from './routers/notificaciones'
 
 export const router = {
   auth: {
@@ -38,6 +58,9 @@ export const router = {
     getPerfil,
     getUsuarioById,
     actualizarFotoPerfil,
+    cambiarPassword,
+    actualizarPerfil,
+    actualizarCarrera,
   },
   conductor: {
     registroConductor,
@@ -58,6 +81,20 @@ export const router = {
     obtenerEstadoPorViaje,
     misSolicitudes,
     activas: obtenerSolicitudesActivas,
+  },
+  chat: {
+    getMensajes,
+    enviarMensaje,
+    misChats,
+    getEstado,
+    contarMensajesNoLeidos,
+    marcarComoLeidos,
+  },
+  notificaciones: {
+    obtenerTodas,
+    marcarLeida,
+    marcarTodasLeidas,
+    eliminar,
   },
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   listarViajes,
   solicitarViaje,
@@ -26,6 +27,7 @@ import {
 import { BASE_URL } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket } from "../../services/socket";
 
 const StartScreen = ({ navigation }: any) => {
   const [viajes, setViajes] = useState<any[]>([]);
@@ -174,14 +176,58 @@ const StartScreen = ({ navigation }: any) => {
       Alert.alert("Error", error?.message || "No se pudo enviar la solicitud");
     }
   };
-
   const onRefresh = () => {
     setRefrescando(true);
     cargarViajes();
   };
 
+  // Configurar WebSocket y polling para actualizaciones
   useEffect(() => {
     cargarViajes();
+
+    // Polling: recargar cada 30 segundos para actualizar viajes expirados
+    const interval = setInterval(() => {
+      console.log("🔄 Polling: recargando viajes...");
+      cargarViajes();
+    }, 30000);
+
+    const socket = getSocket();
+    if (socket) {
+      const onSolicitudActualizada = (data: any) => {
+        console.log("📢 Solicitud actualizada en tiempo real:", data);
+        cargarViajes();
+      };
+
+      const onNuevaSolicitud = (data: any) => {
+        console.log("📢 Nueva solicitud en tiempo real:", data);
+        cargarViajes();
+      };
+
+      const onNuevoViaje = (data: any) => {
+        console.log("📢 Nuevo viaje disponible:", data);
+        cargarViajes();
+      };
+
+      const onViajeCancelado = (data: any) => {
+        console.log("📢 Viaje cancelado:", data);
+        cargarViajes();
+      };
+
+      socket.on("solicitud_actualizada", onSolicitudActualizada);
+      socket.on("nueva_solicitud", onNuevaSolicitud);
+      socket.on("nuevo_viaje", onNuevoViaje);
+      socket.on("viaje_cancelado", onViajeCancelado);
+
+      return () => {
+        clearInterval(interval);
+        socket.off("solicitud_actualizada", onSolicitudActualizada);
+        socket.off("nueva_solicitud", onNuevaSolicitud);
+        socket.off("nuevo_viaje", onNuevoViaje);
+        socket.off("viaje_cancelado", onViajeCancelado);
+      };
+    }
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

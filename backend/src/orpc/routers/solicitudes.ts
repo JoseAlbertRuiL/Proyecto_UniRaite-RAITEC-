@@ -2,6 +2,26 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
+import { io } from '../../server'
+
+// Función auxiliar para crear notificaciones
+const crearNotificacion = async (
+  usuarioId: string,
+  titulo: string,
+  cuerpo: string,
+  tipo: string
+) => {
+  await prisma.notificaciones.create({
+    data: {
+      id_usuario: usuarioId,
+      titulo,
+      cuerpo_mensaje: cuerpo,
+      tipo_notif: tipo,
+      leido: false,
+      fecha_creacion: new Date(),
+    },
+  });
+};
 
 // POST /api/viajes/:id/solicitar
 export const solicitarViaje = protectedProcedure
@@ -9,6 +29,7 @@ export const solicitarViaje = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
+      include: { conductor: { include: { usuario: true } } }
     });
 
     if (!viaje) {
@@ -30,6 +51,12 @@ export const solicitarViaje = protectedProcedure
       throw new ORPCError('CONFLICT', { message: 'Ya has solicitado este viaje' });
     }
 
+    // Obtener el usuario completo para obtener nombre y apellido
+    const usuario = await prisma.usuarios.findUnique({
+      where: { id_usuario: context.user.id },
+      select: { nombre: true, apellido_paterno: true }
+    });
+
     const solicitud = await prisma.solicitudes_viaje.create({
       data: {
         id_viaje_pub: input.viajeId,
@@ -38,6 +65,32 @@ export const solicitarViaje = protectedProcedure
         fecha_solicitud: new Date(),
       },
     });
+
+    // NOTIFICACIÓN: Avisar al conductor que tiene una nueva solicitud
+    await crearNotificacion(
+      viaje.conductor.usuario.id_usuario,
+      "Nueva solicitud de viaje",
+      `${usuario?.nombre} ${usuario?.apellido_paterno} ha solicitado un asiento en tu viaje a ${viaje.destino_texto}`,
+      "solicitud"
+    );
+
+    // EMITIR EVENTO WEBSOCKET
+    if (io) {
+      io.emit('nueva_solicitud', {
+        viajeId: input.viajeId,
+        solicitud,
+        mensaje: `Nueva solicitud para el viaje a ${viaje.destino_texto}`
+      });
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: viaje.conductor.usuario.id_usuario,
+        titulo: "Nueva solicitud de viaje",
+        cuerpo: `${usuario?.nombre} ${usuario?.apellido_paterno} ha solicitado un asiento en tu viaje`,
+        tipo: "solicitud"
+      });
+      
+      console.log('📢 Eventos nueva_solicitud y nueva_notificacion emitidos');
+    }
 
     return { success: true, solicitud };
   });
@@ -53,7 +106,10 @@ export const responderSolicitud = protectedProcedure
   .handler(async ({ input, context }) => {
     const solicitud = await prisma.solicitudes_viaje.findUnique({
       where: { id_solicitud: input.solicitudId },
-      include: { viaje: true },
+      include: { 
+        viaje: true,
+        pasajero: true
+      },
     })
 
     if (!solicitud) {
@@ -98,10 +154,41 @@ export const responderSolicitud = protectedProcedure
       })
     }
 
+    // NOTIFICACIÓN: Avisar al pasajero que su solicitud fue respondida
+    const mensaje = input.estado === 'aceptada' 
+      ? `¡Tu solicitud para el viaje a ${solicitud.viaje.destino_texto} ha sido ACEPTADA!`
+      : `Tu solicitud para el viaje a ${solicitud.viaje.destino_texto} ha sido RECHAZADA`;
+
+    await crearNotificacion(
+      solicitud.id_pasajero,
+      input.estado === 'aceptada' ? "Solicitud aceptada" : "Solicitud rechazada",
+      mensaje,
+      input.estado === 'aceptada' ? "aceptacion" : "rechazo"
+    );
+
+    // EMITIR EVENTO WEBSOCKET
+    if (io) {
+      io.emit('solicitud_actualizada', {
+        viajeId: solicitud.id_viaje_pub,
+        solicitudId: input.solicitudId,
+        estado: input.estado,
+        mensaje: `Solicitud ${input.estado === 'aceptada' ? 'aceptada' : 'rechazada'} para el viaje a ${solicitud.viaje.destino_texto}`
+      });
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: solicitud.id_pasajero,
+        titulo: input.estado === 'aceptada' ? "Solicitud aceptada" : "Solicitud rechazada",
+        cuerpo: mensaje,
+        tipo: input.estado === 'aceptada' ? "aceptacion" : "rechazo"
+      });
+      
+      console.log(`📢 Eventos solicitud_actualizada y nueva_notificacion emitidos: ${input.estado}`);
+    }
+
     return { success: true, solicitud: solicitudActualizada }
   })
 
-  // GET /api/solicitudes/recibidas
+// GET /api/solicitudes/recibidas
 export const obtenerSolicitudesRecibidas = protectedProcedure
   .handler(async ({ context }) => {
     const solicitudes = await prisma.solicitudes_viaje.findMany({
@@ -149,14 +236,14 @@ export const obtenerSolicitudesRecibidas = protectedProcedure
 export const obtenerEstadoPorViaje = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
-  console.log(`🔍 Buscando solicitud para viaje ${input.viajeId}, usuario ${context.user.id}`); // ← LOG
+    console.log(`🔍 Buscando solicitud para viaje ${input.viajeId}, usuario ${context.user.id}`);
     const solicitud = await prisma.solicitudes_viaje.findFirst({
       where: {
         id_viaje_pub: input.viajeId,
         id_pasajero: context.user.id,
       },
     });
-    console.log(`📋 Solicitud encontrada:`, solicitud); // ← LOG
+    console.log(`📋 Solicitud encontrada:`, solicitud);
     return { estado: solicitud?.estado_solicitud || null };
   });
 
@@ -170,7 +257,7 @@ export const misSolicitudes = protectedProcedure
     return { success: true, solicitudes };
   });
 
-  // GET /api/solicitudes/activas - obtener solicitudes activas del usuario (pendiente o aceptada)
+// GET /api/solicitudes/activas - obtener solicitudes activas del usuario (pendiente o aceptada)
 export const obtenerSolicitudesActivas = protectedProcedure
   .handler(async ({ context }) => {
     const solicitudes = await prisma.solicitudes_viaje.findMany({

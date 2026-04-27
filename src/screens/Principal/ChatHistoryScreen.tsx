@@ -6,36 +6,68 @@ import {
   FlatList,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
 
 export default function ChatHistoryScreen({ navigation }: any) {
   const [historial, setHistorial] = useState<any[]>([]);
   const [usuarioId, setUsuarioId] = useState<string>("");
+  const [cargando, setCargando] = useState(true);
 
   useBackHandler(navigation, "normal");
-
-  useEffect(() => {
-    cargarHistorial();
-  }, []);
 
   const cargarHistorial = async () => {
     try {
       const data = await orpc.chat.misChats();
-      setHistorial(data.chats ?? data);
+      setHistorial(data.chats ?? []);
       setUsuarioId(data.idUsuario ?? "");
     } catch (error) {
       console.error("Error al cargar historial:", error);
+    } finally {
+      setCargando(false);
     }
   };
+
+  const handleNewMessage = (data: any) => {
+    console.log("💬 Nuevo mensaje recibido, actualizando historial:", data);
+    cargarHistorial();
+  };
+
+  useEffect(() => {
+    cargarHistorial();
+
+    const socket = getSocket();
+    if (socket) {
+      onNewMessage(handleNewMessage);
+    }
+
+    return () => {
+      offNewMessage();
+    };
+  }, []);
 
   const formatearHora = (fechaString: string) => {
     const fecha = new Date(fechaString);
     return fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatearFecha = (fechaString: string) => {
+    const fecha = new Date(fechaString);
+    const hoy = new Date();
+    const manana = new Date();
+    manana.setDate(hoy.getDate() + 1);
+
+    if (fecha.toDateString() === hoy.toDateString()) return "Hoy";
+    if (fecha.toDateString() === manana.toDateString()) return "Mañana";
+    return fecha.toLocaleDateString("es-MX", {
+      day: "numeric",
+      month: "short",
+    });
   };
 
   const renderItem = ({ item }: any) => (
@@ -44,19 +76,18 @@ export default function ChatHistoryScreen({ navigation }: any) {
       onPress={() =>
         navigation.navigate("Chat", {
           idViaje: item.idViaje,
-          idUsuario: usuarioId,
         })
       }
     >
       <View className="w-12 h-12 bg-blue-100 rounded-full justify-center items-center mr-4">
         <Text className="text-blue-900 font-bold text-lg">
-          {item.remitente.charAt(0).toUpperCase()}
+          {item.destino?.charAt(0).toUpperCase() || "V"}
         </Text>
       </View>
       <View className="flex-1">
         <View className="flex-row justify-between mb-1">
           <Text className="font-bold text-gray-800 text-base">
-            Viaje #{item.idViaje}
+            {item.destino || `Viaje #${item.idViaje}`}
           </Text>
           <Text className="text-xs text-gray-400">
             {formatearHora(item.fecha)}
@@ -66,9 +97,23 @@ export default function ChatHistoryScreen({ navigation }: any) {
           {item.esMio ? "Tú: " : `${item.remitente}: `}
           {item.texto}
         </Text>
+        {item.fechaViaje && (
+          <Text className="text-xs text-gray-400 mt-1">
+            📅 {formatearFecha(item.fechaViaje)}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
+
+  if (cargando) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text className="mt-2 text-gray-500">Cargando conversaciones...</Text>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -85,7 +130,7 @@ export default function ChatHistoryScreen({ navigation }: any) {
         renderItem={renderItem}
         ListEmptyComponent={
           <Text className="text-center text-gray-500 mt-10">
-            No tienes mensajes recientes.
+            No tienes conversaciones activas.
           </Text>
         }
       />

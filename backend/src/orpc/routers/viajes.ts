@@ -2,6 +2,30 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
+import { io } from '../../server'
+
+// Función auxiliar para crear notificaciones
+const crearNotificacion = async (
+  usuarioId: string,
+  titulo: string,
+  cuerpo: string,
+  tipo: string
+) => {
+  try {
+    await prisma.notificaciones.create({
+      data: {
+        id_usuario: usuarioId,
+        titulo,
+        cuerpo_mensaje: cuerpo,
+        tipo_notif: tipo,
+        leido: false,
+        fecha_creacion: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error("Error al crear notificación:", error);
+  }
+};
 
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
@@ -134,6 +158,23 @@ export const publicarViaje = protectedProcedure
       },
     })
 
+    // Emitir evento WebSocket a todos los usuarios conectados
+    if (io) {
+      io.emit('nuevo_viaje', {
+        viaje: nuevoViaje,
+        mensaje: `Nuevo viaje disponible: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`
+      })
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: null,
+        titulo: "Nuevo viaje disponible",
+        cuerpo: `Nuevo viaje: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`,
+        tipo: "viaje"
+      })
+      
+      console.log('📢 Eventos nuevo_viaje y nueva_notificacion emitidos')
+    }
+
     return {
       success: true,
       message: 'Viaje publicado exitosamente',
@@ -141,7 +182,6 @@ export const publicarViaje = protectedProcedure
     }
   })
 
-// GET /api/viajes/conductor/activos
 // GET /api/viajes/conductor/activos
 export const obtenerViajesActivos = protectedProcedure
   .handler(async ({ context }) => {
@@ -151,7 +191,6 @@ export const obtenerViajesActivos = protectedProcedure
           usuario: { id_usuario: context.user.id }
         },
         fecha_hora_salida: { gt: new Date() },
-        // asientos_disponibles: { gt: 0 },  // ← COMENTA O ELIMINA ESTA LÍNEA
       },
       include: {
         conductor: {
@@ -210,7 +249,14 @@ export const cancelarViaje = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
-      include: { conductor: { include: { usuario: true } } },
+      include: { 
+        conductor: { include: { usuario: true } },
+        solicitudes: { 
+          select: { 
+            id_pasajero: true 
+          } 
+        }
+      },
     })
 
     if (!viaje) {
@@ -221,12 +267,48 @@ export const cancelarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
     }
 
-    // Primero eliminar las solicitudes relacionadas
+    // NOTIFICACIÓN: Avisar a todos los pasajeros que solicitaron el viaje
+    if (viaje.solicitudes && viaje.solicitudes.length > 0) {
+      for (const solicitud of viaje.solicitudes) {
+        await crearNotificacion(
+          solicitud.id_pasajero,
+          "Viaje cancelado",
+          `El viaje a ${viaje.destino_texto} ha sido cancelado por el conductor.`,
+          "cancelacion"
+        );
+        
+        if (io) {
+          io.emit('nueva_notificacion', {
+            usuarioId: solicitud.id_pasajero,
+            titulo: "Viaje cancelado",
+            cuerpo: `El viaje a ${viaje.destino_texto} ha sido cancelado.`,
+            tipo: "cancelacion"
+          });
+        }
+      }
+    }
+
+    // Emitir evento WebSocket para actualizar listas
+    if (io) {
+      io.emit('viaje_cancelado', { viajeId: input.viajeId })
+    }
+
+    // 1. Eliminar mensajes del chat
+    await prisma.mensajes_chat.deleteMany({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    // 2. Eliminar viajes activos
+    await prisma.viajes_activos.deleteMany({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    // 3. Eliminar solicitudes relacionadas
     await prisma.solicitudes_viaje.deleteMany({
       where: { id_viaje_pub: input.viajeId },
     })
 
-    // Luego eliminar el viaje
+    // 4. Luego eliminar el viaje
     await prisma.viajes_publicados.delete({
       where: { id_viaje_pub: input.viajeId },
     })

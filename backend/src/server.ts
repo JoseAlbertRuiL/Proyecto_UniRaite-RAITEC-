@@ -3,14 +3,29 @@ import cors from 'cors'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import http from 'http'
+import { Server } from 'socket.io'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
+import jwt from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
 
 require('dotenv').config()
 
 const app = express()
+const serverHttp = http.createServer(app)
+const io = new Server(serverHttp, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+})
+const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
+
+// Guardar io para usarlo en otros archivos
+export { io }
 
 // ─── Directorios de uploads ───────────────────────────────────────────────────
 
@@ -55,8 +70,67 @@ const upload = multer({
   },
 })
 
+// ─── Middleware de autenticación para Socket.IO ───────────────────────────────
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Token requerido'));
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    const usuario = await prisma.usuarios.findUnique({
+      where: { id_usuario: (decoded as any).id }
+    });
+    
+    if (!usuario) {
+      return next(new Error('Usuario no encontrado'));
+    }
+    
+    (socket as any).user = usuario;
+    next();
+  } catch (error) {
+    next(new Error('Token inválido'));
+  }
+});
+
+// ─── Eventos de Socket.IO ─────────────────────────────────────────────────────
+
+io.on('connection', (socket) => {
+  console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
+  
+  socket.on('join_chat', (chatId: string) => {
+    socket.join(`chat_${chatId}`);
+    console.log(`📱 Usuario unido al chat ${chatId}`);
+  });
+  
+  socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
+    const user = (socket as any).user;
+    try {
+      const mensaje = await prisma.mensajes_chat.create({
+        data: {
+          id_viaje_pub: parseInt(data.chatId),
+          id_emisor: user.id_usuario,
+          contenido: data.message,
+          fecha_envio: new Date(),
+        },
+        include: { emisor: { select: { nombre: true, foto_perfil: true } } }
+      });
+      
+      io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
+    } catch (error) {
+      console.error('Error al guardar mensaje:', error);
+      socket.emit('message_error', 'No se pudo enviar el mensaje');
+    }
+  });
+  
+  socket.on('disconnect', () => {
+    console.log('⚡ Usuario desconectado');
+  });
+});
+
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
-// IMPORTANTE: se monta ANTES de express.json() para que oRPC maneje su propio parsing
 
 app.use(cors())
 app.use('/uploads', express.static('uploads'))
@@ -87,10 +161,7 @@ app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
 app.use(express.json())
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
-// Guardan el archivo localmente y devuelven el filename.
-// El cliente pasa ese filename al procedure de oRPC correspondiente.
 
-// Upload fotos de registro de usuario
 app.post(
   '/upload/registro',
   upload.fields([
@@ -106,7 +177,6 @@ app.post(
   }
 )
 
-// Upload fotos de conductor
 app.post(
   '/upload/conductor',
   upload.fields([
@@ -122,7 +192,6 @@ app.post(
   }
 )
 
-// Upload foto de circulación (actualizar vehículo)
 app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res) => {
   res.json({
     foto_circulacion: req.file?.filename ?? null,
@@ -137,10 +206,10 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+serverHttp.listen(PORT, () => {
   console.log(`Servidor en http://localhost:${PORT}`)
   console.log(`oRPC    → /rpc/*`)
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
+  console.log(`WebSocket Server corriendo en el mismo puerto`)
 })
-
