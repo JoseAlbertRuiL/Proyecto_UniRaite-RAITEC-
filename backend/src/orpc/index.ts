@@ -31,6 +31,12 @@ import {
   obtenerSolicitudesActivas
 } from './routers/solicitudes'
 import { 
+  getMensajes,
+  enviarMensaje,
+  misChats,
+  getEstado
+} from './routers/chat'
+import { 
   obtenerTodas,
   marcarLeida,
   marcarTodasLeidas,
@@ -73,6 +79,12 @@ export const router = {
     obtenerEstadoPorViaje,
     misSolicitudes,
     activas: obtenerSolicitudesActivas,
+  },
+  chat: {
+    getMensajes,
+    enviarMensaje,
+    misChats,
+    getEstado,
   },
   notificaciones: {
     obtenerTodas,

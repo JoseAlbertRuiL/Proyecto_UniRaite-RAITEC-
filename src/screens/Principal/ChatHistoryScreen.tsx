@@ -6,32 +6,51 @@ import {
   FlatList,
   TouchableOpacity,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
 
 export default function ChatHistoryScreen({ navigation }: any) {
   const [historial, setHistorial] = useState<any[]>([]);
   const [usuarioId, setUsuarioId] = useState<string>("");
+  const [cargando, setCargando] = useState(true);
 
   useBackHandler(navigation, "normal");
-
-  useEffect(() => {
-    cargarHistorial();
-  }, []);
 
   const cargarHistorial = async () => {
     try {
       const data = await orpc.chat.misChats();
-      setHistorial(data.chats ?? data);
+      setHistorial(data.chats ?? []);
       setUsuarioId(data.idUsuario ?? "");
     } catch (error) {
       console.error("Error al cargar historial:", error);
+    } finally {
+      setCargando(false);
     }
   };
+
+  // Recargar historial cuando llega un nuevo mensaje
+  const handleNewMessage = (data: any) => {
+    console.log("💬 Nuevo mensaje recibido, actualizando historial:", data);
+    cargarHistorial();
+  };
+
+  useEffect(() => {
+    cargarHistorial();
+
+    const socket = getSocket();
+    if (socket) {
+      onNewMessage(handleNewMessage);
+    }
+
+    return () => {
+      offNewMessage();
+    };
+  }, []);
 
   const formatearHora = (fechaString: string) => {
     const fecha = new Date(fechaString);
@@ -44,7 +63,6 @@ export default function ChatHistoryScreen({ navigation }: any) {
       onPress={() =>
         navigation.navigate("Chat", {
           idViaje: item.idViaje,
-          idUsuario: usuarioId,
         })
       }
     >
@@ -69,6 +87,15 @@ export default function ChatHistoryScreen({ navigation }: any) {
       </View>
     </TouchableOpacity>
   );
+
+  if (cargando) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text className="mt-2 text-gray-500">Cargando conversaciones...</Text>
+      </View>
+    );
+  }
 
   return (
     <View

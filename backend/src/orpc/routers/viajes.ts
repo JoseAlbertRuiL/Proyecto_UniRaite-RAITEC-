@@ -277,7 +277,6 @@ export const cancelarViaje = protectedProcedure
           "cancelacion"
         );
         
-        // EMITIR EVENTO WEBSOCKET PARA NOTIFICACIÓN EN TIEMPO REAL
         if (io) {
           io.emit('nueva_notificacion', {
             usuarioId: solicitud.id_pasajero,
@@ -294,12 +293,22 @@ export const cancelarViaje = protectedProcedure
       io.emit('viaje_cancelado', { viajeId: input.viajeId })
     }
 
-    // Primero eliminar las solicitudes relacionadas
+    // 1. Eliminar mensajes del chat
+    await prisma.mensajes_chat.deleteMany({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    // 2. Eliminar viajes activos
+    await prisma.viajes_activos.deleteMany({
+      where: { id_viaje_pub: input.viajeId },
+    })
+
+    // 3. Eliminar solicitudes relacionadas
     await prisma.solicitudes_viaje.deleteMany({
       where: { id_viaje_pub: input.viajeId },
     })
 
-    // Luego eliminar el viaje
+    // 4. Luego eliminar el viaje
     await prisma.viajes_publicados.delete({
       where: { id_viaje_pub: input.viajeId },
     })
