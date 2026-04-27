@@ -3,12 +3,23 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import emailjs from '@emailjs/nodejs'
+import path from 'path'
+import fs from 'fs'
 import { baseProcedure } from '../middleware'
 import { prisma } from '../context'
+import cloudinary from '../../services/cloudinaryService'
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
 const isValidEmail = (email: string) => email.endsWith('@morelia.tecnm.mx')
+
+const subirACloudinary = async (localPath: string, folder: string): Promise<string> => {
+  const result = await cloudinary.uploader.upload(localPath, {
+    folder,
+    resource_type: 'image',
+  })
+  return result.secure_url
+}
 
 // ─── Procedures ──────────────────────────────────────────────────────────────
 
@@ -200,6 +211,29 @@ export const register = baseProcedure
       })
     }
 
+    let urlFotoPerfil: string | null = null;
+    let urlFotoCredencial: string | null = null;
+
+    if (input.foto_perfil) {
+      const rutaPerfil = path.join(process.cwd(), 'uploads', 'perfiles', input.foto_perfil);
+
+      if (fs.existsSync(rutaPerfil)) {
+        console.log('Subiendo foto de perfil a Cloudinary...');
+        urlFotoPerfil = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
+        fs.unlinkSync(rutaPerfil); // Borramos el archivo local
+      }
+    }
+
+    if (input.foto_credencial) {
+      const rutaCredencial = path.join(process.cwd(), 'uploads', 'credentials', input.foto_credencial);
+      
+      if (fs.existsSync(rutaCredencial)) {
+        console.log('Subiendo credencial a Cloudinary...');
+        urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
+        fs.unlinkSync(rutaCredencial); // Borramos el archivo local
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(input.password, 10)
 
     const usuario = await prisma.usuarios.create({
@@ -212,8 +246,8 @@ export const register = baseProcedure
         correo_inst: input.correo_inst,
         password_hash: hashedPassword,
         carrera: input.carrera ?? null,
-        foto_credencial: input.foto_credencial ?? null,
-        foto_perfil: input.foto_perfil ?? null,
+        foto_credencial: urlFotoCredencial,
+        foto_perfil: urlFotoPerfil,
       },
     })
 
