@@ -9,26 +9,60 @@ import {
   Switch,
   Alert,
   Modal,
+  TextInput,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Header from "../../components/common/Header";
+import HeaderBack from "../../components/common/HeaderBack";
 import { getVehiculo } from "../../services/trip/tripService";
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc } from "../../services/api/apiClient";
 import { BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import HeaderBack from "../../components/common/HeaderBack";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
   const [viajesComoConductor, setViajesComoConductor] = useState(0);
   const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
-  const [fotoSeleccionada, setFotoSeleccionada] = useState<string | null>(null);
   const [modoConductor, setModoConductor] = useState(false);
   const [vehiculo, setVehiculo] = useState<any>(null);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
+
+  // Modales para configuraciones
+  const [modalNombreVisible, setModalNombreVisible] = useState(false);
+  const [modalPasswordVisible, setModalPasswordVisible] = useState(false);
+  const [modalCarreraVisible, setModalCarreraVisible] = useState(false);
+
+  // Estados para cambiar nombre
+  const [nombre, setNombre] = useState("");
+  const [apellidoPaterno, setApellidoPaterno] = useState("");
+  const [apellidoMaterno, setApellidoMaterno] = useState("");
+
+  // Estados para cambiar contraseña
+  const [passwordActual, setPasswordActual] = useState("");
+  const [nuevaPassword, setNuevaPassword] = useState("");
+  const [confirmarPassword, setConfirmarPassword] = useState("");
+
+  // Estado para cambiar carrera
+  const [carrera, setCarrera] = useState("");
+
+  // Lista de carreras
+  const carreras = [
+    "Bioquímica",
+    "Biomédica",
+    "Eléctrica",
+    "Electrónica",
+    "Industrial",
+    "Mecánica",
+    "Mecatrónica",
+    "Materiales",
+    "Gestión Empresarial",
+    "Sistemas Computacionales",
+    "Tecnologías de la Información y Comunicaciones",
+    "Informática",
+  ];
 
   useBackHandler(navigation, "normal");
 
@@ -59,6 +93,10 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     try {
       const data = await getPerfil();
       setUser(data.user);
+      setNombre(data.user?.nombre || "");
+      setApellidoPaterno(data.user?.apellido_paterno || "");
+      setApellidoMaterno(data.user?.apellido_materno || "");
+      setCarrera(data.user?.carrera || "");
     } catch (error) {
       console.log("ERROR al obtener perfil:", error);
       navigation.navigate("Login");
@@ -122,6 +160,80 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     ]);
   };
 
+  const cambiarNombre = async () => {
+    if (!nombre || !apellidoPaterno) {
+      Alert.alert("Error", "Nombre y apellido paterno son obligatorios");
+      return;
+    }
+
+    try {
+      const result = await orpc.usuarios.actualizarPerfil({
+        nombre,
+        apellido_paterno: apellidoPaterno,
+        apellido_materno: apellidoMaterno,
+      });
+      if (result.success) {
+        Alert.alert("Éxito", "Datos actualizados correctamente");
+        setModalNombreVisible(false);
+        obtenerPerfil();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo actualizar");
+    }
+  };
+
+  const cambiarPassword = async () => {
+    if (!passwordActual || !nuevaPassword || !confirmarPassword) {
+      Alert.alert("Error", "Todos los campos son obligatorios");
+      return;
+    }
+    if (nuevaPassword !== confirmarPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden");
+      return;
+    }
+    if (nuevaPassword.length < 6) {
+      Alert.alert(
+        "Error",
+        "La nueva contraseña debe tener al menos 6 caracteres",
+      );
+      return;
+    }
+
+    try {
+      const result = await orpc.usuarios.cambiarPassword({
+        passwordActual,
+        nuevaPassword,
+      });
+      if (result.success) {
+        Alert.alert("Éxito", "Contraseña actualizada correctamente");
+        setModalPasswordVisible(false);
+        setPasswordActual("");
+        setNuevaPassword("");
+        setConfirmarPassword("");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo cambiar la contraseña");
+    }
+  };
+
+  const cambiarCarrera = async () => {
+    if (!carrera) {
+      Alert.alert("Error", "Debes seleccionar una carrera");
+      return;
+    }
+
+    try {
+      const result = await orpc.usuarios.actualizarCarrera({ carrera });
+      if (result.success) {
+        Alert.alert("Éxito", "Carrera actualizada correctamente");
+        setModalCarreraVisible(false);
+        obtenerPerfil();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo actualizar la carrera");
+    }
+  };
+
   const tomarFoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
@@ -136,7 +248,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     });
 
     if (!result.canceled) {
-      setFotoSeleccionada(result.assets[0].uri);
       subirFoto(result.assets[0].uri);
     }
     setModalFotoVisible(false);
@@ -156,7 +267,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     });
 
     if (!result.canceled) {
-      setFotoSeleccionada(result.assets[0].uri);
       subirFoto(result.assets[0].uri);
     }
     setModalFotoVisible(false);
@@ -279,11 +389,35 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
           <TouchableOpacity
             className="flex-row items-center justify-between py-4 border-b border-gray-100"
-            onPress={() => navigation.navigate("EditarPerfil")}
+            onPress={() => setModalNombreVisible(true)}
           >
             <View className="flex-row items-center">
               <Text className="text-2xl mr-3">✏️</Text>
-              <Text className="text-base text-gray-700">Editar perfil</Text>
+              <Text className="text-base text-gray-700">Cambiar nombre</Text>
+            </View>
+            <Text className="text-gray-400 text-lg">›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row items-center justify-between py-4 border-b border-gray-100"
+            onPress={() => setModalPasswordVisible(true)}
+          >
+            <View className="flex-row items-center">
+              <Text className="text-2xl mr-3">🔒</Text>
+              <Text className="text-base text-gray-700">
+                Cambiar contraseña
+              </Text>
+            </View>
+            <Text className="text-gray-400 text-lg">›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-row items-center justify-between py-4 border-b border-gray-100"
+            onPress={() => setModalCarreraVisible(true)}
+          >
+            <View className="flex-row items-center">
+              <Text className="text-2xl mr-3">📚</Text>
+              <Text className="text-base text-gray-700">Cambiar carrera</Text>
             </View>
             <Text className="text-gray-400 text-lg">›</Text>
           </TouchableOpacity>
@@ -299,7 +433,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <Text className="text-gray-400 text-lg">›</Text>
           </TouchableOpacity>
 
-          {/* Switch modo conductor */}
           <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
             <View className="flex-row items-center">
               <Text className="text-2xl mr-3">🔑</Text>
@@ -314,7 +447,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/* Datos del vehículo — solo visible cuando el switch está activo */}
           {modoConductor && (
             <TouchableOpacity
               className="flex-row items-center justify-between py-4 border-b border-gray-100"
@@ -348,7 +480,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             onPress={cerrarSesion}
           >
             <View className="flex-row items-center">
-              <Text className="text-2xl mr-3">🚪</Text>
+              <Text className="text-2xl mr-3"></Text>
               <Text className="text-base text-red-600 font-semibold">
                 Cerrar sesión
               </Text>
@@ -357,7 +489,149 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         </View>
       </ScrollView>
 
-      {/* Modal para opciones de foto */}
+      {/* Modal cambiar nombre */}
+      <Modal visible={modalNombreVisible} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-4 text-center">
+              Cambiar nombre
+            </Text>
+            <TextInput
+              value={nombre}
+              onChangeText={setNombre}
+              placeholder="Nombre"
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+            />
+            <TextInput
+              value={apellidoPaterno}
+              onChangeText={setApellidoPaterno}
+              placeholder="Apellido paterno"
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+            />
+            <TextInput
+              value={apellidoMaterno}
+              onChangeText={setApellidoMaterno}
+              placeholder="Apellido materno (opcional)"
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+            />
+            <View className="flex-row justify-between">
+              <TouchableOpacity
+                onPress={() => setModalNombreVisible(false)}
+                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={cambiarNombre}
+                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Guardar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal cambiar contraseña */}
+      <Modal visible={modalPasswordVisible} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-4 text-center">
+              Cambiar contraseña
+            </Text>
+            <TextInput
+              value={passwordActual}
+              onChangeText={setPasswordActual}
+              placeholder="Contraseña actual"
+              secureTextEntry
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+            />
+            <TextInput
+              value={nuevaPassword}
+              onChangeText={setNuevaPassword}
+              placeholder="Nueva contraseña"
+              secureTextEntry
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+            />
+            <TextInput
+              value={confirmarPassword}
+              onChangeText={setConfirmarPassword}
+              placeholder="Confirmar nueva contraseña"
+              secureTextEntry
+              className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+            />
+            <View className="flex-row justify-between">
+              <TouchableOpacity
+                onPress={() => {
+                  setModalPasswordVisible(false);
+                  setPasswordActual("");
+                  setNuevaPassword("");
+                  setConfirmarPassword("");
+                }}
+                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={cambiarPassword}
+                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Guardar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal cambiar carrera con Picker */}
+      <Modal visible={modalCarreraVisible} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-4 text-center">
+              Cambiar carrera
+            </Text>
+            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+              <Picker
+                selectedValue={carrera}
+                onValueChange={(itemValue) => setCarrera(itemValue)}
+              >
+                <Picker.Item label="Selecciona tu carrera" value="" />
+                {carreras.map((carr) => (
+                  <Picker.Item key={carr} label={carr} value={carr} />
+                ))}
+              </Picker>
+            </View>
+            <View className="flex-row justify-between mt-4">
+              <TouchableOpacity
+                onPress={() => setModalCarreraVisible(false)}
+                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={cambiarCarrera}
+                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Guardar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal foto perfil */}
       <Modal
         visible={modalFotoVisible}
         transparent

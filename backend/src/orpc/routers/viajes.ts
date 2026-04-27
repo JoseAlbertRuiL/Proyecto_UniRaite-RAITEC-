@@ -142,7 +142,6 @@ export const publicarViaje = protectedProcedure
   })
 
 // GET /api/viajes/conductor/activos
-// GET /api/viajes/conductor/activos
 export const obtenerViajesActivos = protectedProcedure
   .handler(async ({ context }) => {
     const viajes = await prisma.viajes_publicados.findMany({

@@ -1,4 +1,3 @@
-// src/screens/Principal/RegisterScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -9,6 +8,7 @@ import {
   Alert,
   Image,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { register, verificarCorreo } from "../../services/auth/authService";
 import { useBackHandler } from "../../hooks/useBackHandler";
@@ -35,6 +35,22 @@ const RegisterScreen = ({ navigation }: any) => {
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
 
   const [paso, setPaso] = useState(1);
+
+  // Lista de carreras
+  const carreras = [
+    "Bioquímica",
+    "Biomédica",
+    "Eléctrica",
+    "Electrónica",
+    "Industrial",
+    "Mecánica",
+    "Mecatrónica",
+    "Materiales",
+    "Gestión Empresarial",
+    "Sistemas Computacionales",
+    "Tecnologías de la Información y Comunicaciones",
+    "Informática",
+  ];
 
   // Validar correo institucional
   const validarCorreo = (correo: string) => {
@@ -119,10 +135,13 @@ const RegisterScreen = ({ navigation }: any) => {
         Alert.alert("Error", "Faltan campos");
       }
     } else if (paso === 3) {
-      if (numControl && fotoCredencial) {
+      if (numControl && fotoCredencial && carrera) {
         setPaso(4);
       } else {
-        Alert.alert("Error", "Falta número de control o foto de credencial");
+        Alert.alert(
+          "Error",
+          "Falta número de control, carrera o foto de credencial",
+        );
       }
     } else if (paso === 4) {
       if (fotoPerfil) {
@@ -259,13 +278,21 @@ const RegisterScreen = ({ navigation }: any) => {
             value={numControl}
             editable={false}
           />
-          <Text className="mb-1 mt-4 text-gray-700">Carrera</Text>
-          <TextInput
-            className="border border-gray-300 rounded-xl p-4"
-            placeholder="Tu carrera (opcional)"
-            value={carrera}
-            onChangeText={setCarrera}
-          />
+
+          <Text className="mb-1 mt-4 text-gray-700">Carrera *</Text>
+          <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
+            <Picker
+              selectedValue={carrera}
+              onValueChange={(itemValue) => setCarrera(itemValue)}
+              className="text-gray-900"
+            >
+              <Picker.Item label="Selecciona tu carrera" value="" />
+              {carreras.map((carr) => (
+                <Picker.Item key={carr} label={carr} value={carr} />
+              ))}
+            </Picker>
+          </View>
+
           <Text className="mb-1 mt-4 text-gray-700">Foto de credencial *</Text>
           <TouchableOpacity
             className="bg-gray-200 p-4 rounded-xl mt-1 items-center"

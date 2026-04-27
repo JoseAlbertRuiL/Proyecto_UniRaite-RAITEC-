@@ -1,6 +1,7 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Platform, Alert } from "react-native";
 import { SvgXml } from "react-native-svg";
+import { orpc } from "../../services/api/apiClient";
 
 interface FooterProps {
   navigation: any;
@@ -13,6 +14,34 @@ const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill
 const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 8.94 10h-2.02A7 7 0 1 1 13 5V3zm-1 5h2v6l5 3-1 1.73-6-3.73V8z"/></svg>`;
 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
+  const verificarConductor = async () => {
+    try {
+      const data = await orpc.usuarios.getPerfil();
+      if (data && data.user && data.user.es_conductor) {
+        navigation.navigate("Conducir");
+      } else {
+        Alert.alert(
+          "No estás registrado como conductor",
+          "Para publicar viajes necesitas registrarte como conductor. ¿Deseas hacerlo ahora?",
+          [
+            {
+              text: "No",
+              onPress: () => navigation.navigate("Start"),
+              style: "cancel",
+            },
+            {
+              text: "Sí, registrarme",
+              onPress: () => navigation.navigate("Licencia"),
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error("Error al verificar conductor:", error);
+      Alert.alert("Error", "No se pudo verificar tu información");
+    }
+  };
+
   return (
     <View
       className="flex-row justify-around items-center py-4 bg-gray-100 border-t border-gray-200"
@@ -21,7 +50,6 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         paddingTop: 12,
       }}
     >
-      {/* Inicio */}
       <TouchableOpacity
         className="items-center"
         onPress={() => navigation.navigate("Home")}
@@ -30,7 +58,6 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         <Text className="text-xs text-gray-600">Inicio</Text>
       </TouchableOpacity>
 
-      {/* Chat */}
       <TouchableOpacity
         className="items-center"
         onPress={() => navigation.navigate("ChatHistory")}
@@ -39,16 +66,11 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         <Text className="text-xs text-gray-600">Chat</Text>
       </TouchableOpacity>
 
-      {/* Conducir (Ofrecer viaje) */}
-      <TouchableOpacity
-        className="items-center"
-        onPress={() => navigation.navigate("Conducir")}
-      >
+      <TouchableOpacity className="items-center" onPress={verificarConductor}>
         <SvgXml xml={carSvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Conducir</Text>
       </TouchableOpacity>
 
-      {/* Historial */}
       <TouchableOpacity
         className="items-center"
         onPress={() => navigation.navigate("Historial")}

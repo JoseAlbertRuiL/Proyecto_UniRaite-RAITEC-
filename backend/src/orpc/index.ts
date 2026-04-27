@@ -6,7 +6,14 @@ import {
   verifyCode,
   resetPassword
 } from './routers/auth'
-import { getPerfil, getUsuarioById, actualizarFotoPerfil } from './routers/usuarios'
+import { 
+  getPerfil, 
+  getUsuarioById, 
+  actualizarFotoPerfil,
+  cambiarPassword,
+  actualizarPerfil,
+  actualizarCarrera
+} from './routers/usuarios'
 import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
 import { 
   listarViajes, 
@@ -23,7 +30,6 @@ import {
   misSolicitudes,
   obtenerSolicitudesActivas
 } from './routers/solicitudes'
-import { get } from 'http'
 
 export const router = {
   auth: {
@@ -38,6 +44,9 @@ export const router = {
     getPerfil,
     getUsuarioById,
     actualizarFotoPerfil,
+    cambiarPassword,
+    actualizarPerfil,
+    actualizarCarrera,
   },
   conductor: {
     registroConductor,
