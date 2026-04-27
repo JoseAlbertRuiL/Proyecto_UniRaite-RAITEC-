@@ -30,6 +30,12 @@ import {
   misSolicitudes,
   obtenerSolicitudesActivas
 } from './routers/solicitudes'
+import { 
+  obtenerTodas,
+  marcarLeida,
+  marcarTodasLeidas,
+  eliminar
+} from './routers/notificaciones'
 
 export const router = {
   auth: {
@@ -67,6 +73,12 @@ export const router = {
     obtenerEstadoPorViaje,
     misSolicitudes,
     activas: obtenerSolicitudesActivas,
+  },
+  notificaciones: {
+    obtenerTodas,
+    marcarLeida,
+    marcarTodasLeidas,
+    eliminar,
   },
 }
 

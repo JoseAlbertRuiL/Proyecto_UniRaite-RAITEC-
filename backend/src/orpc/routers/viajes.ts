@@ -3,6 +3,29 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
+// Función auxiliar para crear notificaciones
+const crearNotificacion = async (
+  usuarioId: string,
+  titulo: string,
+  cuerpo: string,
+  tipo: string
+) => {
+  try {
+    await prisma.notificaciones.create({
+      data: {
+        id_usuario: usuarioId,
+        titulo,
+        cuerpo_mensaje: cuerpo,
+        tipo_notif: tipo,
+        leido: false,
+        fecha_creacion: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error("Error al crear notificación:", error);
+  }
+};
+
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
     ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
@@ -150,7 +173,6 @@ export const obtenerViajesActivos = protectedProcedure
           usuario: { id_usuario: context.user.id }
         },
         fecha_hora_salida: { gt: new Date() },
-        // asientos_disponibles: { gt: 0 },  // ← COMENTA O ELIMINA ESTA LÍNEA
       },
       include: {
         conductor: {
@@ -209,7 +231,14 @@ export const cancelarViaje = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
-      include: { conductor: { include: { usuario: true } } },
+      include: { 
+        conductor: { include: { usuario: true } },
+        solicitudes: { 
+          select: { 
+            id_pasajero: true 
+          } 
+        }
+      },
     })
 
     if (!viaje) {
@@ -218,6 +247,18 @@ export const cancelarViaje = protectedProcedure
 
     if (viaje.conductor.usuario?.id_usuario !== context.user.id) {
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
+    }
+
+    // NOTIFICACIÓN: Avisar a todos los pasajeros que solicitaron el viaje
+    if (viaje.solicitudes && viaje.solicitudes.length > 0) {
+      for (const solicitud of viaje.solicitudes) {
+        await crearNotificacion(
+          solicitud.id_pasajero,
+          "Viaje cancelado",
+          `El viaje a ${viaje.destino_texto} ha sido cancelado por el conductor.`,
+          "cancelacion"
+        );
+      }
     }
 
     // Primero eliminar las solicitudes relacionadas
