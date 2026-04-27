@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import UserIcon from "../../icons/userIcon";
 import NotificationIcon from "../../icons/notificationIcon";
 import { orpc } from "../../services/api/apiClient";
+import { getSocket } from "../../services/socket";
 
 interface HeaderProps {
   navigation: any;
@@ -30,12 +31,23 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
     }
   };
 
+  // WebSocket: escuchar nuevas notificaciones
   useEffect(() => {
     cargarNotificacionesNoLeidas();
 
-    // Recargar cada 30 segundos
-    const interval = setInterval(cargarNotificacionesNoLeidas, 30000);
-    return () => clearInterval(interval);
+    const socket = getSocket();
+    if (socket) {
+      const onNuevaNotificacion = (data: any) => {
+        console.log("🔔 Nueva notificación recibida:", data);
+        cargarNotificacionesNoLeidas();
+      };
+
+      socket.on("nueva_notificacion", onNuevaNotificacion);
+
+      return () => {
+        socket.off("nueva_notificacion", onNuevaNotificacion);
+      };
+    }
   }, []);
 
   return (

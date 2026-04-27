@@ -2,6 +2,7 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
+import { io } from '../../server'
 
 // Función auxiliar para crear notificaciones
 const crearNotificacion = async (
@@ -157,6 +158,23 @@ export const publicarViaje = protectedProcedure
       },
     })
 
+    // Emitir evento WebSocket a todos los usuarios conectados
+    if (io) {
+      io.emit('nuevo_viaje', {
+        viaje: nuevoViaje,
+        mensaje: `Nuevo viaje disponible: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`
+      })
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: null,
+        titulo: "Nuevo viaje disponible",
+        cuerpo: `Nuevo viaje: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`,
+        tipo: "viaje"
+      })
+      
+      console.log('📢 Eventos nuevo_viaje y nueva_notificacion emitidos')
+    }
+
     return {
       success: true,
       message: 'Viaje publicado exitosamente',
@@ -258,7 +276,22 @@ export const cancelarViaje = protectedProcedure
           `El viaje a ${viaje.destino_texto} ha sido cancelado por el conductor.`,
           "cancelacion"
         );
+        
+        // EMITIR EVENTO WEBSOCKET PARA NOTIFICACIÓN EN TIEMPO REAL
+        if (io) {
+          io.emit('nueva_notificacion', {
+            usuarioId: solicitud.id_pasajero,
+            titulo: "Viaje cancelado",
+            cuerpo: `El viaje a ${viaje.destino_texto} ha sido cancelado.`,
+            tipo: "cancelacion"
+          });
+        }
       }
+    }
+
+    // Emitir evento WebSocket para actualizar listas
+    if (io) {
+      io.emit('viaje_cancelado', { viajeId: input.viajeId })
     }
 
     // Primero eliminar las solicitudes relacionadas

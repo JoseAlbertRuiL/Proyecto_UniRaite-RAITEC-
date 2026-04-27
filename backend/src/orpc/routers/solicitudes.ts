@@ -2,6 +2,7 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
+import { io } from '../../server'
 
 // Función auxiliar para crear notificaciones
 const crearNotificacion = async (
@@ -72,6 +73,24 @@ export const solicitarViaje = protectedProcedure
       `${usuario?.nombre} ${usuario?.apellido_paterno} ha solicitado un asiento en tu viaje a ${viaje.destino_texto}`,
       "solicitud"
     );
+
+    // EMITIR EVENTO WEBSOCKET
+    if (io) {
+      io.emit('nueva_solicitud', {
+        viajeId: input.viajeId,
+        solicitud,
+        mensaje: `Nueva solicitud para el viaje a ${viaje.destino_texto}`
+      });
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: viaje.conductor.usuario.id_usuario,
+        titulo: "Nueva solicitud de viaje",
+        cuerpo: `${usuario?.nombre} ${usuario?.apellido_paterno} ha solicitado un asiento en tu viaje`,
+        tipo: "solicitud"
+      });
+      
+      console.log('📢 Eventos nueva_solicitud y nueva_notificacion emitidos');
+    }
 
     return { success: true, solicitud };
   });
@@ -146,6 +165,25 @@ export const responderSolicitud = protectedProcedure
       mensaje,
       input.estado === 'aceptada' ? "aceptacion" : "rechazo"
     );
+
+    // EMITIR EVENTO WEBSOCKET
+    if (io) {
+      io.emit('solicitud_actualizada', {
+        viajeId: solicitud.id_viaje_pub,
+        solicitudId: input.solicitudId,
+        estado: input.estado,
+        mensaje: `Solicitud ${input.estado === 'aceptada' ? 'aceptada' : 'rechazada'} para el viaje a ${solicitud.viaje.destino_texto}`
+      });
+      
+      io.emit('nueva_notificacion', {
+        usuarioId: solicitud.id_pasajero,
+        titulo: input.estado === 'aceptada' ? "Solicitud aceptada" : "Solicitud rechazada",
+        cuerpo: mensaje,
+        tipo: input.estado === 'aceptada' ? "aceptacion" : "rechazo"
+      });
+      
+      console.log(`📢 Eventos solicitud_actualizada y nueva_notificacion emitidos: ${input.estado}`);
+    }
 
     return { success: true, solicitud: solicitudActualizada }
   })

@@ -13,6 +13,7 @@ import { orpc } from "../../services/api/apiClient";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket } from "../../services/socket";
 
 type TabType = "activos" | "solicitudes" | "historial";
 
@@ -97,8 +98,44 @@ const ConducirScreen = ({ navigation }: any) => {
     cargarDatos();
   };
 
+  // Configurar WebSocket para recibir actualizaciones
   useEffect(() => {
     cargarDatos();
+
+    const socket = getSocket();
+    if (socket) {
+      const onNuevaSolicitud = (data: any) => {
+        console.log("📢 Nueva solicitud recibida en Conducir:", data);
+        cargarDatos();
+      };
+
+      const onSolicitudActualizada = (data: any) => {
+        console.log("📢 Solicitud actualizada en Conducir:", data);
+        cargarDatos();
+      };
+
+      const onViajeCancelado = (data: any) => {
+        console.log("📢 Viaje cancelado en Conducir:", data);
+        cargarDatos();
+      };
+
+      const onNuevoViajePublicado = (data: any) => {
+        // Solo actualiza si el viaje es del conductor actual
+        cargarDatos();
+      };
+
+      socket.on("nueva_solicitud", onNuevaSolicitud);
+      socket.on("solicitud_actualizada", onSolicitudActualizada);
+      socket.on("viaje_cancelado", onViajeCancelado);
+      socket.on("nuevo_viaje", onNuevoViajePublicado);
+
+      return () => {
+        socket.off("nueva_solicitud", onNuevaSolicitud);
+        socket.off("solicitud_actualizada", onSolicitudActualizada);
+        socket.off("viaje_cancelado", onViajeCancelado);
+        socket.off("nuevo_viaje", onNuevoViajePublicado);
+      };
+    }
   }, []);
 
   const renderViajeCard = (

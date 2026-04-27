@@ -20,6 +20,7 @@ import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc } from "../../services/api/apiClient";
 import { BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { disconnectSocket } from "../../services/socket";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
@@ -153,6 +154,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         text: "Cerrar sesión",
         onPress: async () => {
           await logout();
+          await disconnectSocket(); // Desconectar WebSocket
           navigation.navigate("Login");
         },
         style: "destructive",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import {
 import { BASE_URL } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket } from "../../services/socket";
 
 const StartScreen = ({ navigation }: any) => {
   const [viajes, setViajes] = useState<any[]>([]);
@@ -181,8 +182,45 @@ const StartScreen = ({ navigation }: any) => {
     cargarViajes();
   };
 
+  // Configurar WebSocket para recibir actualizaciones
+  // Configurar WebSocket para recibir actualizaciones
   useEffect(() => {
     cargarViajes();
+
+    const socket = getSocket();
+    if (socket) {
+      const onSolicitudActualizada = (data: any) => {
+        console.log("📢 Solicitud actualizada en tiempo real:", data);
+        cargarViajes();
+      };
+
+      const onNuevaSolicitud = (data: any) => {
+        console.log("📢 Nueva solicitud en tiempo real:", data);
+        cargarViajes();
+      };
+
+      const onNuevoViaje = (data: any) => {
+        console.log("📢 Nuevo viaje disponible:", data);
+        cargarViajes();
+      };
+
+      const onViajeCancelado = (data: any) => {
+        console.log("📢 Viaje cancelado:", data);
+        cargarViajes();
+      };
+
+      socket.on("solicitud_actualizada", onSolicitudActualizada);
+      socket.on("nueva_solicitud", onNuevaSolicitud);
+      socket.on("nuevo_viaje", onNuevoViaje);
+      socket.on("viaje_cancelado", onViajeCancelado);
+
+      return () => {
+        socket.off("solicitud_actualizada", onSolicitudActualizada);
+        socket.off("nueva_solicitud", onNuevaSolicitud);
+        socket.off("nuevo_viaje", onNuevoViaje);
+        socket.off("viaje_cancelado", onViajeCancelado);
+      };
+    }
   }, []);
 
   return (

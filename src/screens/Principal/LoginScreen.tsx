@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { login } from "../../services/auth/authService";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { connectSocket } from "../../services/socket";
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
@@ -43,6 +44,8 @@ const LoginScreen = ({ navigation }: any) => {
     try {
       const data = await login(email, password);
       console.log("Login exitoso:", data);
+      // Conectar WebSocket después del login exitoso
+      await connectSocket();
       navigation.navigate("Home");
     } catch (error: any) {
       const msg = error?.message ?? "No se pudo conectar al servidor";
@@ -65,7 +68,6 @@ const LoginScreen = ({ navigation }: any) => {
           showsVerticalScrollIndicator={false}
           className="px-6"
         >
-          {/* Logo/Título */}
           <View className="items-center justify-center flex-1 mb-12">
             <Text className="text-6xl mb-4"></Text>
             <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">
@@ -76,7 +78,6 @@ const LoginScreen = ({ navigation }: any) => {
             </Text>
           </View>
 
-          {/* Formulario */}
           <View className="w-full pb-8">
             <View className="mb-5">
               <Text className="text-sm font-semibold text-gray-800 mb-2">
