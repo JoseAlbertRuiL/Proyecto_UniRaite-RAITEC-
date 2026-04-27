@@ -181,10 +181,15 @@ const StartScreen = ({ navigation }: any) => {
     cargarViajes();
   };
 
-  // Configurar WebSocket para recibir actualizaciones
-  // Configurar WebSocket para recibir actualizaciones
+  // Configurar WebSocket y polling para actualizaciones
   useEffect(() => {
     cargarViajes();
+
+    // Polling: recargar cada 30 segundos para actualizar viajes expirados
+    const interval = setInterval(() => {
+      console.log("🔄 Polling: recargando viajes...");
+      cargarViajes();
+    }, 30000);
 
     const socket = getSocket();
     if (socket) {
@@ -214,12 +219,15 @@ const StartScreen = ({ navigation }: any) => {
       socket.on("viaje_cancelado", onViajeCancelado);
 
       return () => {
+        clearInterval(interval);
         socket.off("solicitud_actualizada", onSolicitudActualizada);
         socket.off("nueva_solicitud", onNuevaSolicitud);
         socket.off("nuevo_viaje", onNuevoViaje);
         socket.off("viaje_cancelado", onViajeCancelado);
       };
     }
+
+    return () => clearInterval(interval);
   }, []);
 
   return (

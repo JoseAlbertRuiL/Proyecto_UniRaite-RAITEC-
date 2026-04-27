@@ -276,6 +276,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   const subirFoto = async (uri: string) => {
     try {
+      console.log("📸 Subiendo foto, URL:", `${BASE_URL}/upload/perfil`);
+      console.log("📸 URI de la foto:", uri);
+
       const formData = new FormData();
       formData.append("foto_perfil", {
         uri: uri,
@@ -284,6 +287,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       } as any);
 
       const token = await AsyncStorage.getItem("token");
+      console.log("🔑 Token:", token ? "Existente" : "No hay token");
+
       const response = await fetch(`${BASE_URL}/upload/perfil`, {
         method: "POST",
         body: formData,
@@ -292,7 +297,10 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         },
       });
 
+      console.log("📥 Status response:", response.status);
       const data = await response.json();
+      console.log("📥 Data response:", data);
+
       if (data.foto_perfil) {
         await orpc.usuarios.actualizarFotoPerfil({
           foto_perfil: data.foto_perfil,
