@@ -157,7 +157,7 @@ app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
 });
 
-// express.json() va DESPUÉS del mount de oRPC
+// express.json()
 app.use(express.json())
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────

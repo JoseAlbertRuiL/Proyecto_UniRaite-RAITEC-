@@ -157,9 +157,9 @@ const CirculacionScreen = ({ navigation, route }: any) => {
       "Cancelar",
       "¿Seguro que quieres cancelar? Se perderán los cambios no guardados.",
       [
-        { text: "Continuar", style: "cancel" },
+        { text: "Quedarme", style: "cancel" },
         {
-          text: "Sí, cancelar",
+          text: "Cerrar",
           onPress: () => navigation.navigate(modoEdicion ? "ConfigP" : "Home"),
         },
       ],

@@ -71,8 +71,8 @@ const LicenciaScreen = ({ navigation }: any) => {
       "Cancelar registro",
       "¿Seguro que quieres cancelar? No se activará el modo conductor.",
       [
-        { text: "Continuar registro", style: "cancel" },
-        { text: "Sí, cancelar", onPress: () => navigation.navigate("Home") },
+        { text: "Quedarme", style: "cancel" },
+        { text: "Cerrar", onPress: () => navigation.navigate("Home") },
       ],
     );
   };

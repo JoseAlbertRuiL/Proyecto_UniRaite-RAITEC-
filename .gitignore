@@ -2,9 +2,11 @@
 
 # env
 .env
+.env.cloudinary
 google-key.json
 
 backend/.env
+backend/.env.cloudinary
 backend/google-key.json
 
 

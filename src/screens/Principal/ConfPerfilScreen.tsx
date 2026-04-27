@@ -314,9 +314,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     }
   };
 
-  const fotoUrl = user?.foto_perfil
-    ? `${BASE_URL}/uploads/perfiles/${user.foto_perfil}`
-    : null;
+  const fotoUrl = user?.foto_perfil ? user.foto_perfil : null;
 
   return (
     <View
