@@ -87,33 +87,35 @@ export const publicarViaje = protectedProcedure
     })
   )
   .handler(async ({ input, context }) => {
+    // 1. Buscamos al usuario y verificamos su licencia
     const usuario = await prisma.usuarios.findUnique({
       where: { id_usuario: context.user.id },
     })
 
-    if (!usuario) {
-      throw new ORPCError('NOT_FOUND', { message: 'Usuario no encontrado' })
-    }
-
-    if (!usuario.licencia_de_conducir) {
+    if (!usuario || !usuario.licencia_de_conducir) {
       throw new ORPCError('FORBIDDEN', {
         message: 'Debes ser conductor registrado para publicar viajes',
       })
     }
 
-    const conductor = await prisma.conductores.findUnique({
-      where: { id_licencia: usuario.licencia_de_conducir },
+    // 2. NUEVO: Buscamos qué vehículo tiene este conductor
+    const relacionVehiculo = await prisma.tiene_carro.findFirst({
+      where: { id_licencia: usuario.licencia_de_conducir }
     })
 
-    if (!conductor) {
-      throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
+    if (!relacionVehiculo) {
+      throw new ORPCError('BAD_REQUEST', { 
+        message: 'Necesitas tener un vehículo registrado para publicar un viaje' 
+      })
     }
 
     const fechaHoraSalida = parseFechaHora(input.fecha, input.hora)
 
+    // 3. Creamos el viaje enlazando tanto al conductor como al vehículo
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
-        id_licencia_conductor: conductor.id_licencia,
+        id_licencia_conductor: usuario.licencia_de_conducir,
+        id_vehiculo: relacionVehiculo.id_vehiculo, // <-- ESTO ES LO QUE FALTABA
         origen_texto: input.origen,
         destino_texto: input.destino,
         fecha_hora_salida: fechaHoraSalida,
@@ -128,4 +130,18 @@ export const publicarViaje = protectedProcedure
       message: 'Viaje publicado exitosamente',
       viaje: nuevoViaje,
     }
+  })
+
+// GET /api/viajes/estado — Consulta si el viaje ya finalizó
+export const getEstado = protectedProcedure
+  .input(z.object({ viajeId: z.number().int() }))
+  .handler(async ({ input }) => {
+    // Buscamos en la tabla de viajes_activos para ver el estado real
+    const trayecto = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: input.viajeId },
+      select: { estado_trayecto: true },
+    })
+    
+    // Si no lo encuentra, asumimos que sigue "en_curso" o pendiente
+    return { estado: trayecto?.estado_trayecto || 'en_curso' }
   })

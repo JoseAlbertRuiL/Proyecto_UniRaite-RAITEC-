@@ -1,4 +1,5 @@
 // src/screens/Principal/HomeScreen.tsx
+
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -19,7 +20,7 @@ import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { listarViajes } from "../../services/trip/tripService";
-import { BASE_URL } from "../../services/api/apiClient";
+import { BASE_URL, orpc } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
 
 const StartScreen = ({ navigation }: any) => {
@@ -81,10 +82,22 @@ const StartScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleSolicitarViaje = (viajeId: number) => {
-    navigation.navigate("SolicitarViaje", { viajeId });
+  // En src/screens/Principal/HomeScreen.tsx
+  const handleSolicitarViaje = async (viajeId: number) => {
+    try {
+      const data = await orpc.viajes.solicitar({ viajeId });
+      if (data.success) {
+        Alert.alert("¡Solicitud enviada!", "Espera a que el conductor acepte.");
+      }
+    } catch (error: any) {
+      // Si ya tienes match o ya lo solicitaste, entra al chat directamente
+      if (error.message.includes("Ya has solicitado") || error.code === "CONFLICT") {
+        navigation.navigate("Chat", { idViaje: viajeId });
+      } else {
+        Alert.alert("Error", error.message);
+      }
+    }
   };
-
   const onRefresh = () => {
     setRefrescando(true);
     cargarViajes();

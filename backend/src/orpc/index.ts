@@ -1,3 +1,4 @@
+// backend/src/orpc/index.ts
 import { 
   verificarCorreo, 
   login, 
@@ -8,8 +9,9 @@ import {
 } from './routers/auth'
 import { getPerfil, getUsuarioById } from './routers/usuarios'
 import { registroConductor, actualizarVehiculo } from './routers/conductor'
-import { listarViajes, publicarViaje } from './routers/viajes'
+import { listarViajes, publicarViaje, getEstado } from './routers/viajes'
 import { solicitarViaje, responderSolicitud } from './routers/solicitudes'
+import { getMensajes, enviarMensaje, misChats } from './routers/chat'
 
 export const router = {
   auth: {
@@ -32,9 +34,15 @@ export const router = {
     listar: listarViajes,
     publicar: publicarViaje,
     solicitar: solicitarViaje,
+    getEstado: getEstado, 
   },
   solicitudes: {
     responder: responderSolicitud,
+  },
+  chat: {
+    getMensajes,
+    enviarMensaje,
+    misChats,
   },
 }
 
