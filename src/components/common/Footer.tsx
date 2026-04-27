@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Platform } from "react-native";
 import { SvgXml } from "react-native-svg";
 
 interface FooterProps {
@@ -14,7 +14,13 @@ const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
   return (
-    <View className="flex-row justify-around items-center py-4 bg-gray-100 border-t border-gray-200">
+    <View
+      className="flex-row justify-around items-center py-4 bg-gray-100 border-t border-gray-200"
+      style={{
+        paddingBottom: Platform.OS === "ios" ? 34 : 20,
+        paddingTop: 12,
+      }}
+    >
       {/* Inicio */}
       <TouchableOpacity
         className="items-center"

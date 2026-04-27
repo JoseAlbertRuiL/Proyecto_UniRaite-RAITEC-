@@ -17,6 +17,7 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   listarViajes,
   solicitarViaje,
