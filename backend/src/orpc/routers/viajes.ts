@@ -113,8 +113,14 @@ export const listarViajes = baseProcedure.handler(async () => {
 export const publicarViaje = protectedProcedure
   .input(
     z.object({
-      origen: z.string().min(1),
-      destino: z.string().min(1),
+      origen_texto: z.string().min(1),
+      destino_texto: z.string().min(1),
+
+      latitud_origen: z.number(),
+      longitud_origen: z.number(),
+      latitud_destino: z.number(),
+      longitud_destino: z.number(),
+      
       fecha: z.string().min(1),
       hora: z.string().min(1),
       asientos: z.number().int().min(1),
@@ -149,8 +155,12 @@ export const publicarViaje = protectedProcedure
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
         id_licencia_conductor: conductor.id_licencia,
-        origen_texto: input.origen,
-        destino_texto: input.destino,
+        origen_texto: input.origen_texto,
+        destino_texto: input.destino_texto,
+        latitud_origen: input.latitud_origen,
+        longitud_origen: input.longitud_origen,
+        latitud_destino: input.latitud_destino,
+        longitud_destino: input.longitud_destino,
         fecha_hora_salida: fechaHoraSalida,
         asientos_disponibles: input.asientos,
         costo_estimado: input.precio,
