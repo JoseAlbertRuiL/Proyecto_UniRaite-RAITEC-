@@ -6,12 +6,14 @@ import {
   StatusBar,
   Image,
   ScrollView,
+  Switch,
   Alert,
   Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "../../components/common/Header";
+import { getVehiculo } from '../../services/trip/tripService'
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc } from "../../services/api/apiClient";
 import { BASE_URL } from "../../services/api/apiClient";
@@ -23,6 +25,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
   const [fotoSeleccionada, setFotoSeleccionada] = useState<string | null>(null);
+  const [modoConductor, setModoConductor] = useState(false);
+  const [vehiculo, setVehiculo] = useState<any>(null);
+  const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
 
   useBackHandler(navigation, "normal");
 
@@ -30,6 +35,24 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     obtenerPerfil();
     obtenerEstadisticas();
   }, []);
+
+  useEffect(() => {
+    const cargarEstadoSwitch = async () => {
+      const guardado = await AsyncStorage.getItem('modo_conductor_activo');
+      if (guardado === 'true' && user?.es_conductor) {
+        setModoConductor(true);
+      } else {
+        setModoConductor(false);
+      }
+    };
+    if (user) cargarEstadoSwitch();
+  }, [user]);
+
+  useEffect(() => {
+    if (modoConductor && !vehiculo) {
+      obtenerVehiculo();
+    }
+  }, [modoConductor]);
 
   const obtenerPerfil = async () => {
     try {
@@ -61,11 +84,34 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     }
   };
 
+  const obtenerVehiculo = async () => {
+    try {
+      const data = await getVehiculo();
+      if (data.success) setVehiculo(data.vehiculo);
+    } catch (error) {
+      console.log('Error al obtener vehículo:', error);
+    }
+  };
+
+  const handleModoConductor = async (value: boolean) => {
+    if (value) {
+      if (user?.es_conductor) {
+        setModoConductor(true);
+        await AsyncStorage.setItem('modo_conductor_activo', 'true');
+      } else {
+        navigation.navigate('Licencia');
+      }
+    } else {
+      setModoConductor(false);
+      await AsyncStorage.setItem('modo_conductor_activo', 'false');
+    }
+  };
+
   const cerrarSesion = () => {
     Alert.alert("Cerrar sesión", "¿Estás seguro de que deseas cerrar sesión?", [
-      { text: "Cancelar", style: "cancel" },
+      { text: "Quedarme", style: "cancel" },
       {
-        text: "Sí, cerrar sesión",
+        text: "Cerrar sesión",
         onPress: async () => {
           await logout();
           navigation.navigate("Login");
@@ -252,6 +298,36 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <Text className="text-gray-400 text-lg">›</Text>
           </TouchableOpacity>
 
+          {/* Switch modo conductor */}
+          <View className="flex-row items-center justify-between py-2 border-b border-gray-100">
+            <View className="flex-row items-center">
+              <Text className="text-2xl mr-3">🔑</Text>
+              <Text className="text-base text-gray-700">Modo conductor</Text>
+            </View>
+            <Switch
+              value={modoConductor}
+              onValueChange={handleModoConductor}
+              style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+              trackColor={{ false: '#d1d5db', true: '#3b82f6' }}
+              thumbColor={'#ffffff'}
+            />
+          </View>
+
+
+          {/* Datos del vehículo — solo visible cuando el switch está activo */}
+          {modoConductor && (
+            <TouchableOpacity
+              className="flex-row items-center justify-between py-4 border-b border-gray-100"
+              onPress={() => setModalVisibleVehiculo(true)}
+            >
+              <View className="flex-row items-center">
+                <Text className="text-2xl mr-3">🚗</Text>
+                <Text className="text-base text-gray-700">Datos del vehículo</Text>
+              </View>
+              <Text className="text-gray-400 text-lg">›</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             className="flex-row items-center justify-between py-4 border-b border-gray-100"
             onPress={() => navigation.navigate("ContactoEmergencia")}
@@ -321,6 +397,59 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Modal datos del vehículo */}
+      <Modal visible={modalVisibleVehiculo} transparent animationType="slide">
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className="bg-white p-5 rounded-2xl">
+            <Text className="text-lg font-semibold mb-4">Datos del Vehículo</Text>
+            {vehiculo ? (
+              <View>
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Modelo</Text>
+                  <Text className="text-base font-semibold text-gray-900">{vehiculo.modelo}</Text>
+                </View>
+                <View className="h-px bg-gray-100 mb-3" />
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Placas</Text>
+                  <Text className="text-base font-semibold text-gray-900">{vehiculo.placas}</Text>
+                </View>
+                <View className="h-px bg-gray-100 mb-3" />
+                <View className="mb-3">
+                  <Text className="text-xs text-gray-500 mb-1">Color</Text>
+                  <Text className="text-base font-semibold text-gray-900">{vehiculo.color}</Text>
+                </View>
+                <View className="h-px bg-gray-100 mb-3" />
+                <View className="mb-4">
+                  <Text className="text-xs text-gray-500 mb-1">Capacidad de pasajeros</Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {vehiculo.capacidad_pasajeros} pasajeros
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Text className="text-gray-500 text-center mb-4">Cargando datos...</Text>
+            )}
+            <View className="flex-row justify-between mt-2">
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisibleVehiculo(false);
+                  navigation.navigate('Circulacion', { modoEdicion: true });
+                }}
+                className="flex-1 bg-gray-200 py-3 rounded-xl items-center mr-2"
+              >
+                <Text className="text-gray-700 font-semibold text-base">Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setModalVisibleVehiculo(false)}
+                className="flex-1 bg-blue-600 py-3 rounded-xl items-center ml-2"
+              >
+                <Text className="text-white font-semibold text-base">Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );

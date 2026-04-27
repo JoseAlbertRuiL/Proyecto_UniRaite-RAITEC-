@@ -122,3 +122,7 @@ export const actualizarVehiculo = async (params: {
     foto_circulacion,
   })
 }
+
+export const getVehiculo = async () => {
+  return orpc.conductor.getVehiculo()
+}

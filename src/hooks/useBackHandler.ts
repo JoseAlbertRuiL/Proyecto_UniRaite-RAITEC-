@@ -11,7 +11,7 @@ export const useBackHandler = (navigation: any, type: 'main' | 'login' | 'normal
         if (backPressCount === 0) {
           backPressCount++;
           Alert.alert('Presiona de nuevo para salir', '¿Deseas cerrar la aplicación?', [
-            { text: 'Cancelar', style: 'cancel', onPress: () => { backPressCount = 0; } },
+            { text: 'Quedarme', style: 'cancel', onPress: () => { backPressCount = 0; } },
             { text: 'Salir', onPress: () => BackHandler.exitApp() }
           ]);
           timeout = setTimeout(() => { backPressCount = 0; }, 2000);
