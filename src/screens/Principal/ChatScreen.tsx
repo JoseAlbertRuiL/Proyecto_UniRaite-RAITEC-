@@ -10,40 +10,54 @@ import {
   Platform,
   StatusBar,
   Alert,
+  ActivityIndicator
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import { orpc } from "../../services/api/apiClient";
-import { useBackHandler } from "../../hooks/useBackHandler";
 
 export default function ChatScreen({ navigation, route }: any) {
-  const { idViaje = 1, idUsuario = "" } = route?.params || {};
-
-  useBackHandler(navigation, "normal");
+  const { idViaje = 1 } = route?.params || {};
 
   const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
   const [estaFinalizado, setEstaFinalizado] = useState(false);
+  const [myId, setMyId] = useState<string | null>(null); // Guardaremos tu ID aquí
 
   useEffect(() => {
-    cargarMensajes();
-    checarEstadoViaje();
+    const inicializarChat = async () => {
+      try {
+        // 1. Obtenemos tu perfil para saber quién eres tú realmente
+        const perfil = await orpc.usuarios.getPerfil();
+        setMyId(perfil.user.id_usuario);
+        
+        // 2. Cargamos mensajes y estado
+        cargarMensajes(perfil.user.id_usuario);
+        checarEstadoViaje();
+      } catch (error) {
+        console.error("Error al inicializar chat:", error);
+      }
+    };
 
+    inicializarChat();
+
+    // Intervalo de Polling cada 3 segundos
     const intervalo = setInterval(() => {
-      cargarMensajes();
+      if (myId) cargarMensajes(myId);
       if (!estaFinalizado) checarEstadoViaje();
     }, 3000);
 
     return () => clearInterval(intervalo);
-  }, [idViaje, estaFinalizado]);
+  }, [idViaje, estaFinalizado, myId]);
 
-  const cargarMensajes = async () => {
+  const cargarMensajes = async (currentUserId: string) => {
     try {
       const data = await orpc.chat.getMensajes({ idViaje });
       const formateados = data.map((msg: any) => ({
         id: msg.id_mensaje.toString(),
         texto: msg.contenido,
-        remitente: msg.id_emisor === idUsuario ? "yo" : "otro",
+        // Comparamos el emisor contra tu ID real del perfil
+        remitente: msg.id_emisor === currentUserId ? "yo" : "otro",
         nombre: msg.emisor?.nombre || "Usuario",
       }));
       setMensajes(formateados);
@@ -69,61 +83,44 @@ export default function ChatScreen({ navigation, route }: any) {
         contenido: mensajeEscrito,
       });
       setMensajeEscrito("");
-      cargarMensajes();
+      if (myId) cargarMensajes(myId);
     } catch (error: any) {
       if (error?.status === 403 || error?.code === 403) {
-        Alert.alert(
-          "Acceso Denegado",
-          "Solo puedes chatear si tienes un match confirmado.",
-        );
+        Alert.alert("Acceso Denegado", "Solo puedes chatear si tienes un match confirmado.");
       } else {
         Alert.alert("Error", error?.message || "No se pudo enviar el mensaje.");
       }
-      console.error("Error al enviar:", error);
     }
   };
 
   const renderItem = ({ item }: any) => {
     const esMio = item.remitente === "yo";
     return (
-      <View
-        className={`p-3 m-2 rounded-2xl max-w-[85%] ${esMio ? "bg-blue-900 self-end rounded-tr-none" : "bg-gray-200 self-start rounded-tl-none"}`}
-      >
-        {!esMio && (
-          <Text className="text-[10px] text-blue-900 font-bold mb-1">
-            {item.nombre}
-          </Text>
-        )}
-        <Text className={esMio ? "text-white" : "text-gray-800"}>
-          {item.texto}
-        </Text>
+      <View className={`p-3 m-2 rounded-2xl max-w-[85%] ${esMio ? "bg-blue-900 self-end rounded-tr-none" : "bg-gray-200 self-start rounded-tl-none"}`}>
+        {!esMio && <Text className="text-[10px] text-blue-900 font-bold mb-1">{item.nombre}</Text>}
+        <Text className={esMio ? "text-white" : "text-gray-800"}>{item.texto}</Text>
       </View>
     );
   };
 
-  return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
-      <Header navigation={navigation} title="Chat" />
+  if (!myId) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text className="mt-2 text-gray-500">Cargando chat...</Text>
+      </View>
+    );
+  }
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
-        <View
-          className={`py-2 ${estaFinalizado ? "bg-red-100" : "bg-green-50"}`}
-        >
-          <Text
-            className={`text-center text-xs font-bold ${estaFinalizado ? "text-red-600" : "text-green-600"}`}
-          >
-            {estaFinalizado
-              ? "VIAJE FINALIZADO - CHAT CERRADO"
-              : `CHATEANDO EN VIAJE #${idViaje}`}
+  return (
+    <View className="flex-1 bg-white" style={{ paddingTop: StatusBar.currentHeight || 0 }}>
+      <Header navigation={navigation} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+        <View className={`py-2 ${estaFinalizado ? "bg-red-100" : "bg-green-50"}`}>
+          <Text className={`text-center text-xs font-bold ${estaFinalizado ? "text-red-600" : "text-green-600"}`}>
+            {estaFinalizado ? "VIAJE FINALIZADO - CHAT CERRADO" : `CHATEANDO EN VIAJE #${idViaje}`}
           </Text>
         </View>
-
         <FlatList
           data={mensajes}
           keyExtractor={(item) => item.id}
@@ -131,15 +128,10 @@ export default function ChatScreen({ navigation, route }: any) {
           className="flex-1 px-2"
           contentContainerStyle={{ paddingBottom: 20 }}
         />
-
         <View className="flex-row items-center p-3 border-t border-gray-100 bg-white">
           <TextInput
             className={`flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mr-2 ${estaFinalizado ? "text-gray-400" : "text-black"}`}
-            placeholder={
-              estaFinalizado
-                ? "El chat ya no está disponible"
-                : "Escribe un mensaje..."
-            }
+            placeholder={estaFinalizado ? "El chat ya no está disponible" : "Escribe un mensaje..."}
             value={mensajeEscrito}
             onChangeText={setMensajeEscrito}
             editable={!estaFinalizado}
@@ -153,7 +145,6 @@ export default function ChatScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
       <Footer navigation={navigation} />
     </View>
   );
