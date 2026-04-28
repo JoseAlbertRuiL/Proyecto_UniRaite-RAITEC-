@@ -37,7 +37,7 @@ type ScreenName =
   | "Notificaciones";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("Home");
+  const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({});
 
   const navigation = {
