@@ -16,9 +16,11 @@ import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-ma
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Header from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { publicarViaje, getVehiculo } from "../../services/trip/tripService";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { orpc } from "../../services/api/apiClient";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const REGION_MORELIA = {
   latitude:      19.7069,
@@ -267,10 +269,7 @@ const PublishTripScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper>
       <Header navigation={navigation} title="Publica tu Viaje" />
 
       {/* ── Modal mapa picker ── */}
@@ -335,7 +334,13 @@ const PublishTripScreen = ({ navigation }: any) => {
         </View>
       </Modal>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView 
+        className="flex-1" 
+        showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="px-4 py-5 gap-5">
           {/* Origen / Destino */}
           <View className="bg-blue-50 rounded-2xl p-4">
@@ -519,8 +524,8 @@ const PublishTripScreen = ({ navigation }: any) => {
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+      </KeyboardAwareScrollView>
+    </ScreenWrapper>
   );
 };
 

@@ -12,8 +12,10 @@ import {
 import { orpc } from "../../services/api/apiClient";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket } from "../../services/socket";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TabType = "activos" | "solicitudes" | "historial";
 
@@ -24,6 +26,7 @@ const ConducirScreen = ({ navigation }: any) => {
   const [viajesActivos, setViajesActivos] = useState<any[]>([]);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [historial, setHistorial] = useState<any[]>([]);
+  const insets = useSafeAreaInsets();
 
   useBackHandler(navigation, "normal");
 
@@ -315,10 +318,7 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Conducir" />
 
       <View className="flex-row border-b border-gray-200">
@@ -364,7 +364,8 @@ const ConducirScreen = ({ navigation }: any) => {
       </ScrollView>
 
       <TouchableOpacity
-        className="absolute bottom-20 right-6 bg-blue-900 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        className="absolute right-6 bg-blue-900 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        style={{ bottom: 80 + insets.bottom }}
         onPress={() => navigation.navigate("PublicarViaje")}
         activeOpacity={0.8}
       >
@@ -372,7 +373,7 @@ const ConducirScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       <Footer navigation={navigation} />
-    </View>
+    </ScreenWrapper>
   );
 };
 

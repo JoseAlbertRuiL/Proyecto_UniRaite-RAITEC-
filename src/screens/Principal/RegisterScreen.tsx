@@ -12,6 +12,8 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { register, verificarCorreo } from "../../services/auth/authService";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const RegisterScreen = ({ navigation }: any) => {
   useBackHandler(navigation, "normal");
@@ -179,7 +181,14 @@ const RegisterScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScrollView className="flex-1 bg-white px-6 pt-12">
+    <ScreenWrapper>
+      <KeyboardAwareScrollView 
+        className="flex-1 bg-white px-6 pt-12"
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        enableOnAndroid={true}
+        extraScrollHeight={20}
+        keyboardShouldPersistTaps="handled"
+      >
       <View className="items-center mb-4">
         {fotoPerfil ? (
           <Image source={{ uri: fotoPerfil }} className="w-24 h-24 rounded-full border-2 border-blue-900" />
@@ -277,7 +286,8 @@ const RegisterScreen = ({ navigation }: any) => {
           <Text className="text-white text-center font-bold">{paso === 4 ? "Registrarme" : "Siguiente"}</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </KeyboardAwareScrollView>
+    </ScreenWrapper>
   );
 };
 

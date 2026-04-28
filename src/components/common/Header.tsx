@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import UserIcon from "../../icons/userIcon";
 import NotificationIcon from "../../icons/notificationIcon";
@@ -12,6 +13,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
+  const insets = useSafeAreaInsets();
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
 
   const cargarNotificacionesNoLeidas = async () => {
@@ -51,7 +53,10 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
   }, []);
 
   return (
-    <View className="flex-row justify-between items-center px-4 py-3 bg-blue-900">
+    <View
+      className="flex-row justify-between items-center px-4 py-3 bg-blue-900"
+      style={{ paddingTop: insets.top + 12 }}
+    >
       {/* Logo izquierda */}
       <TouchableOpacity
         className="w-10 h-10 rounded-full items-center justify-center"

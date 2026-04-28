@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
 
 interface HeaderBackProps {
@@ -13,8 +14,12 @@ const backArrowSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24
 </svg>`;
 
 const HeaderBack: React.FC<HeaderBackProps> = ({ navigation, title }) => {
+  const insets = useSafeAreaInsets();
   return (
-    <View className="flex-row justify-between items-center px-4 py-3 bg-blue-900">
+    <View
+      className="flex-row justify-between items-center px-4 py-3 bg-blue-900"
+      style={{ paddingTop: insets.top + 12 }}
+    >
       {/* Botón de regreso izquierda - más bonito */}
       <TouchableOpacity
         className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"

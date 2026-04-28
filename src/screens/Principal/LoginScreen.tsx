@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import { login } from "../../services/auth/authService";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { connectSocket } from "../../services/socket";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
@@ -55,19 +57,14 @@ const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
+    <ScreenWrapper>
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        className="px-6"
+        enableOnAndroid={true}
+        extraScrollHeight={20}
       >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-          className="px-6"
-        >
           <View className="items-center justify-center flex-1 mb-12">
             <Text className="text-6xl mb-4"></Text>
             <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">
@@ -156,9 +153,8 @@ const LoginScreen = ({ navigation }: any) => {
               </Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+      </KeyboardAwareScrollView>
+    </ScreenWrapper>
   );
 };
 
