@@ -10,6 +10,8 @@ import {
   Alert,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
@@ -21,6 +23,7 @@ import { orpc } from "../../services/api/apiClient";
 import { BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { disconnectSocket } from "../../services/socket";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const [user, setUser] = useState<any>(null);
@@ -30,6 +33,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [modoConductor, setModoConductor] = useState(false);
   const [vehiculo, setVehiculo] = useState<any>(null);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Modales para configuraciones
   const [modalNombreVisible, setModalNombreVisible] = useState(false);
@@ -319,7 +323,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   return (
     <View
       className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
     >
       <HeaderBack navigation={navigation} title="Mi Perfil" />
 
@@ -499,7 +502,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
       {/* Modal cambiar nombre */}
       <Modal visible={modalNombreVisible} transparent animationType="slide">
-        <View className="flex-1 justify-center bg-black/50 px-6">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center bg-black/50 px-6">
           <View className="bg-white p-5 rounded-2xl">
             <Text className="text-lg font-semibold mb-4 text-center">
               Cambiar nombre
@@ -541,12 +548,17 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal cambiar contraseña */}
       <Modal visible={modalPasswordVisible} transparent animationType="slide">
-        <View className="flex-1 justify-center bg-black/50 px-6">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center bg-black/50 px-6">
           <View className="bg-white p-5 rounded-2xl">
             <Text className="text-lg font-semibold mb-4 text-center">
               Cambiar contraseña
@@ -596,7 +608,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal cambiar carrera con Picker */}

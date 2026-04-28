@@ -338,7 +338,7 @@ const PublishTripScreen = ({ navigation }: any) => {
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
-        extraScrollHeight={20}
+        extraScrollHeight={100}
         keyboardShouldPersistTaps="handled"
       >
         <View className="px-4 py-5 gap-5">

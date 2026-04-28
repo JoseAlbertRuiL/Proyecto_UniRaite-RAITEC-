@@ -63,7 +63,7 @@ const LoginScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         className="px-6"
         enableOnAndroid={true}
-        extraScrollHeight={20}
+        extraScrollHeight={100}
       >
           <View className="items-center justify-center flex-1 mb-12">
             <Text className="text-6xl mb-4"></Text>

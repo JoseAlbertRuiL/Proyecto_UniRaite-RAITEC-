@@ -186,7 +186,7 @@ const RegisterScreen = ({ navigation }: any) => {
         className="flex-1 bg-white px-6 pt-12"
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
         enableOnAndroid={true}
-        extraScrollHeight={20}
+        extraScrollHeight={100}
         keyboardShouldPersistTaps="handled"
       >
       <View className="items-center mb-4">
