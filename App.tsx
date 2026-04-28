@@ -65,8 +65,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {screen === "Home" ? (
-        <HomeScreen navigation={navigation} />
+      {screen === "Login" ? (
+        <LoginScreen navigation={navigation} />
       ) : screen === "Register" ? (
         <RegisterScreen navigation={navigation} />
       ) : screen === "Forget" ? (
