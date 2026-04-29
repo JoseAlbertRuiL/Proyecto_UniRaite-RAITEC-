@@ -2,12 +2,10 @@ import { os, ORPCError } from '@orpc/server'
 import jwt from 'jsonwebtoken'
 import type { InitialContext, AuthContext } from './context'
 
-// Procedimiento base — todos los procedures parten de aquí
-// Requiere que el contexto inicial tenga los headers
+// Procedimiento base
 export const baseProcedure = os.$context<InitialContext>()
 
-// Middleware de autenticación reutilizable
-// Verifica el JWT y enriquece el contexto con el usuario
+// Middleware de autenticación
 export const authMiddleware = baseProcedure.middleware(async ({ context, next }) => {
   const token = context.headers.authorization?.split(' ')[1]
 
@@ -17,6 +15,7 @@ export const authMiddleware = baseProcedure.middleware(async ({ context, next })
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { id: string }
+
     return next({
       context: {
         ...context,
@@ -28,5 +27,5 @@ export const authMiddleware = baseProcedure.middleware(async ({ context, next })
   }
 })
 
-// Procedimiento protegido — cualquier procedure que requiera auth lo usa como base
+// Procedimiento protegido
 export const protectedProcedure = baseProcedure.use(authMiddleware)

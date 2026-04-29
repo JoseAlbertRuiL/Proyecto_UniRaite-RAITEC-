@@ -47,6 +47,7 @@ import {
   marcarTodasLeidas,
   eliminar
 } from './routers/notificaciones'
+import { registrarIncidente } from './routers/incidentes'
 
 export const router = {
   auth: {
@@ -102,6 +103,11 @@ export const router = {
     marcarTodasLeidas,
     eliminar,
   },
+
+incidentes: {
+  registrar: registrarIncidente,
+},
+
 }
 
 export type AppRouter = typeof router
