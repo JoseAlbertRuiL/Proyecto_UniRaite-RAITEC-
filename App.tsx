@@ -17,6 +17,7 @@ import ChatHistory from "./src/screens/Principal/ChatHistoryScreen";
 import PerfilPublicoScreen from "./src/screens/Principal/PerfilPublicoScreen";
 import ConducirScreen from "./src/screens/Principal/ConducirScreen";
 import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
+import HistoryScreen from "./src/screens/Principal/HistoryScreen";
 
 type ScreenName =
   | "Login"
@@ -34,10 +35,12 @@ type ScreenName =
   | "ChatHistory"
   | "PerfilPublico"
   | "Conducir"
-  | "Notificaciones";
+  | "Notificaciones"
+  | "Historial"
+  | "FinishTrip";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("Login");
+  const [screen, setScreen] = useState<ScreenName>("FinishTrip");
   const [route, setRoute] = useState<any>({});
 
   const navigation = {
@@ -59,6 +62,8 @@ export default function App() {
       if (name === "PerfilPublico") setScreen("PerfilPublico");
       if (name === "Conducir") setScreen("Conducir");
       if (name === "Notificaciones") setScreen("Notificaciones");
+      if (name === "Historial") setScreen("Historial");
+      if (name === "FinishTrip") setScreen("FinishTrip");
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -67,6 +72,8 @@ export default function App() {
     <SafeAreaProvider>
       {screen === "Login" ? (
         <LoginScreen navigation={navigation} />
+      ) : screen === "Home" ? (
+        <HomeScreen navigation={navigation} />
       ) : screen === "Register" ? (
         <RegisterScreen navigation={navigation} />
       ) : screen === "Forget" ? (
@@ -95,6 +102,8 @@ export default function App() {
         <ChatHistory navigation={navigation} />
       ) : screen === "Notificaciones" ? (
         <NotificacionesScreen navigation={navigation} />
+      ) : screen === "Historial" ? (
+        <HistoryScreen navigation={navigation} />
       ) : (
         <LoginScreen navigation={navigation} />
       )}

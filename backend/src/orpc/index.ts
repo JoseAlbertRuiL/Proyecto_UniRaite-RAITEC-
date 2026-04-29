@@ -20,6 +20,7 @@ import {
   publicarViaje,
   obtenerViajesActivos,
   obtenerHistorialConductor,
+  obtenerHistorialPasajero,
   cancelarViaje
 } from './routers/viajes'
 import { 
@@ -72,6 +73,7 @@ export const router = {
     publicar: publicarViaje,
     activos: obtenerViajesActivos,
     historialConductor: obtenerHistorialConductor,
+    historialPasajero: obtenerHistorialPasajero,
     cancelar: cancelarViaje,
   },
   solicitudes: {

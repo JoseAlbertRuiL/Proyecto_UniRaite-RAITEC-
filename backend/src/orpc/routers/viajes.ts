@@ -241,6 +241,8 @@ export const obtenerHistorialConductor = protectedProcedure
                 nombre: true,
                 apellido_paterno: true,
                 foto_perfil: true,
+                reputacion_promedio: true,
+                viajes_completados: true,
               }
             }
           }
@@ -250,6 +252,49 @@ export const obtenerHistorialConductor = protectedProcedure
       take: 20
     })
 
+    return { success: true, viajes }
+  })
+
+// GET /api/viajes/pasajero/historial
+export const obtenerHistorialPasajero = protectedProcedure
+  .handler(async ({ context }) => {
+    const solicitudes = await prisma.solicitudes_viaje.findMany({
+      where: {
+        id_pasajero: context.user.id,
+        estado_solicitud: 'aceptada',
+        viaje: {
+          fecha_hora_salida: { lt: new Date() }
+        }
+      },
+      include: {
+        viaje: {
+          include: {
+            conductor: {
+              include: {
+                usuario: {
+                  select: {
+                    id_usuario: true,
+                    nombre: true,
+                    apellido_paterno: true,
+                    foto_perfil: true,
+                    reputacion_promedio: true,
+                    viajes_completados: true,
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        viaje: {
+          fecha_hora_salida: 'desc'
+        }
+      },
+      take: 20
+    })
+
+    const viajes = solicitudes.map(s => s.viaje)
     return { success: true, viajes }
   })
 
