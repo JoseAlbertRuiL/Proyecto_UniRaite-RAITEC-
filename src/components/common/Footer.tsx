@@ -124,7 +124,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
 
       <TouchableOpacity
         className="items-center"
-        onPress={() => navigation.navigate("Historial")}
+        onPress={() => navigation.navigate("History")}
       >
         <SvgXml xml={historySvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Historial</Text>
