@@ -202,12 +202,20 @@ const ConducirScreen = ({ navigation }: any) => {
       {/* Botones de acción */}
       <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
         {isActive && (
-          <TouchableOpacity
-            className="bg-red-500 rounded-lg px-4 py-2 mr-2"
-            onPress={() => cancelarViaje(viaje.id_viaje_pub)}
-          >
-            <Text className="text-white font-semibold text-sm">Cancelar</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => navigation.navigate("FinishTrip", { viaje })}
+            >
+              <Text className="text-white font-semibold text-sm">Finalizar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => cancelarViaje(viaje.id_viaje_pub)}
+            >
+              <Text className="text-white font-semibold text-sm">Cancelar</Text>
+            </TouchableOpacity>
+          </>
         )}
         {showActions && (
           <>
