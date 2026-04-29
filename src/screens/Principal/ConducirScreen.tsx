@@ -127,16 +127,23 @@ const ConducirScreen = ({ navigation }: any) => {
         cargarDatos();
       };
 
+      const onViajeFinalizado = (data: any) => {
+        console.log("📢 Viaje finalizado en Conducir:", data);
+        cargarDatos();
+      };
+
       socket.on("nueva_solicitud", onNuevaSolicitud);
       socket.on("solicitud_actualizada", onSolicitudActualizada);
       socket.on("viaje_cancelado", onViajeCancelado);
       socket.on("nuevo_viaje", onNuevoViajePublicado);
+      socket.on("viaje_finalizado", onViajeFinalizado);
 
       return () => {
         socket.off("nueva_solicitud", onNuevaSolicitud);
         socket.off("solicitud_actualizada", onSolicitudActualizada);
         socket.off("viaje_cancelado", onViajeCancelado);
         socket.off("nuevo_viaje", onNuevoViajePublicado);
+        socket.off("viaje_finalizado", onViajeFinalizado);
       };
     }
   }, []);
@@ -202,12 +209,20 @@ const ConducirScreen = ({ navigation }: any) => {
       {/* Botones de acción */}
       <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
         {isActive && (
-          <TouchableOpacity
-            className="bg-red-500 rounded-lg px-4 py-2 mr-2"
-            onPress={() => cancelarViaje(viaje.id_viaje_pub)}
-          >
-            <Text className="text-white font-semibold text-sm">Cancelar</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => navigation.navigate("FinishTrip", { viaje })}
+            >
+              <Text className="text-white font-semibold text-sm">Finalizar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => cancelarViaje(viaje.id_viaje_pub)}
+            >
+              <Text className="text-white font-semibold text-sm">Cancelar</Text>
+            </TouchableOpacity>
+          </>
         )}
         {showActions && (
           <>
