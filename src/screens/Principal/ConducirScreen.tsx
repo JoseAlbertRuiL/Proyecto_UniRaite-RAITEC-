@@ -127,16 +127,23 @@ const ConducirScreen = ({ navigation }: any) => {
         cargarDatos();
       };
 
+      const onViajeFinalizado = (data: any) => {
+        console.log("📢 Viaje finalizado en Conducir:", data);
+        cargarDatos();
+      };
+
       socket.on("nueva_solicitud", onNuevaSolicitud);
       socket.on("solicitud_actualizada", onSolicitudActualizada);
       socket.on("viaje_cancelado", onViajeCancelado);
       socket.on("nuevo_viaje", onNuevoViajePublicado);
+      socket.on("viaje_finalizado", onViajeFinalizado);
 
       return () => {
         socket.off("nueva_solicitud", onNuevaSolicitud);
         socket.off("solicitud_actualizada", onSolicitudActualizada);
         socket.off("viaje_cancelado", onViajeCancelado);
         socket.off("nuevo_viaje", onNuevoViajePublicado);
+        socket.off("viaje_finalizado", onViajeFinalizado);
       };
     }
   }, []);

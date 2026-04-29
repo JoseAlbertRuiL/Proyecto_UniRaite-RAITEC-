@@ -13,6 +13,7 @@ import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getSocket } from "../../services/socket";
 
 const HistoryScreen = ({ navigation }: any) => {
   useBackHandler(navigation, "normal");
@@ -53,6 +54,20 @@ const HistoryScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     fetchHistorial();
+
+    const socket = getSocket();
+    if (socket) {
+      const onViajeFinalizado = (data: any) => {
+        console.log("📢 Viaje finalizado en History:", data);
+        fetchHistorial();
+      };
+
+      socket.on("viaje_finalizado", onViajeFinalizado);
+
+      return () => {
+        socket.off("viaje_finalizado", onViajeFinalizado);
+      };
+    }
   }, []);
 
   const onRefresh = () => {
