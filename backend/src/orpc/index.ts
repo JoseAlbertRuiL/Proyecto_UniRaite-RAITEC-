@@ -12,7 +12,8 @@ import {
   actualizarFotoPerfil,
   cambiarPassword,
   actualizarPerfil,
-  actualizarCarrera
+  actualizarCarrera,
+  actualizarContactoEmergencia
 } from './routers/usuarios'
 import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
 import { 
@@ -62,6 +63,7 @@ export const router = {
     cambiarPassword,
     actualizarPerfil,
     actualizarCarrera,
+    actualizarContactoEmergencia,
   },
   conductor: {
     registroConductor,

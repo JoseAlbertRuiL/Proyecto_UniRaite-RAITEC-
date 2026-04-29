@@ -156,7 +156,7 @@ export const actualizarCarrera = protectedProcedure
 
 // PUT /api/usuarios/actualizar-contacto-emergencia
 export const actualizarContactoEmergencia = protectedProcedure
-  .input(z.object({ contacto_emergencia: z.string().min(1) }))
+  .input(z.object({ contacto_emergencia: z.string().min(10) }))
   .handler(async ({ input, context }) => {
     await prisma.usuarios.update({
       where: { id_usuario: context.user.id },

@@ -41,7 +41,7 @@ type ScreenName =
   | "History";
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenName>("FinishTrip");
+  const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({});
 
   const navigation = {

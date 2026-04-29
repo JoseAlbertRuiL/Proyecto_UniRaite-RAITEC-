@@ -39,6 +39,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [modalNombreVisible, setModalNombreVisible] = useState(false);
   const [modalPasswordVisible, setModalPasswordVisible] = useState(false);
   const [modalCarreraVisible, setModalCarreraVisible] = useState(false);
+  const [modalContactoVisible, setModalContactoVisible] = useState(false);
 
   // Estados para cambiar nombre
   const [nombre, setNombre] = useState("");
@@ -49,6 +50,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [passwordActual, setPasswordActual] = useState("");
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [confirmarPassword, setConfirmarPassword] = useState("");
+
+  // Estados para cambiar contacto de emergencia
+  const [contactoEmergencia, setContactoEmergencia] = useState("");
 
   // Estado para cambiar carrera
   const [carrera, setCarrera] = useState("");
@@ -102,6 +106,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       setApellidoPaterno(data.user?.apellido_paterno || "");
       setApellidoMaterno(data.user?.apellido_materno || "");
       setCarrera(data.user?.carrera || "");
+      setContactoEmergencia(data.user?.contacto_emergencia || "");
     } catch (error) {
       console.log("ERROR al obtener perfil:", error);
       navigation.navigate("Login");
@@ -239,6 +244,27 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       Alert.alert("Error", error.message || "No se pudo actualizar la carrera");
     }
   };
+
+  const cambiarContactoEmergencia = async () => {
+  if (!contactoEmergencia) {
+    Alert.alert("Error", "Debes ingresar un número");
+    return;
+  }
+
+  try {
+    const result = await orpc.usuarios.actualizarContactoEmergencia({
+      contacto_emergencia: contactoEmergencia,
+    });
+
+    if (result.success) {
+      Alert.alert("Éxito", "Contacto actualizado correctamente");
+      setModalContactoVisible(false);
+      obtenerPerfil();
+    }
+  } catch (error: any) {
+    Alert.alert("Error", error.message || "No se pudo actualizar");
+  }
+};
 
   const tomarFoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -475,7 +501,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
           <TouchableOpacity
             className="flex-row items-center justify-between py-4 border-b border-gray-100"
-            onPress={() => navigation.navigate("ContactoEmergencia")}
+            onPress={() => setModalContactoVisible(true)}
           >
             <View className="flex-row items-center">
               <Text className="text-2xl mr-3">🆘</Text>
@@ -764,6 +790,51 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+
+        {/* Modal contacto de emergencia */}
+      <Modal visible={modalContactoVisible} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center bg-black/50 px-6">
+            <View className="bg-white p-5 rounded-2xl">
+              <Text className="text-lg font-semibold mb-4 text-center">
+                Contacto de emergencia
+              </Text>
+
+              <TextInput
+                value={contactoEmergencia}
+                onChangeText={setContactoEmergencia}
+                placeholder="Número de contacto"
+                keyboardType="phone-pad"
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+              />
+
+              <View className="flex-row justify-between">
+                <TouchableOpacity
+                  onPress={() => setModalContactoVisible(false)}
+                  className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={cambiarContactoEmergencia}
+                  className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Guardar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      
     </View>
   );
 };
