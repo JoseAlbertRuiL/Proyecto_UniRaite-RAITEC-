@@ -57,6 +57,7 @@ const DriverCard = ({
     if (estadoSolicitud === "aceptada") return "Aceptado ✅";
     if (estadoSolicitud === "rechazada") return "Rechazado ❌";
     if (estadoSolicitud === "cancelado") return "Cancelado 🚫";
+    if (estadoSolicitud === "completado") return "Finalizado 🏁";
     return "Solicitar";
   };
 
@@ -65,6 +66,7 @@ const DriverCard = ({
     if (estadoSolicitud === "aceptada") return "bg-green-500";
     if (estadoSolicitud === "rechazada") return "bg-red-500";
     if (estadoSolicitud === "cancelado") return "bg-gray-500";
+    if (estadoSolicitud === "completado") return "bg-gray-600";
     return "bg-blue-900";
   };
 
