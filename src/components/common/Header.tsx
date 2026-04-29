@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
       >
         <Image
           source={require("../../images/Logtype.png")}
-          className="w-7 h-7" // ✅ w-8→w-7
+          className="w-7 h-7"
           resizeMode="contain"
         />
       </TouchableOpacity>
@@ -71,7 +71,8 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
       <Text className="text-white text-sm font-bold">{title}</Text>
 
       {/* Contenedor derecho */}
-      <View className="flex-row gap-2"> {/* ✅ gap-3→gap-2 */}
+      <View className="flex-row gap-2">
+        
         {/* Botón notificaciones con contador */}
         <TouchableOpacity
           className="w-8 h-8 bg-white rounded-full items-center justify-center relative" 
@@ -94,6 +95,7 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
         >
           <UserIcon />
         </TouchableOpacity>
+        
       </View>
     </View>
   );

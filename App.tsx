@@ -69,47 +69,35 @@ export default function App() {
     goBack: () => setScreen("Home"),
   } as any;
 
+  // Función que decide qué pantalla dibujar
+  const renderScreen = () => {
+    switch (screen) {
+      case "Login": return <LoginScreen navigation={navigation} />;
+      case "Home": return <HomeScreen navigation={navigation} />;
+      case "Register": return <RegisterScreen navigation={navigation} />;
+      case "Forget": return <ForgetPasswordScreen navigation={navigation} />;
+      case "Code": return <CodeForgetPasswordScreen navigation={navigation} route={route} />;
+      case "ConfigP": return <ConfPerfilScreen navigation={navigation} />;
+      case "ChangePassword": return <ChangePasswordScreen navigation={navigation} route={route} />;
+      case "Map": return <Map navigation={navigation} />;
+      case "Chat": return <ChatScreen navigation={navigation} route={route} />;
+      case "Licencia": return <LicenciaScreen navigation={navigation} />;
+      case "Circulacion": return <CirculacionScreen navigation={navigation} route={route} />;
+      case "PublicarViaje": return <PublishTripScreen navigation={navigation} />;
+      case "Conducir": return <ConducirScreen navigation={navigation} />;
+      case "PerfilPublico": return <PerfilPublicoScreen navigation={navigation} route={route} />;
+      case "ChatHistory": return <ChatHistory navigation={navigation} />;
+      case "Notificaciones": return <NotificacionesScreen navigation={navigation} />;
+      case "FinishTrip": return <FinishTripScreen navigation={navigation} />;
+      case "History": return <HistoryScreen navigation={navigation} />;
+      default: return <LoginScreen navigation={navigation} />;
+    }
+  };
+
+  // Un return limpio y seguro
   return (
     <SafeAreaProvider>
-      {screen === "Login" ? (
-        <LoginScreen navigation={navigation} />
-      ) : screen === "Home" ? (
-        <HomeScreen navigation={navigation} />
-      ) : screen === "Register" ? (
-        <RegisterScreen navigation={navigation} />
-      ) : screen === "Forget" ? (
-        <ForgetPasswordScreen navigation={navigation} />
-      ) : screen === "Code" ? (
-        <CodeForgetPasswordScreen navigation={navigation} route={route} />
-      ) : screen === "ConfigP" ? (
-        <ConfPerfilScreen navigation={navigation} />
-      ) : screen === "ChangePassword" ? (
-        <ChangePasswordScreen navigation={navigation} route={route} />
-      ) : screen === "Map" ? (
-        <Map navigation={navigation} />
-      ) : screen === "Chat" ? (
-        <ChatScreen navigation={navigation} route={route} />
-      ) : screen === "Licencia" ? (
-        <LicenciaScreen navigation={navigation} />
-      ) : screen === "Circulacion" ? (
-        <CirculacionScreen navigation={navigation} route={route} />
-      ) : screen === "PublicarViaje" ? (
-        <PublishTripScreen navigation={navigation} />
-      ) : screen === "Conducir" ? (
-        <ConducirScreen navigation={navigation} />
-      ) : screen === "PerfilPublico" ? (
-        <PerfilPublicoScreen navigation={navigation} route={route} />
-      ) : screen === "ChatHistory" ? (
-        <ChatHistory navigation={navigation} />
-      ) : screen === "Notificaciones" ? (
-        <NotificacionesScreen navigation={navigation} />
-      ) : screen === "FinishTrip" ? (
-        <FinishTripScreen navigation={navigation} />
-      ) : screen === "History" ? (
-        <HistoryScreen navigation={navigation} />
-      ) : (
-        <LoginScreen navigation={navigation} />
-      )}
+      {renderScreen()}
     </SafeAreaProvider>
   );
 }
