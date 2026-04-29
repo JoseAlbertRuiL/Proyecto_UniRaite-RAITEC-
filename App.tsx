@@ -18,6 +18,7 @@ import PerfilPublicoScreen from "./src/screens/Principal/PerfilPublicoScreen";
 import ConducirScreen from "./src/screens/Principal/ConducirScreen";
 import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 import FinishTripScreen from "./src/screens/trip/FinishTripScreen";
+import HistoryScreen from "./src/screens/Principal/HistoryScreen";
 
 type ScreenName =
   | "Login"
@@ -36,7 +37,8 @@ type ScreenName =
   | "PerfilPublico"
   | "Conducir"
   | "Notificaciones"
-  | "FinishTrip";
+  | "FinishTrip"
+  | "History";
 
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("FinishTrip");
@@ -62,6 +64,7 @@ export default function App() {
       if (name === "Conducir") setScreen("Conducir");
       if (name === "Notificaciones") setScreen("Notificaciones");
       if (name === "FinishTrip") setScreen("FinishTrip");
+      if (name === "History") setScreen("History");
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -102,6 +105,8 @@ export default function App() {
         <NotificacionesScreen navigation={navigation} />
       ) : screen === "FinishTrip" ? (
         <FinishTripScreen navigation={navigation} />
+      ) : screen === "History" ? (
+        <HistoryScreen navigation={navigation} />
       ) : (
         <LoginScreen navigation={navigation} />
       )}
