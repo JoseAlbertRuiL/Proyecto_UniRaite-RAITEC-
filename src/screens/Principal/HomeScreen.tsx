@@ -18,6 +18,10 @@ import Footer from "../../components/common/Footer";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { SafeAreaView } from "react-native-safe-area-context";
+import MapView, { Marker, MapPressEvent } from "react-native-maps";
+import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import {
   listarViajes,
   solicitarViaje,
@@ -36,6 +40,12 @@ const StartScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
+  const [esConductorActivo, setEsConductorActivo] = useState(false);
+  const [puntoEncuentro,    setPuntoEncuentro]    = useState<{ latitude: number; longitude: number; texto: string } | null>(null);
+  const [mapEncuentroVisible, setMapEncuentroVisible] = useState(false);
+  const [markerTemp,          setMarkerTemp]          = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geocodingLoad,       setGeocodingLoad]       = useState(false);
+  const mapEncuentroRef = useRef<MapView>(null);
   const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
     [key: number]: string;
   }>({});
@@ -69,6 +79,22 @@ const StartScreen = ({ navigation }: any) => {
     }
   };
 
+  const verificarModoCondutor = async (perfil: any) => {
+    const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
+    const activo = perfil?.es_conductor === true && modoGuardado === "true";
+    setEsConductorActivo(activo);
+
+    // Si era conductor activo, limpiar punto de encuentro guardado
+    if (activo) {
+      await AsyncStorage.removeItem("punto_encuentro");
+      setPuntoEncuentro(null);
+    } else {
+      // Cargar punto de encuentro guardado si existe
+      const guardado = await AsyncStorage.getItem("punto_encuentro");
+      if (guardado) setPuntoEncuentro(JSON.parse(guardado));
+    }
+  };
+
   const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
     const nuevosEstados: { [key: number]: string } = {};
     for (const viaje of viajesLista) {
@@ -91,8 +117,10 @@ const StartScreen = ({ navigation }: any) => {
         navigation.navigate("Login");
         return;
       }
-      const usuarioActualId = perfilData.user?.id_usuario;
 
+      await verificarModoCondutor(perfilData.user);
+
+      const usuarioActualId = perfilData.user?.id_usuario;
       const viajesData = await listarViajes();
 
       if (viajesData && viajesData.success) {
@@ -126,19 +154,6 @@ const StartScreen = ({ navigation }: any) => {
       Alert.alert("Error", "No se pudo cargar el perfil");
     } finally {
       setCargandoPerfil(false);
-    }
-  };
-
-  const handleOfrecerViaje = async () => {
-    try {
-      const data = await getPerfil();
-      if (data && data.user && data.user?.es_conductor) {
-        navigation.navigate("PublicarViaje");
-      } else {
-        navigation.navigate("Licencia");
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo verificar tu información.");
     }
   };
 
@@ -176,6 +191,61 @@ const StartScreen = ({ navigation }: any) => {
       Alert.alert("Error", error?.message || "No se pudo enviar la solicitud");
     }
   };
+
+  const abrirMapaEncuentro = () => {
+    setMarkerTemp(
+      puntoEncuentro
+        ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
+        : null
+    );
+    setMapEncuentroVisible(true);
+  };
+
+  const centrarEnUbicacion = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+      const loc    = await Location.getCurrentPositionAsync({});
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setMarkerTemp(coords);
+      mapEncuentroRef.current?.animateToRegion(
+        { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo obtener tu ubicación.");
+    }
+  };
+
+  const confirmarPuntoEncuentro = async () => {
+    if (!markerTemp) {
+      Alert.alert("Selecciona un punto", "Toca el mapa para marcar donde esperarás.");
+      return;
+    }
+    setGeocodingLoad(true);
+    try {
+      const resultados = await Location.reverseGeocodeAsync(markerTemp);
+      const r      = resultados[0];
+      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
+      const texto  = partes.length > 0
+        ? partes.join(", ")
+        : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+
+      const punto = { ...markerTemp, texto };
+      setPuntoEncuentro(punto);
+      await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      setMapEncuentroVisible(false);
+      Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
+    } catch {
+      const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+      const punto = { ...markerTemp, texto };
+      setPuntoEncuentro(punto);
+      await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      setMapEncuentroVisible(false);
+    } finally {
+      setGeocodingLoad(false);
+    }
+  };
+
   const onRefresh = () => {
     setRefrescando(true);
     cargarViajes();
@@ -252,22 +322,21 @@ const StartScreen = ({ navigation }: any) => {
           <View className="w-full h-48 bg-green-200 rounded-lg mb-4" />
 
           <View className="flex-row justify-between mb-6">
-            <TouchableOpacity
-              className="bg-blue-600 rounded-lg py-3 px-4 flex-1 mr-2"
-              onPress={() => navigation.navigate("Map")}
-            >
-              <Text className="text-white font-bold text-center text-sm">
-                Establecer ruta
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="bg-green-500 rounded-lg py-3 px-4 flex-1 ml-2"
-              onPress={handleOfrecerViaje}
-            >
-              <Text className="text-white font-bold text-center text-sm">
-                Ofrecer Viaje
-              </Text>
-            </TouchableOpacity>
+            {!esConductorActivo && (
+              <TouchableOpacity
+                className="bg-blue-600 rounded-lg py-3 px-4 flex-1 mr-2"
+                onPress={abrirMapaEncuentro}
+              >
+                <Text className="text-white font-bold text-center text-sm">
+                  {puntoEncuentro ? "📍 Punto de encuentro" : "📍 Establecer punto de encuentro"}
+                </Text>
+                {puntoEncuentro && (
+                  <Text className="text-blue-200 text-xs text-center mt-0.5" numberOfLines={1}>
+                    {puntoEncuentro.texto}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           <View className="items-center justify-center mb-12">
@@ -311,6 +380,68 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Modal mapa punto de encuentro */}
+      <Modal visible={mapEncuentroVisible} animationType="slide">
+        <View style={{ flex: 1 }}>
+          <MapView
+            ref={mapEncuentroRef}
+            style={{ flex: 1 }}
+            initialRegion={
+              markerTemp
+                ? { ...markerTemp, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                : { latitude: 19.7069, longitude: -101.1945, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+            }
+            onPress={(e: MapPressEvent) => setMarkerTemp(e.nativeEvent.coordinate)}
+          >
+            {markerTemp && <Marker coordinate={markerTemp} />}
+          </MapView>
+
+          {/* Instrucción flotante */}
+          <View
+            style={{
+              position: "absolute", top: 16, left: 16, right: 16,
+              backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 12, padding: 12,
+            }}
+          >
+            <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
+              📍 Toca el mapa para marcar donde esperarás al conductor
+            </Text>
+          </View>
+
+          {/* Botones inferiores */}
+          <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
+            <TouchableOpacity
+              onPress={centrarEnUbicacion}
+              style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+            >
+              <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setMapEncuentroVisible(false)}
+                style={{ flex: 1, backgroundColor: "#e5e7eb", borderRadius: 14, padding: 14, alignItems: "center" }}
+              >
+                <Text style={{ color: "#374151", fontWeight: "600" }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmarPuntoEncuentro}
+                disabled={geocodingLoad || !markerTemp}
+                style={{
+                  flex: 2, borderRadius: 14, padding: 14, alignItems: "center",
+                  backgroundColor: markerTemp ? "#2563eb" : "#93c5fd",
+                }}
+              >
+                {geocodingLoad
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={{ color: "white", fontWeight: "700" }}>Confirmar punto</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de perfil flotante */}
       <Modal
@@ -336,7 +467,7 @@ const StartScreen = ({ navigation }: any) => {
                   {perfilSeleccionado?.foto_perfil ? (
                     <Image
                       source={{
-                        uri: `${BASE_URL}/uploads/perfiles/${perfilSeleccionado.foto_perfil}`,
+                        uri: perfilSeleccionado.foto_perfil,
                       }}
                       className="w-24 h-24 rounded-full"
                     />
