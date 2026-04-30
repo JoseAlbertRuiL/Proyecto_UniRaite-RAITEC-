@@ -16,9 +16,9 @@ const EmergencyButton = () => {
       try {
         const response = await orpc.usuarios.getPerfil();
         console.log("✅ EmergencyButton: Respuesta de getPerfil:", response);
-        if (response.success && response.usuario) {
-          console.log("📞 EmergencyButton: Contacto de emergencia encontrado:", response.usuario.contacto_emergencia);
-          setContactoEmergencia(response.usuario.contacto_emergencia);
+        if (response.success && response.user) {
+          console.log("📞 EmergencyButton: Contacto de emergencia encontrado:", response.user.contacto_emergencia);
+          setContactoEmergencia(response.user.contacto_emergencia);
         } else {
           console.log("❌ EmergencyButton: Respuesta no exitosa o sin usuario");
         }
