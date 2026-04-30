@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { filtrarViajesCercanos } from "../../services/map/mapService";
 
 import {
   listarViajes,
@@ -124,10 +125,30 @@ const StartScreen = ({ navigation }: any) => {
       const viajesData = await listarViajes();
 
       if (viajesData && viajesData.success) {
-        const viajesFiltrados = viajesData.viajes.filter(
+        let viajesFiltrados = viajesData.viajes.filter(
           (viaje: any) =>
             viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
         );
+
+        if (!esConductorActivo) {
+          const guardado = await AsyncStorage.getItem("punto_encuentro");
+          if (guardado) {
+            const punto = JSON.parse(guardado);
+
+            const viajesCercanos = filtrarViajesCercanos(
+              viajesFiltrados,
+              punto.latitude,
+              punto.longitude,
+              0.5
+            );
+
+            viajesFiltrados = viajesCercanos;
+            
+          } else {
+            viajesFiltrados = [];
+          }
+        }
+
         setViajes(viajesFiltrados);
         await cargarEstadosSolicitudes(viajesFiltrados);
         await verificarSolicitudActiva();
@@ -233,6 +254,8 @@ const StartScreen = ({ navigation }: any) => {
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
       await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      await cargarViajes();
+      
       setMapEncuentroVisible(false);
       Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
     } catch {
