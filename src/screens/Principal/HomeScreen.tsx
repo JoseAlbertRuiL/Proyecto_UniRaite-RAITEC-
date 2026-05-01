@@ -22,12 +22,12 @@ import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { filtrarViajesCercanos } from "../../services/map/mapService";
-
 import {
   listarViajes,
   solicitarViaje,
   obtenerEstadoSolicitud,
   obtenerSolicitudesActivas,
+  getViajePorId,
 } from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
 import EmergencyButton from "../../components/EmergencyButton";
@@ -131,22 +131,51 @@ const StartScreen = ({ navigation }: any) => {
         );
 
         if (!esConductorActivo) {
+          const solicitudActivaData = await obtenerSolicitudesActivas();
+          const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
+          const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
+          const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
+
+          let viajesConSolicitudActiva: any[] = [];
+
+          if (viajeIdConSolicitud) {
+            let viajeConSolicitud = viajesFiltrados.find(
+              (v: any) => v.id_viaje_pub === viajeIdConSolicitud
+            );
+
+            if (!viajeConSolicitud) {
+              try {
+                const resultado = await getViajePorId(viajeIdConSolicitud);
+                if (resultado.success) viajeConSolicitud = resultado.viaje;
+              } catch {
+              }
+            }
+
+            if (viajeConSolicitud) {
+              viajesConSolicitudActiva = [viajeConSolicitud];
+            }
+          }
+
+          const viajesSinSolicitud = viajeIdConSolicitud
+            ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
+            : viajesFiltrados;
+          
           const guardado = await AsyncStorage.getItem("punto_encuentro");
+          let viajesCercanos: any[] = [];
+
           if (guardado) {
             const punto = JSON.parse(guardado);
 
-            const viajesCercanos = filtrarViajesCercanos(
-              viajesFiltrados,
+            viajesCercanos = filtrarViajesCercanos(
+              viajesSinSolicitud,
               punto.latitude,
               punto.longitude,
               0.5
-            );
-
-            viajesFiltrados = viajesCercanos;
-            
+            );            
           } else {
-            viajesFiltrados = [];
+            viajesCercanos = [];
           }
+          viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
         }
 
         setViajes(viajesFiltrados);
@@ -347,15 +376,24 @@ const StartScreen = ({ navigation }: any) => {
           <View className="flex-row justify-between mb-6">
             {!esConductorActivo && (
               <TouchableOpacity
-                className="bg-blue-600 rounded-lg py-3 px-4 flex-1 mr-2"
-                onPress={abrirMapaEncuentro}
+                className={`rounded-lg py-3 px-4 flex-1 mr-2 ${
+                  solicitudActiva.tieneSolicitud ? "bg-gray-400" : "bg-blue-600"
+                }`}
+                onPress={solicitudActiva.tieneSolicitud ? undefined : abrirMapaEncuentro}
+                activeOpacity={solicitudActiva.tieneSolicitud ? 1 : 0.7}
               >
                 <Text className="text-white font-bold text-center text-sm">
-                  {puntoEncuentro ? "📍 Punto de encuentro" : "📍 Establecer punto de encuentro"}
+                  {solicitudActiva.tieneSolicitud
+                    ? "📍 Punto de encuentro fijo"
+                    : puntoEncuentro
+                      ? "📍 Punto de encuentro"
+                      : "📍 Establecer punto de encuentro"}
                 </Text>
                 {puntoEncuentro && (
-                  <Text className="text-blue-200 text-xs text-center mt-0.5" numberOfLines={1}>
-                    {puntoEncuentro.texto}
+                  <Text className="text-white/70 text-xs text-center mt-0.5" numberOfLines={1}>
+                    {solicitudActiva.tieneSolicitud
+                      ? "No editable con viaje activo"
+                      : puntoEncuentro.texto}
                   </Text>
                 )}
               </TouchableOpacity>

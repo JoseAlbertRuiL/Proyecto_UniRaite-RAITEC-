@@ -311,6 +311,55 @@ export const obtenerHistorialPasajero = protectedProcedure
     return { success: true, viajes }
   })
 
+// GET viaje específico por ID — incluye viajes con 0 asientos (para pasajeros con solicitud)
+export const obtenerViajePorId = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.viajeId },
+      include: {
+        conductor: {
+          include: {
+            usuario: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+                reputacion_promedio: true,
+                viajes_completados: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    }
+
+    if (!viaje.conductor?.usuario) {
+      throw new ORPCError('NOT_FOUND', { message: 'Datos del conductor no encontrados' });
+    }
+
+    return {
+      success: true,
+      viaje: {
+        ...viaje,
+        asientos_totales: 4,
+        conductor: {
+          ...viaje.conductor,
+          usuario: {
+            ...viaje.conductor.usuario,
+            reputacion_promedio: viaje.conductor.usuario.reputacion_promedio || 0,
+            total_viajes: viaje.conductor.usuario.viajes_completados || 0,
+          },
+        },
+      },
+    };
+  });
+
 // Cancelar un viaje (solo conductor)
 export const cancelarViaje = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
