@@ -15,7 +15,10 @@ import {
   actualizarCarrera,
   actualizarContactoEmergencia
 } from './routers/usuarios'
-import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
+import { getVehiculo,
+  registroConductor,
+  actualizarVehiculo
+} from './routers/conductor'
 import { 
   listarViajes, 
   publicarViaje,
@@ -24,6 +27,7 @@ import {
   obtenerHistorialPasajero,
   cancelarViaje,
   finalizarViaje,
+  obtenerViajePorId,
 } from './routers/viajes'
 import { 
   solicitarViaje, 
@@ -47,7 +51,10 @@ import {
   marcarTodasLeidas,
   eliminar
 } from './routers/notificaciones'
-import { registrarIncidente } from './routers/incidentes'
+import { 
+  registrarIncidente
+} from './routers/incidentes'
+
 
 export const router = {
   auth: {
@@ -75,6 +82,7 @@ export const router = {
   viajes: {
     listar: listarViajes,
     publicar: publicarViaje,
+    porId: obtenerViajePorId,
     activos: obtenerViajesActivos,
     historialConductor: obtenerHistorialConductor,
     historialPasajero: obtenerHistorialPasajero,

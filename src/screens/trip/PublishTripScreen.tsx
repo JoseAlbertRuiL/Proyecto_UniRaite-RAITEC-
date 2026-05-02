@@ -30,6 +30,7 @@ const REGION_MORELIA = {
 };
 
 const ITM_COORDS = { latitude: 19.7226, longitude: -101.1858 };
+const ITM_TEXTO  = "Avenida Tecnológico, 1500, Morelia";
 
 interface Coordenada {
   latitude:  number;
@@ -196,15 +197,32 @@ const PublishTripScreen = ({ navigation }: any) => {
       const texto  = partes.length > 0 ? partes.join(", ") : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
 
       const coordenada: Coordenada = { ...markerTemp, texto };
-      setForm((prev) => ({
-        ...prev,
-        [mapTipo]: coordenada,
-      }));
+      setForm((prev) => {
+        const nuevo = {...prev, [mapTipo]: coordenada};
+
+        if (mapTipo === "origen" && texto !== ITM_TEXTO) {
+          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+        }
+
+        if (mapTipo === "origen" && texto === ITM_TEXTO) {
+          nuevo.destino = null;
+        }
+
+        return nuevo;
+      });
       setMapVisible(false);
     } catch (e) {
       // Si falla la geocodificación, usar coordenadas como texto
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
-      setForm((prev) => ({ ...prev, [mapTipo]: { ...markerTemp!, texto } }));
+      const coordenada: Coordenada = { ...markerTemp, texto };
+
+      setForm((prev) => {
+        const nuevo = { ...prev, [mapTipo]: coordenada };
+        if (mapTipo === "origen") {
+          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+        }
+        return nuevo;
+      });
       setMapVisible(false);
     } finally {
       setGeocodingLoad(false);
@@ -218,6 +236,18 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
     if (!form.destino) {
       Alert.alert("Faltan datos", "Por favor ingresa el destino del viaje.");
+      return;
+    }
+    if (form.origen.texto === form.destino.texto) {
+      Alert.alert("Ruta inválida", "El origen y el destino no pueden ser el mismo punto.");
+      return;
+    }
+    const pasaPorITM = form.origen.texto === ITM_TEXTO || form.destino.texto === ITM_TEXTO;
+    if (!pasaPorITM) {
+      Alert.alert(
+        "Ruta inválida",
+        "Al menos el origen o el destino debe ser el Tecnológico de Morelia (Av. Tecnológico 1500)."
+      );
       return;
     }
     if (!form.fecha) {
@@ -302,12 +332,14 @@ const PublishTripScreen = ({ navigation }: any) => {
 
           {/* Botones inferiores */}
           <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
-            <TouchableOpacity
-              onPress={centrarEnUbicacion}
-              style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
-            >
-              <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
-            </TouchableOpacity>
+            {mapTipo  === "origen" && (
+              <TouchableOpacity
+                onPress={centrarEnUbicacion}
+                style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+              >
+                <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+              </TouchableOpacity>
+            )}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <TouchableOpacity
