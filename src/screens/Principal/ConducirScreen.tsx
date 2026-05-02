@@ -212,7 +212,12 @@ const ConducirScreen = ({ navigation }: any) => {
           <>
             <TouchableOpacity
               className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
-              onPress={() => navigation.navigate("FinishTrip", { viaje })}
+              onPress={() =>
+              navigation.navigate("FinishTrip", {
+                viajeId: viaje.id_viaje_pub,
+                viaje, 
+              })
+            }
             >
               <Text className="text-white font-semibold text-sm">Finalizar</Text>
             </TouchableOpacity>

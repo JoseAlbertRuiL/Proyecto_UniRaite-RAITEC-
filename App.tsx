@@ -88,7 +88,7 @@ export default function App() {
       case "PerfilPublico": return <PerfilPublicoScreen navigation={navigation} route={route} />;
       case "ChatHistory": return <ChatHistory navigation={navigation} />;
       case "Notificaciones": return <NotificacionesScreen navigation={navigation} />;
-      case "FinishTrip": return <FinishTripScreen navigation={navigation} />;
+      case "FinishTrip": return <FinishTripScreen navigation={navigation} route={route} />;
       case "History": return <HistoryScreen navigation={navigation} />;
       default: return <LoginScreen navigation={navigation} />;
     }
