@@ -19,8 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import HeaderBack from "../../components/common/HeaderBack";
 import { getVehiculo } from "../../services/trip/tripService";
 import { getPerfil, logout } from "../../services/auth/authService";
-import { orpc } from "../../services/api/apiClient";
-import { BASE_URL } from "../../services/api/apiClient";
+import { orpc, BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { disconnectSocket } from "../../services/socket";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -56,6 +55,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   // Estado para cambiar carrera
   const [carrera, setCarrera] = useState("");
+
+  // Estado para foto de perfil
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   // Lista de carreras
   const carreras = [
@@ -163,7 +165,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         text: "Cerrar sesión",
         onPress: async () => {
           await logout();
-          await disconnectSocket(); // Desconectar WebSocket
+          await disconnectSocket();
 
           await AsyncStorage.multiRemove([
             "punto_encuentro",
@@ -254,25 +256,25 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   };
 
   const cambiarContactoEmergencia = async () => {
-  if (!contactoEmergencia) {
-    Alert.alert("Error", "Debes ingresar un número");
-    return;
-  }
-
-  try {
-    const result = await orpc.usuarios.actualizarContactoEmergencia({
-      contacto_emergencia: contactoEmergencia,
-    });
-
-    if (result.success) {
-      Alert.alert("Éxito", "Contacto actualizado correctamente");
-      setModalContactoVisible(false);
-      obtenerPerfil();
+    if (!contactoEmergencia) {
+      Alert.alert("Error", "Debes ingresar un número");
+      return;
     }
-  } catch (error: any) {
-    Alert.alert("Error", error.message || "No se pudo actualizar");
-  }
-};
+
+    try {
+      const result = await orpc.usuarios.actualizarContactoEmergencia({
+        contacto_emergencia: contactoEmergencia,
+      });
+
+      if (result.success) {
+        Alert.alert("Éxito", "Contacto actualizado correctamente");
+        setModalContactoVisible(false);
+        obtenerPerfil();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo actualizar");
+    }
+  };
 
   const tomarFoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -284,11 +286,12 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.7,
+      base64: false,
     });
 
-    if (!result.canceled) {
-      subirFoto(result.assets[0].uri);
+    if (!result.canceled && result.assets[0].uri) {
+      await subirFoto(result.assets[0].uri);
     }
     setModalFotoVisible(false);
   };
@@ -303,61 +306,94 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.7,
+      base64: false,
     });
 
-    if (!result.canceled) {
-      subirFoto(result.assets[0].uri);
+    if (!result.canceled && result.assets[0].uri) {
+      await subirFoto(result.assets[0].uri);
     }
     setModalFotoVisible(false);
   };
 
   const subirFoto = async (uri: string) => {
+    if (uploadingFoto) {
+      return;
+    }
+
+    setUploadingFoto(true);
+
     try {
-      console.log("📸 Subiendo foto, URL:", `${BASE_URL}/upload/perfil`);
-      console.log("📸 URI de la foto:", uri);
+      console.log("📸 Iniciando subida de foto...");
+      console.log("📸 URI:", uri);
 
       const formData = new FormData();
+
+      const fileExtension = uri.split(".").pop() || "jpg";
+      const fileName = `perfil_${Date.now()}.${fileExtension}`;
+      const mimeType =
+        fileExtension === "jpg" ? "image/jpeg" : `image/${fileExtension}`;
+
       formData.append("foto_perfil", {
         uri: uri,
-        type: "image/jpeg",
-        name: "perfil.jpg",
+        type: mimeType,
+        name: fileName,
       } as any);
 
       const token = await AsyncStorage.getItem("token");
-      console.log("🔑 Token:", token ? "Existente" : "No hay token");
+
+      if (!token) {
+        Alert.alert("Error", "No hay sesión activa");
+        setUploadingFoto(false);
+        return;
+      }
+
+      console.log("🔑 Token disponible, enviando petición...");
 
       const response = await fetch(`${BASE_URL}/upload/perfil`, {
         method: "POST",
         body: formData,
         headers: {
           Authorization: `Bearer ${token}`,
+          Accept: "application/json",
         },
       });
 
-      console.log("📥 Status response:", response.status);
+      console.log("📥 Status code:", response.status);
+
       const data = await response.json();
-      console.log("📥 Data response:", data);
+      console.log("📥 Respuesta del servidor:", data);
+
+      if (!response.ok) {
+        throw new Error(data.message || `Error ${response.status}`);
+      }
 
       if (data.foto_perfil) {
-        await orpc.usuarios.actualizarFotoPerfil({
+        const result = await orpc.usuarios.actualizarFotoPerfil({
           foto_perfil: data.foto_perfil,
         });
-        obtenerPerfil();
-        Alert.alert("Éxito", "Foto de perfil actualizada");
+
+        if (result.success) {
+          await obtenerPerfil();
+          Alert.alert("Éxito", "Foto de perfil actualizada");
+        } else {
+          throw new Error("No se pudo actualizar la foto en el perfil");
+        }
+      } else {
+        throw new Error("No se recibió la URL de la foto");
       }
-    } catch (error) {
-      console.error("Error al subir foto:", error);
-      Alert.alert("Error", "No se pudo actualizar la foto");
+    } catch (error: any) {
+      console.error("❌ Error al subir foto:", error);
+      Alert.alert("Error", error.message || "No se pudo actualizar la foto");
+    } finally {
+      setUploadingFoto(false);
     }
   };
 
   const fotoUrl = user?.foto_perfil ? user.foto_perfil : null;
 
   return (
-    <View
-      className="flex-1 bg-white"
-    >
+    <View className="flex-1 bg-white">
       <HeaderBack navigation={navigation} title="Mi Perfil" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -366,6 +402,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           <TouchableOpacity
             onPress={() => setModalFotoVisible(true)}
             activeOpacity={0.8}
+            disabled={uploadingFoto}
           >
             {fotoUrl ? (
               <Image
@@ -378,7 +415,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               </View>
             )}
             <View className="absolute bottom-0 right-0 bg-blue-600 w-8 h-8 rounded-full items-center justify-center">
-              <Text className="text-white text-xs">✎</Text>
+              {uploadingFoto ? (
+                <Text className="text-white text-xs">⏳</Text>
+              ) : (
+                <Text className="text-white text-xs">✎</Text>
+              )}
             </View>
           </TouchableOpacity>
 
@@ -541,47 +582,47 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           className="flex-1"
         >
           <View className="flex-1 justify-center bg-black/50 px-6">
-          <View className="bg-white p-5 rounded-2xl">
-            <Text className="text-lg font-semibold mb-4 text-center">
-              Cambiar nombre
-            </Text>
-            <TextInput
-              value={nombre}
-              onChangeText={setNombre}
-              placeholder="Nombre"
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
-            />
-            <TextInput
-              value={apellidoPaterno}
-              onChangeText={setApellidoPaterno}
-              placeholder="Apellido paterno"
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
-            />
-            <TextInput
-              value={apellidoMaterno}
-              onChangeText={setApellidoMaterno}
-              placeholder="Apellido materno (opcional)"
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
-            />
-            <View className="flex-row justify-between">
-              <TouchableOpacity
-                onPress={() => setModalNombreVisible(false)}
-                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={cambiarNombre}
-                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Guardar
-                </Text>
-              </TouchableOpacity>
+            <View className="bg-white p-5 rounded-2xl">
+              <Text className="text-lg font-semibold mb-4 text-center">
+                Cambiar nombre
+              </Text>
+              <TextInput
+                value={nombre}
+                onChangeText={setNombre}
+                placeholder="Nombre"
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+              />
+              <TextInput
+                value={apellidoPaterno}
+                onChangeText={setApellidoPaterno}
+                placeholder="Apellido paterno"
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+              />
+              <TextInput
+                value={apellidoMaterno}
+                onChangeText={setApellidoMaterno}
+                placeholder="Apellido materno (opcional)"
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+              />
+              <View className="flex-row justify-between">
+                <TouchableOpacity
+                  onPress={() => setModalNombreVisible(false)}
+                  className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cambiarNombre}
+                  className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Guardar
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -593,55 +634,55 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           className="flex-1"
         >
           <View className="flex-1 justify-center bg-black/50 px-6">
-          <View className="bg-white p-5 rounded-2xl">
-            <Text className="text-lg font-semibold mb-4 text-center">
-              Cambiar contraseña
-            </Text>
-            <TextInput
-              value={passwordActual}
-              onChangeText={setPasswordActual}
-              placeholder="Contraseña actual"
-              secureTextEntry
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
-            />
-            <TextInput
-              value={nuevaPassword}
-              onChangeText={setNuevaPassword}
-              placeholder="Nueva contraseña"
-              secureTextEntry
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
-            />
-            <TextInput
-              value={confirmarPassword}
-              onChangeText={setConfirmarPassword}
-              placeholder="Confirmar nueva contraseña"
-              secureTextEntry
-              className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
-            />
-            <View className="flex-row justify-between">
-              <TouchableOpacity
-                onPress={() => {
-                  setModalPasswordVisible(false);
-                  setPasswordActual("");
-                  setNuevaPassword("");
-                  setConfirmarPassword("");
-                }}
-                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Cancelar
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={cambiarPassword}
-                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Guardar
-                </Text>
-              </TouchableOpacity>
+            <View className="bg-white p-5 rounded-2xl">
+              <Text className="text-lg font-semibold mb-4 text-center">
+                Cambiar contraseña
+              </Text>
+              <TextInput
+                value={passwordActual}
+                onChangeText={setPasswordActual}
+                placeholder="Contraseña actual"
+                secureTextEntry
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+              />
+              <TextInput
+                value={nuevaPassword}
+                onChangeText={setNuevaPassword}
+                placeholder="Nueva contraseña"
+                secureTextEntry
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-3"
+              />
+              <TextInput
+                value={confirmarPassword}
+                onChangeText={setConfirmarPassword}
+                placeholder="Confirmar nueva contraseña"
+                secureTextEntry
+                className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
+              />
+              <View className="flex-row justify-between">
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalPasswordVisible(false);
+                    setPasswordActual("");
+                    setNuevaPassword("");
+                    setConfirmarPassword("");
+                  }}
+                  className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cambiarPassword}
+                  className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Guardar
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -706,6 +747,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <TouchableOpacity
               className="flex-row items-center py-4 border-b border-gray-100"
               onPress={tomarFoto}
+              disabled={uploadingFoto}
             >
               <Text className="text-2xl mr-3">📷</Text>
               <Text className="text-base text-gray-700">Tomar foto</Text>
@@ -714,6 +756,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <TouchableOpacity
               className="flex-row items-center py-4 border-b border-gray-100"
               onPress={elegirDeGaleria}
+              disabled={uploadingFoto}
             >
               <Text className="text-2xl mr-3">🖼️</Text>
               <Text className="text-base text-gray-700">Elegir de galería</Text>
@@ -799,7 +842,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         </View>
       </Modal>
 
-        {/* Modal contacto de emergencia */}
+      {/* Modal contacto de emergencia */}
       <Modal visible={modalContactoVisible} transparent animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -842,7 +885,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      
     </View>
   );
 };
