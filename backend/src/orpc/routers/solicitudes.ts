@@ -67,6 +67,10 @@ export const solicitarViaje = protectedProcedure
     });
 
     // NOTIFICACIÓN: Avisar al conductor que tiene una nueva solicitud
+    if (!viaje.conductor?.usuario) {
+      throw new ORPCError('NOT_FOUND', { message: 'Conductor no encontrado' });
+    }
+
     await crearNotificacion(
       viaje.conductor.usuario.id_usuario,
       "Nueva solicitud de viaje",
@@ -264,7 +268,7 @@ export const obtenerSolicitudesActivas = protectedProcedure
       where: {
         id_pasajero: context.user.id,
         estado_solicitud: {
-          in: ['pendiente', 'aceptada']
+          in: ['pendiente', 'aceptada', 'rechazada']
         }
       },
       orderBy: { fecha_solicitud: 'desc' },

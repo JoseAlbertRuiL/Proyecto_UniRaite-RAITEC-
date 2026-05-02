@@ -130,3 +130,7 @@ export const actualizarVehiculo = async (params: {
 export const getVehiculo = async () => {
   return orpc.conductor.getVehiculo()
 }
+
+export const getViajePorId = async (viajeId: number) => {
+  return orpc.viajes.porId({ viajeId });
+};

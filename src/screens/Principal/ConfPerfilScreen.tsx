@@ -164,6 +164,14 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         onPress: async () => {
           await logout();
           await disconnectSocket(); // Desconectar WebSocket
+
+          await AsyncStorage.multiRemove([
+            "punto_encuentro",
+            "modo_conductor_activo",
+            "user",
+            "token",
+          ]);
+
           navigation.navigate("Login");
         },
         style: "destructive",
