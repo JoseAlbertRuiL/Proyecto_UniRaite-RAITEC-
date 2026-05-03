@@ -22,46 +22,36 @@ const FinishTripScreen = ({ navigation, route }: any) => {
 
   useBackHandler(navigation, "main");
 
-  const fetchViaje = async () => {
-  try {
-    setLoading(true);
-
-    const viajeId = viajeIdParam || viajeParam?.id_viaje_pub;
-
-    if (!viajeId) {
-      console.log("No hay viajeId");
-      return;
+  const fetchViajeActivo = async () => {
+    try {
+      setLoading(true);
+      const response = await orpc.viajes.activos();
+      if (response.success && Array.isArray(response.viajes)) {
+        const activo = response.viajes.find((item: any) => {
+          if (viajeIdParam) return item.id_viaje_pub === viajeIdParam;
+          if (viajeParam) return item.id_viaje_pub === viajeParam.id_viaje_pub;
+          return true;
+        });
+        setViaje(activo || response.viajes[0] || null);
+      }
+    } catch (error) {
+      console.error("Error al cargar viaje activo:", error);
+    } finally {
+      setLoading(false);
     }
-
-    const response = await orpc.viajes.porId({ viajeId });
-
-    if (response.success) {
-      setViaje(response.viaje);
-    } else {
-      setViaje(null);
-    }
-  } catch (error) {
-    console.error("Error al cargar viaje:", error);
-    setViaje(null);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
-  console.log("PARAMS:", route?.params);
-
-  if (!viajeParam && viajeIdParam) {
-    fetchViaje();
-  }
-}, [viajeParam, viajeIdParam]);
+    if (!viaje) {
+      fetchViajeActivo();
+    }
+  }, []);
 
   const handleFinalizarViaje = async () => {
     const viajeId = viajeIdParam || viaje?.id_viaje_pub;
 
     if (!viajeId) {
-      console.log("No hay viajeId");
-      setLoading(false); //  importante
+      alert("Error: ID del viaje no encontrado");
       return;
     }
 
@@ -82,18 +72,14 @@ const FinishTripScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const acceptedPassengers = Array.isArray(viaje?.solicitudes)
-  ? viaje.solicitudes
-  : [];
+  const acceptedPassengers = viaje?.solicitudes || [];
   const totalCobrado = viaje ? acceptedPassengers.length * (viaje.costo_estimado || 0) : 0;
   const fechaSalida = viaje ? new Date(viaje.fecha_hora_salida) : null;
   const pasajerosCount = acceptedPassengers.length;
   const asientosDisponibles = viaje?.asientos_disponibles ?? 0;
   const asientosTotales = Math.min(MAX_PASAJEROS, pasajerosCount + asientosDisponibles);
 
-
   return (
-    
     <View className="flex-1 bg-gradient-to-b from-blue-50 to-white">
       <StatusBar barStyle="dark-content" backgroundColor="#f0f9ff" />
 
