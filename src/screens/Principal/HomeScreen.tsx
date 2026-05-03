@@ -43,6 +43,7 @@ const StartScreen = ({ navigation }: any) => {
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
   const [esConductorActivo, setEsConductorActivo] = useState(false);
   const [puntoEncuentro,    setPuntoEncuentro]    = useState<{ latitude: number; longitude: number; texto: string } | null>(null);
+  const [usuarioId, setUsuarioId] = useState<string | null>(null);
   const [mapEncuentroVisible, setMapEncuentroVisible] = useState(false);
   const [markerTemp,          setMarkerTemp]          = useState<{ latitude: number; longitude: number } | null>(null);
   const [geocodingLoad,       setGeocodingLoad]       = useState(false);
@@ -66,7 +67,16 @@ const StartScreen = ({ navigation }: any) => {
         result.solicitudes &&
         result.solicitudes.length > 0
       ) {
-        const solicitud = result.solicitudes[0];
+        const solicitudes = result.solicitudes;
+        const solicitudAceptada = solicitudes.find(
+          (s: any) => s.estado_solicitud === 'aceptada'
+        );
+        const solicitudPendiente = solicitudes.find(
+          (s: any) => s.estado_solicitud === 'pendiente'
+        );
+
+        const solicitud = solicitudAceptada || solicitudPendiente || solicitudes[0];
+
         setSolicitudActiva({
           tieneSolicitud: true,
           estado: solicitud.estado_solicitud,
@@ -80,20 +90,25 @@ const StartScreen = ({ navigation }: any) => {
     }
   };
 
+  const getPuntoEncuentroKey = (userId: string) => `punto_encuentro_${userId}`;
+
   const verificarModoCondutor = async (perfil: any) => {
+    const userId = perfil?.id_usuario;
     const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
     const activo = perfil?.es_conductor === true && modoGuardado === "true";
     setEsConductorActivo(activo);
 
-    // Si era conductor activo, limpiar punto de encuentro guardado
+    const storageKey = userId ? getPuntoEncuentroKey(userId) : "punto_encuentro";
+
     if (activo) {
-      await AsyncStorage.removeItem("punto_encuentro");
+      await AsyncStorage.removeItem(storageKey);
       setPuntoEncuentro(null);
     } else {
-      // Cargar punto de encuentro guardado si existe
-      const guardado = await AsyncStorage.getItem("punto_encuentro");
+      const guardado = await AsyncStorage.getItem(storageKey);
       if (guardado) setPuntoEncuentro(JSON.parse(guardado));
     }
+
+    return activo;
   };
 
   const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
@@ -119,9 +134,8 @@ const StartScreen = ({ navigation }: any) => {
         return;
       }
 
-      await verificarModoCondutor(perfilData.user);
-
       const usuarioActualId = perfilData.user?.id_usuario;
+      setUsuarioId(usuarioActualId ?? null);
       const viajesData = await listarViajes();
 
       if (viajesData && viajesData.success) {
@@ -130,22 +144,26 @@ const StartScreen = ({ navigation }: any) => {
             viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
         );
 
-        if (!esConductorActivo) {
+        const conductorActivo = await verificarModoCondutor(perfilData.user);
+
+        if (!conductorActivo) {
           const solicitudActivaData = await obtenerSolicitudesActivas();
-          const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
-          const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
-          const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
+          const todasSolicitudes = solicitudActivaData?.solicitudes ?? [];
+          const viajeIdsConSolicitud = todasSolicitudes.map((s: any) => s.id_viaje_pub);
+          const solicitudAceptada = todasSolicitudes.find(
+            (s: any) => s.estado_solicitud === 'aceptada'
+          );
 
           let viajesConSolicitudActiva: any[] = [];
 
-          if (viajeIdConSolicitud) {
+          if (solicitudAceptada?.id_viaje_pub) {
             let viajeConSolicitud = viajesFiltrados.find(
-              (v: any) => v.id_viaje_pub === viajeIdConSolicitud
+              (v: any) => v.id_viaje_pub === solicitudAceptada.id_viaje_pub
             );
 
             if (!viajeConSolicitud) {
               try {
-                const resultado = await getViajePorId(viajeIdConSolicitud);
+                const resultado = await getViajePorId(solicitudAceptada.id_viaje_pub);
                 if (resultado.success) viajeConSolicitud = resultado.viaje;
               } catch {
               }
@@ -156,11 +174,12 @@ const StartScreen = ({ navigation }: any) => {
             }
           }
 
-          const viajesSinSolicitud = viajeIdConSolicitud
-            ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
-            : viajesFiltrados;
+          const viajesSinSolicitud = viajesFiltrados.filter(
+            (v: any) => !viajeIdsConSolicitud.includes(v.id_viaje_pub)
+          );
           
-          const guardado = await AsyncStorage.getItem("punto_encuentro");
+          const storageKey = usuarioActualId ? getPuntoEncuentroKey(usuarioActualId) : "punto_encuentro";
+          const guardado = await AsyncStorage.getItem(storageKey);
           let viajesCercanos: any[] = [];
 
           if (guardado) {
@@ -282,7 +301,8 @@ const StartScreen = ({ navigation }: any) => {
 
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
-      await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      const storageKey = usuarioId ? getPuntoEncuentroKey(usuarioId) : "punto_encuentro";
+      await AsyncStorage.setItem(storageKey, JSON.stringify(punto));
       await cargarViajes();
       
       setMapEncuentroVisible(false);
@@ -291,7 +311,8 @@ const StartScreen = ({ navigation }: any) => {
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
-      await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      const storageKey = usuarioId ? getPuntoEncuentroKey(usuarioId) : "punto_encuentro";
+      await AsyncStorage.setItem(storageKey, JSON.stringify(punto));
       setMapEncuentroVisible(false);
     } finally {
       setGeocodingLoad(false);

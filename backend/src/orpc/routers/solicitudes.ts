@@ -268,11 +268,10 @@ export const obtenerSolicitudesActivas = protectedProcedure
       where: {
         id_pasajero: context.user.id,
         estado_solicitud: {
-          in: ['pendiente', 'aceptada', 'rechazada']
+          in: ['pendiente', 'aceptada']
         }
       },
       orderBy: { fecha_solicitud: 'desc' },
-      take: 1,
     });
     return { success: true, solicitudes };
   });
