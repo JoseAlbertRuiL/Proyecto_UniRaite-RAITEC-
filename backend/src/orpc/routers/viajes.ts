@@ -316,24 +316,37 @@ export const obtenerViajePorId = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
-      where: { id_viaje_pub: input.viajeId },
+  where: { id_viaje_pub: input.viajeId },
+  include: {
+    conductor: {
       include: {
-        conductor: {
-          include: {
-            usuario: {
-              select: {
-                id_usuario: true,
-                nombre: true,
-                apellido_paterno: true,
-                foto_perfil: true,
-                reputacion_promedio: true,
-                viajes_completados: true,
-              },
-            },
+        usuario: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            apellido_paterno: true,
+            foto_perfil: true,
+            reputacion_promedio: true,
+            viajes_completados: true,
           },
         },
       },
-    });
+    },
+    solicitudes: {
+      where: { estado_solicitud: 'aceptada' },
+      include: {
+        pasajero: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            apellido_paterno: true,
+            foto_perfil: true,
+          },
+        },
+      },
+    },
+  },
+});
 
     if (!viaje) {
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
