@@ -6,7 +6,9 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { orpc } from "../../services/api/apiClient";
 
@@ -69,14 +71,14 @@ const FinishTripScreen = ({ navigation, route }: any) => {
       setFinalizando(true);
       const response = await orpc.viajes.finalizarViaje({ viajeId });
       if (response.success) {
-        alert("Viaje finalizado y guardado en historial");
+        Alert.alert("¡Listo!", "Viaje finalizado y guardado en historial");
         navigation.navigate("Home");
       } else {
-        alert("Error al finalizar viaje");
+        Alert.alert("Error", "Error al finalizar viaje");
       }
     } catch (error) {
       console.error("Error al finalizar viaje:", error);
-      alert("Error al finalizar viaje");
+      Alert.alert("Error", "Error al finalizar viaje");
     } finally {
       setFinalizando(false);
     }
@@ -94,24 +96,26 @@ const FinishTripScreen = ({ navigation, route }: any) => {
 
   return (
     
-    <View className="flex-1 bg-gradient-to-b from-blue-50 to-white">
-      <StatusBar barStyle="dark-content" backgroundColor="#f0f9ff" />
+    <ScreenWrapper hasFooter={false}>
+      <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         <View className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 px-6 pt-12 pb-16 rounded-b-3xl shadow-lg">
           <View className="items-center mb-6">
-            <View className="w-24 h-24 bg-white bg-opacity-20 rounded-full items-center justify-center mb-4">
+            <View className="w-24 h-24 bg-black bg-opacity-20 rounded-full items-center justify-center mb-4">
               <View className="w-20 h-20 bg-green-400 rounded-full items-center justify-center">
                 <Text className="text-4xl">✓</Text>
               </View>
             </View>
-            <Text className="text-white text-4xl font-bold tracking-tight">¡Viaje</Text>
-            <Text className="text-white text-4xl font-bold tracking-tight">Finalizado!</Text>
+            <Text className="text-black text-4xl font-bold tracking-tight">¡Viaje</Text>
+            <Text className="text-black text-4xl font-bold tracking-tight">Finalizado!</Text>
           </View>
 
           <View className="bg-white bg-opacity-10 rounded-2xl px-4 py-3 border border-white border-opacity-20">
-            <Text className="text-white text-center text-sm font-medium">
-              Gracias por usar UniRaite. Aquí está el resumen del viaje activo.
+            <Text className="text-black text-center text-sm font-medium">
+              Gracias por usar UniRaite.
+              {"\n"}
+              Aquí está el resumen del viaje activo.
             </Text>
           </View>
         </View>
@@ -261,7 +265,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
           )}
         </View>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

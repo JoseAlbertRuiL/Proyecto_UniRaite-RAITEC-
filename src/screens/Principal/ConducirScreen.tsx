@@ -338,7 +338,7 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper hasFooter={true}>
+    <ScreenWrapper hasFooter={false}>
       <Header navigation={navigation} title="Conducir" />
 
       <View className="flex-row border-b border-gray-200">

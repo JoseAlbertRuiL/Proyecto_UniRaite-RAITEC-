@@ -13,6 +13,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const LicenciaScreen = ({ navigation }: any) => {
@@ -80,10 +81,8 @@ const LicenciaScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View
-      className="flex-1 bg-white"
-    >
-      <HeaderBack navigation={navigation} title="" />
+    <ScreenWrapper hasFooter={false}>
+      <HeaderBack navigation={navigation} title="Licencia" />
 
       <ScrollView
         className="px-6 pt-2"
@@ -181,7 +180,7 @@ const LicenciaScreen = ({ navigation }: any) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

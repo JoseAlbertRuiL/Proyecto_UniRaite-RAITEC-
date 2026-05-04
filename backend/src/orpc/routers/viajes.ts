@@ -100,7 +100,7 @@ export const listarViajes = baseProcedure.handler(async () => {
 
   const viajesConDatos = viajes.map((viaje: any) => ({
     ...viaje,
-    asientos_totales: 4,
+    asientos_totales: viaje.conductor.capacidad_pasajeros,
     conductor: {
       ...viaje.conductor,
       usuario: {
@@ -365,7 +365,7 @@ export const obtenerViajePorId = protectedProcedure
       success: true,
       viaje: {
         ...viaje,
-        asientos_totales: 4,
+        asientos_totales: viaje.conductor.capacidad_pasajeros,
         conductor: {
           ...viaje.conductor,
           usuario: {

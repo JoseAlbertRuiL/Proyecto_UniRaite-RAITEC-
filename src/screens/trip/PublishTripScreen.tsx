@@ -299,7 +299,7 @@ const PublishTripScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper hasFooter={false}>
       <Header navigation={navigation} title="Publica tu Viaje" />
 
       {/* ── Modal mapa picker ── */}

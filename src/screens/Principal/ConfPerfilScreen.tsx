@@ -17,6 +17,7 @@ import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { getVehiculo } from "../../services/trip/tripService";
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc, BASE_URL } from "../../services/api/apiClient";
@@ -393,7 +394,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const fotoUrl = user?.foto_perfil ? user.foto_perfil : null;
 
   return (
-    <View className="flex-1 bg-white">
+    <ScreenWrapper hasFooter={false}>
       <HeaderBack navigation={navigation} title="Mi Perfil" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -885,7 +886,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </ScreenWrapper>
   );
 };
 

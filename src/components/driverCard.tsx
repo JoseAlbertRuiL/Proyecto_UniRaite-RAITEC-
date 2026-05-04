@@ -47,8 +47,7 @@ const DriverCard = ({
     month: "short",
   });
 
-  const asientosOcupados =
-    (viaje.asientos_totales || 4) - viaje.asientos_disponibles;
+  
   const reputacion = viaje.conductor.usuario.reputacion_promedio || 0;
   const totalViajes = viaje.conductor.usuario.total_viajes || 0;
 
@@ -172,11 +171,10 @@ const DriverCard = ({
           <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-2">⏰</Text>
           <Text className="text-sm text-gray-800 font-medium">{hora}</Text>
-        </View>
-        <View className="flex-row items-center">
+          <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-800 font-medium">
-            {asientosOcupados}/{viaje.asientos_totales || 4} lugares
+            {viaje.asientos_disponibles}/{viaje.asientos_totales} lugares
           </Text>
         </View>
       </View>

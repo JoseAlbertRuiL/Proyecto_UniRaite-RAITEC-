@@ -53,7 +53,7 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
   return (
     <View
       className="flex-row justify-between items-center px-4 bg-blue-900"
-      style={{ paddingTop: insets.top + 2, paddingBottom: 6 }} 
+      style={{ paddingTop: insets.top + 12, paddingBottom: 12 }} 
     >
       {/* Logo izquierda */}
       <TouchableOpacity

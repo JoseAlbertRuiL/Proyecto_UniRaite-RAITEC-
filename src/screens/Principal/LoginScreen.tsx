@@ -58,7 +58,7 @@ const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper hasFooter={false}>
       <KeyboardAwareScrollView
         contentContainerStyle={{ flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
@@ -69,7 +69,7 @@ const LoginScreen = ({ navigation }: any) => {
           <View className="items-center justify-center flex-1 mb-12">
             <Image
                       source={require("../../images/Logtype.png")}
-                      className="w-40 h-40 mb-5"
+                      className="w-40 h-40 mt-16 mb-4"
                       resizeMode="contain"
                     />
             

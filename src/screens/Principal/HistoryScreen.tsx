@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
@@ -78,10 +79,7 @@ const HistoryScreen = ({ navigation }: any) => {
   const viajesFiltrados = viajes.filter(v => filtro === "todos" || v.rol === filtro);
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Historial de Viajes" />
 
       <View className="flex-row justify-center py-4 border-b border-gray-100 px-4">
@@ -154,7 +152,7 @@ const HistoryScreen = ({ navigation }: any) => {
       )}
 
       <Footer navigation={navigation} />
-    </View>
+    </ScreenWrapper>
   );
 };
 
