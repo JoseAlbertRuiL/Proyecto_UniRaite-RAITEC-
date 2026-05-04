@@ -25,7 +25,11 @@ const crearNotificacion = async (
 
 // POST /api/viajes/:id/solicitar
 export const solicitarViaje = protectedProcedure
-  .input(z.object({ viajeId: z.number() }))
+  .input(z.object({
+    viajeId: z.number(),
+    latitud_recogida: z.number().optional(),
+    longitud_recogida: z.number().optional(),
+  }))
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
@@ -63,6 +67,8 @@ export const solicitarViaje = protectedProcedure
         id_pasajero: context.user.id,
         estado_solicitud: 'pendiente',
         fecha_solicitud: new Date(),
+        latitud_recogida:  input.latitud_recogida ?? null,
+        longitud_recogida: input.longitud_recogida ?? null,
       },
     });
 

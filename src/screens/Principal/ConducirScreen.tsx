@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,24 +9,28 @@ import {
   Alert,
   StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from 'expo-location';
 import { orpc } from "../../services/api/apiClient";
+import { getSocket } from "../../services/socket";
+import { useBackHandler } from "../../hooks/useBackHandler";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
-import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { useBackHandler } from "../../hooks/useBackHandler";
-import { getSocket } from "../../services/socket";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TabType = "activos" | "solicitudes" | "historial";
 
 const ConducirScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("activos");
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
-  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
+  // const [transmitiendo, setTransmitiendo] = useState(false);
+  const [viajeActivoId, setViajeActivoId] = useState<number | null>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [historial, setHistorial] = useState<any[]>([]);
-  const insets = useSafeAreaInsets();
+  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
+  const locationInterval = useRef<any>(null);
 
   useBackHandler(navigation, "normal");
 
@@ -47,6 +51,64 @@ const ConducirScreen = ({ navigation }: any) => {
       setCargando(false);
       setRefrescando(false);
     }
+  };
+
+  // Revisa si el id_viaje_pub actual existe dentro del arreglo de viajesActivos
+  const esViajeActivo = (idViajePub: number) => {
+    if (!Array.isArray(viajesActivos) || viajesActivos.length === 0) return false;
+    
+    const viajeActual = viajesActivos.find((v) => v.id_viaje_pub === idViajePub);
+    return viajeActual?.viajes_activos && viajeActual.viajes_activos.length > 0;
+  };
+
+  const handleIniciarViaje = async (viajeId: number) => {
+    console.log(`Intentando iniciar el viaje con ID: ${viajeId}`);
+    try {
+      const result = await orpc.viajes.iniciarViaje({ viajeId });
+      if (result.success) {
+        setViajeActivoId(result.viajeActivo.id_viaje_activo);
+        iniciarTransmisionUbicacion(viajeId, result.viajeActivo.id_viaje_activo);
+        Alert.alert("¡Viaje iniciado!", "Tu ubicación se está compartiendo con los pasajeros.");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo iniciar el viaje");
+    }
+  };
+
+  const iniciarTransmisionUbicacion = (viajeId: number, viajeActivoId: number) => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit('join_viaje', viajeId);
+    // setTransmitiendo(true);
+
+    // Emitir ubicación cada 5 segundos
+    locationInterval.current = setInterval(async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        socket.emit('driver_location', {
+          viajeActivoId,
+          viajeId,
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        });
+      } catch (e) {
+        console.log("Error obteniendo ubicación:", e);
+      }
+    }, 5000);
+  };
+
+  const detenerTransmision = (viajeId: number) => {
+    if (locationInterval.current) {
+      clearInterval(locationInterval.current);
+      locationInterval.current = null;
+    }
+    const socket = getSocket();
+    socket?.emit('leave_viaje', viajeId);
+    // setTransmitiendo(false);
   };
 
   const cancelarViaje = async (viajeId: number) => {
@@ -148,6 +210,12 @@ const ConducirScreen = ({ navigation }: any) => {
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (locationInterval.current) clearInterval(locationInterval.current);
+    };
+  }, []);
+
   const renderViajeCard = (
     viaje: any,
     showActions = false,
@@ -169,6 +237,9 @@ const ConducirScreen = ({ navigation }: any) => {
           </Text>
           <Text className="text-gray-800 font-medium">
             {viaje.destino_texto}
+          </Text>
+          <Text className="text-gray-800 font-medium">
+            Prueva viaje activo: {esViajeActivo(viaje.id_viaje_pub) ? "Sí" : "No"}, id: {viaje.id_viaje_pub}
           </Text>
         </View>
         <View className="items-end">
@@ -210,6 +281,20 @@ const ConducirScreen = ({ navigation }: any) => {
       <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
         {isActive && (
           <>
+            {/* Botón Iniciar Viaje */}
+            {!esViajeActivo(viaje.id_viaje_pub) ? (
+              <TouchableOpacity
+                className="bg-green-600 rounded-lg px-4 py-2 mr-2"
+                onPress={() => handleIniciarViaje(viaje.id_viaje_pub)}
+              >
+                <Text className="text-white font-semibold text-sm">Iniciar</Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="bg-green-100 rounded-lg px-4 py-2 mr-2 items-center flex-row justify-center">
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e", marginRight: 8 }} />
+                <Text className="text-green-800 font-semibold text-sm">Transmitiendo ubicación...</Text>
+              </View>
+            )}
             <TouchableOpacity
               className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
               onPress={() =>
@@ -338,7 +423,7 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper hasFooter={false}>
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Conducir" />
 
       <View className="flex-row border-b border-gray-200">

@@ -235,10 +235,19 @@ export const obtenerViajesActivos = protectedProcedure
               }
             }
           }
-        }
+        },
+        viajes_activos: {
+          where: { estado_trayecto: 'en_curso' }
+        },
       },
       orderBy: { fecha_hora_salida: 'asc' }
     })
+
+    if (viajes.length > 0) {
+      console.log("Viaje [0] listo para enviar:", JSON.stringify(viajes[0], null, 2));
+    } else {
+      console.log("No se encontraron viajes para este conductor.");
+    }
 
     return { success: true, viajes }
   })
@@ -397,6 +406,63 @@ export const obtenerViajePorId = protectedProcedure
         },
       },
     };
+  });
+
+// Iniciar viaje (conductor) — crea el viaje_activo y avisa a pasajeros
+export const iniciarViaje = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.viajeId },
+      include: {
+        conductor: { include: { usuario: true } },
+        solicitudes: {
+          where: { estado_solicitud: 'aceptada' },
+          select: { id_pasajero: true, latitud_recogida: true, longitud_recogida: true },
+        },
+      },
+    });
+
+    if (!viaje) throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    if (viaje.conductor.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'No autorizado' });
+    }
+
+    const viajeActivoExistente = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: input.viajeId },
+    });
+    if (viajeActivoExistente) {
+      return { success: true, viajeActivo: viajeActivoExistente };
+    }
+
+    const viajeActivo = await prisma.viajes_activos.create({
+      data: {
+        id_viaje_pub:    input.viajeId,
+        hora_inicio_real: new Date(),
+        estado_trayecto: 'en_curso',
+        historial_ruta:  [], 
+      },
+    });
+
+    // Notificar a pasajeros aceptados
+    for (const solicitud of viaje.solicitudes) {
+      await crearNotificacion(
+        solicitud.id_pasajero,
+        '¡El conductor está en camino!',
+        `Tu viaje a ${viaje.destino_texto} ha comenzado.`,
+        'viaje_iniciado'
+      );
+
+      if (io) {
+        io.emit('viaje_iniciado', {
+          viajeId: input.viajeId,
+          viajeActivoId: viajeActivo.id_viaje_activo,
+          usuarioId: solicitud.id_pasajero,
+        });
+      }
+    }
+
+    return { success: true, viajeActivo };
   });
 
 // Cancelar un viaje (solo conductor)

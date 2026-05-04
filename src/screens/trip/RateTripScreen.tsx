@@ -28,7 +28,7 @@ export default function RateTripScreen({ navigation, route }: any) {
     driverUser?.nombre || driverUser?.name || route?.params?.driverName || "Tu conductor";
   const driverAvatar =
     driverUser?.foto_perfil
-      ? `${BASE_URL}/uploads/perfiles/${driverUser.foto_perfil}`
+      ? driverUser.foto_perfil
       : driverUser?.avatar || route?.params?.driverAvatar ||
         "https://api.dicebear.com/7.x/avataaars/png?seed=Usuario";
   const driverInfo =

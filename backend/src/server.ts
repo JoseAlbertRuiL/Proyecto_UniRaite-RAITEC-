@@ -124,6 +124,53 @@ io.on('connection', (socket) => {
       socket.emit('message_error', 'No se pudo enviar el mensaje');
     }
   });
+
+  socket.on('driver_location', async (data: {
+    viajeActivoId: number;
+    viajeId: number;
+    lat: number;
+    lng: number;
+  }) => {
+    const user = (socket as any).user;
+
+    // Broadcast a todos en la sala del viaje
+    io.to(`viaje_${data.viajeId}`).emit('driver_location_update', {
+      lat: data.lat,
+      lng: data.lng,
+      timestamp: new Date().toISOString(),
+      conductorId: user.id_usuario,
+    });
+
+    // Guardar en historial_ruta cada N puntos (opcional, para no saturar la BD)
+    try {
+      const viajeActivo = await prisma.viajes_activos.findUnique({
+        where: { id_viaje_activo: data.viajeActivoId },
+      });
+      if (viajeActivo) {
+        const historial = (viajeActivo.historial_ruta as any[]) || [];
+        // Guardar cada 10 puntos para no saturar
+        if (historial.length % 10 === 0) {
+          historial.push({ lat: data.lat, lng: data.lng, ts: Date.now() });
+          await prisma.viajes_activos.update({
+            where: { id_viaje_activo: data.viajeActivoId },
+            data: { historial_ruta: historial },
+          });
+        }
+      }
+    } catch (e) {
+      // No bloquear si falla el guardado
+    }
+  });
+
+  // Pasajero/conductor se une a la sala del viaje
+  socket.on('join_viaje', (viajeId: number) => {
+    socket.join(`viaje_${viajeId}`);
+    console.log(`🗺️ Usuario unido al viaje ${viajeId}`);
+  });
+
+  socket.on('leave_viaje', (viajeId: number) => {
+    socket.leave(`viaje_${viajeId}`);
+  });
   
   socket.on('disconnect', () => {
     console.log('⚡ Usuario desconectado');
