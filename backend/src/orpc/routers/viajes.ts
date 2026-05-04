@@ -27,11 +27,15 @@ const crearNotificacion = async (
   }
 };
 
+
+
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
     ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
     jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
   }
+
+  
 
   const ahora = new Date()
   let dia = ahora.getDate()
@@ -73,7 +77,7 @@ export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
       asientos_disponibles: { gt: 0 },
-      fecha_hora_salida: { gt: new Date() },
+      // ELIMINADO: fecha_hora_salida: { gt: new Date() },
     },
     include: {
       conductor: {
@@ -200,7 +204,7 @@ export const obtenerViajesActivos = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
-        fecha_hora_salida: { gt: new Date() },
+        // ELIMINADO: fecha_hora_salida: { gt: new Date() },
       },
       include: {
         conductor: {
@@ -243,6 +247,7 @@ export const obtenerHistorialConductor = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
+        // Mantenemos este filtro para el historial (solo viajes con fecha pasada)
         fecha_hora_salida: { lt: new Date() }
       },
       include: {
@@ -446,8 +451,7 @@ export const cancelarViaje = protectedProcedure
     return { success: true, message: 'Viaje cancelado' }
   })
 
-
-  // Finalizar un viaje (solo conductor) - Guarda en historial y "elimina" de home
+// Finalizar un viaje (solo conductor) - Guarda en historial
 export const finalizarViaje = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
@@ -470,12 +474,12 @@ export const finalizarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado para finalizar este viaje' });
     }
 
-    // 1. Actualizar el viaje para que aparezca en historial (fecha pasada, asientos 0)
+    // 1. Actualizar el viaje - SOLO asientos disponibles, NO modificar la fecha
     await prisma.viajes_publicados.update({
       where: { id_viaje_pub: input.viajeId },
       data: {
         asientos_disponibles: 0,
-        fecha_hora_salida: new Date(), // Fecha actual para que sea "pasado"
+        // ELIMINADO: fecha_hora_salida: new Date(),
       },
     });
 
@@ -496,7 +500,7 @@ export const finalizarViaje = protectedProcedure
       await prisma.viajes_activos.create({
         data: {
           id_viaje_pub: input.viajeId,
-          hora_inicio_real: viaje.fecha_hora_salida, // Asumir inicio en la fecha original
+          hora_inicio_real: viaje.fecha_hora_salida,
           hora_fin_real: new Date(),
           estado_trayecto: 'finalizado',
         },
@@ -511,7 +515,7 @@ export const finalizarViaje = protectedProcedure
       });
     }
 
-    // 4. Notificar a pasajeros aceptados (opcional, pero recomendado)
+    // 4. Notificar a pasajeros aceptados
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
         await crearNotificacion(
@@ -538,4 +542,3 @@ export const finalizarViaje = protectedProcedure
 
     return { success: true, message: 'Viaje finalizado y guardado en historial' };
   });
-

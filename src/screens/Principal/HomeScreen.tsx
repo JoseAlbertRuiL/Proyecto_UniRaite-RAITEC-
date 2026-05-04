@@ -67,6 +67,12 @@ const StartScreen = ({ navigation }: any) => {
         result.solicitudes.length > 0
       ) {
         const solicitud = result.solicitudes[0];
+
+        if (solicitud.estado_solicitud === 'rechazada') {
+          setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          return;
+        }
+
         setSolicitudActiva({
           tieneSolicitud: true,
           estado: solicitud.estado_solicitud,
@@ -136,9 +142,12 @@ const StartScreen = ({ navigation }: any) => {
           const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
           const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
 
+          const tieneActivaPendienteOAceptada =
+            estadoSolicitudReciente === 'pendiente' || estadoSolicitudReciente === 'aceptada';
+
           let viajesConSolicitudActiva: any[] = [];
 
-          if (viajeIdConSolicitud) {
+          if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
             let viajeConSolicitud = viajesFiltrados.find(
               (v: any) => v.id_viaje_pub === viajeIdConSolicitud
             );
@@ -156,14 +165,14 @@ const StartScreen = ({ navigation }: any) => {
             }
           }
 
-          const viajesSinSolicitud = viajeIdConSolicitud
+          const viajesSinSolicitud = tieneActivaPendienteOAceptada && viajeIdConSolicitud
             ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
             : viajesFiltrados;
           
           const guardado = await AsyncStorage.getItem("punto_encuentro");
           let viajesCercanos: any[] = [];
 
-          if (guardado) {
+          if (guardado && estadoSolicitudReciente !== 'aceptada') {
             const punto = JSON.parse(guardado);
 
             viajesCercanos = filtrarViajesCercanos(
