@@ -191,7 +191,9 @@ const NotificacionesScreen = ({ navigation }: any) => {
                         ? "📝"
                         : notif.tipo_notif === "pago"
                           ? "💰"
-                          : "🔔"}
+                          : notif.tipo_notif === "finalizacion"
+                            ? "✅"
+                            : "🔔"}
                   </Text>
                 </View>
 
@@ -211,6 +213,20 @@ const NotificacionesScreen = ({ navigation }: any) => {
                   <View className="w-2 h-2 rounded-full bg-blue-600 mt-2" />
                 )}
               </View>
+
+              {notif.tipo_notif === "finalizacion" && (
+                <TouchableOpacity
+                  className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
+                  onPress={async () => {
+                    if (!notif.leido) await marcarComoLeida(notif.id_notificacion);
+                    navigation.navigate("RateTrip");
+                  }}
+                >
+                  <Text className="text-white text-sm font-semibold">
+                    Calificar viaje
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 className="absolute right-4 top-4"

@@ -268,7 +268,14 @@ export const obtenerSolicitudesActivas = protectedProcedure
       where: {
         id_pasajero: context.user.id,
         estado_solicitud: {
-          in: ['pendiente', 'aceptada', 'rechazada']
+          in: ['pendiente', 'aceptada']
+        },
+        viaje: {
+          viajes_activos: {
+            none: {
+              estado_trayecto: 'finalizado'
+            }
+          }
         }
       },
       orderBy: { fecha_solicitud: 'desc' },

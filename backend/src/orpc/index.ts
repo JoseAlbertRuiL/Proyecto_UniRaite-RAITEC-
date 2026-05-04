@@ -54,6 +54,11 @@ import {
 import { 
   registrarIncidente
 } from './routers/incidentes'
+import {
+  guardarCalificacion,
+  obtenerCalificacionesRecibidas,
+  obtenerMisCalificaciones
+} from './routers/calificaciones'
 
 
 export const router = {
@@ -114,6 +119,11 @@ export const router = {
 
 incidentes: {
   registrar: registrarIncidente,
+},
+calificaciones: {
+  guardar: guardarCalificacion,
+  obtenerRecibidas: obtenerCalificacionesRecibidas,
+  obtenerMias: obtenerMisCalificaciones,
 },
 
 }

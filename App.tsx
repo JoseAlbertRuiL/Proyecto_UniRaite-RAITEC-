@@ -18,12 +18,14 @@ import PerfilPublicoScreen from "./src/screens/Principal/PerfilPublicoScreen";
 import ConducirScreen from "./src/screens/Principal/ConducirScreen";
 import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 import FinishTripScreen from "./src/screens/trip/FinishTripScreen";
+import RateTripScreen from "./src/screens/trip/RateTripScreen";
 import HistoryScreen from "./src/screens/Principal/HistoryScreen";
 
 type ScreenName =
   | "Login"
   | "Register"
   | "Home"
+  | "Start"
   | "Forget"
   | "Code"
   | "ConfigP"
@@ -38,6 +40,7 @@ type ScreenName =
   | "Conducir"
   | "Notificaciones"
   | "FinishTrip"
+  | "RateTrip"
   | "History";
 
 export default function App() {
@@ -64,7 +67,9 @@ export default function App() {
       if (name === "Conducir") setScreen("Conducir");
       if (name === "Notificaciones") setScreen("Notificaciones");
       if (name === "FinishTrip") setScreen("FinishTrip");
+      if (name === "RateTrip") setScreen("RateTrip");
       if (name === "History") setScreen("History");
+      if (name === "Start") setScreen("Home");
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -89,7 +94,9 @@ export default function App() {
       case "ChatHistory": return <ChatHistory navigation={navigation} />;
       case "Notificaciones": return <NotificacionesScreen navigation={navigation} />;
       case "FinishTrip": return <FinishTripScreen navigation={navigation} route={route} />;
+      case "RateTrip": return <RateTripScreen navigation={navigation} route={route} />;
       case "History": return <HistoryScreen navigation={navigation} />;
+      case "Start": return <HomeScreen navigation={navigation} />;
       default: return <LoginScreen navigation={navigation} />;
     }
   };

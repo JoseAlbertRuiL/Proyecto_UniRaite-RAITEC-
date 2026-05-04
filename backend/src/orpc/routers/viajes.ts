@@ -204,7 +204,11 @@ export const obtenerViajesActivos = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
-        // ELIMINADO: fecha_hora_salida: { gt: new Date() },
+        viajes_activos: {
+          none: {
+            estado_trayecto: 'finalizado'
+          }
+        }
       },
       include: {
         conductor: {
@@ -247,8 +251,16 @@ export const obtenerHistorialConductor = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
-        // Mantenemos este filtro para el historial (solo viajes con fecha pasada)
-        fecha_hora_salida: { lt: new Date() }
+        OR: [
+          { fecha_hora_salida: { lt: new Date() } },
+          {
+            viajes_activos: {
+              some: {
+                estado_trayecto: 'finalizado'
+              }
+            }
+          }
+        ]
       },
       include: {
         conductor: {
@@ -280,9 +292,18 @@ export const obtenerHistorialPasajero = protectedProcedure
       where: {
         id_pasajero: context.user.id,
         estado_solicitud: 'aceptada',
-        viaje: {
-          fecha_hora_salida: { lt: new Date() }
-        }
+        OR: [
+          { viaje: { fecha_hora_salida: { lt: new Date() } } },
+          {
+            viaje: {
+              viajes_activos: {
+                some: {
+                  estado_trayecto: 'finalizado'
+                }
+              }
+            }
+          }
+        ]
       },
       include: {
         viaje: {

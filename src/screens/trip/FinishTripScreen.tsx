@@ -84,14 +84,26 @@ const FinishTripScreen = ({ navigation, route }: any) => {
     }
   };
 
+  const [driverRating, setDriverRating] = useState<number>(0);
+  const [ratingSaved, setRatingSaved] = useState(false);
+
   const acceptedPassengers = Array.isArray(viaje?.solicitudes)
-  ? viaje.solicitudes
-  : [];
+    ? viaje.solicitudes
+    : [];
   const totalCobrado = viaje ? acceptedPassengers.length * (viaje.costo_estimado || 0) : 0;
   const fechaSalida = viaje ? new Date(viaje.fecha_hora_salida) : null;
   const pasajerosCount = acceptedPassengers.length;
   const asientosDisponibles = viaje?.asientos_disponibles ?? 0;
   const asientosTotales = Math.min(MAX_PASAJEROS, pasajerosCount + asientosDisponibles);
+
+  const handleSaveDriverRating = () => {
+    if (driverRating === 0) {
+      Alert.alert("Atención", "Selecciona una calificación antes de guardar.");
+      return;
+    }
+    setRatingSaved(true);
+    Alert.alert("¡Listo!", "Tu calificación de pasajeros ha sido registrada.");
+  };
 
 
   return (
@@ -229,18 +241,33 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                 </View>
                 <View className="p-6">
                   <Text className="text-gray-600 text-sm mb-4 text-center">
-                    Los pasajeros calificarán tu servicio en los próximos momentos.
+                    Califica la experiencia con tus pasajeros antes de finalizar.
                   </Text>
-                  <View className="flex-row justify-center gap-2">
+                  <View className="flex-row justify-center gap-2 mb-4">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <View
+                      <TouchableOpacity
                         key={star}
                         className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center border border-gray-200"
+                        onPress={() => {
+                          setDriverRating(star);
+                          setRatingSaved(false);
+                        }}
                       >
-                        <Text className="text-lg text-gray-400">★</Text>
-                      </View>
+                        <Text className={`text-lg ${star <= driverRating ? "text-yellow-500" : "text-gray-400"}`}>
+                          ★
+                        </Text>
+                      </TouchableOpacity>
                     ))}
                   </View>
+
+                  <TouchableOpacity
+                    onPress={handleSaveDriverRating}
+                    className={`w-full rounded-2xl py-3 ${ratingSaved ? "bg-green-500" : "bg-blue-600"}`}
+                  >
+                    <Text className="text-white font-semibold text-center">
+                      {ratingSaved ? "Calificación guardada" : "Guardar calificación"}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
