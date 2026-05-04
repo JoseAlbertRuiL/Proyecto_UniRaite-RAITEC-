@@ -17,6 +17,7 @@ import {
   registroConductor,
   actualizarVehiculo,
 } from "../../services/trip/tripService";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import HeaderBack from "../../components/common/HeaderBack";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
@@ -170,10 +171,8 @@ const CirculacionScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
 
   return (
-    <View
-      className="flex-1 bg-white"
-    >
-      <HeaderBack navigation={navigation} title="" />
+    <ScreenWrapper hasFooter={false}>
+      <HeaderBack navigation={navigation} title="Circulación" />
 
       <ScrollView
         className="px-6 pt-2"
@@ -325,7 +324,7 @@ const CirculacionScreen = ({ navigation, route }: any) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

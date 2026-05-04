@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
@@ -116,10 +117,7 @@ export default function ChatHistoryScreen({ navigation }: any) {
   }
 
   return (
-    <View
-      className="flex-1 bg-gray-50"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Chat" />
       <View className="p-4 bg-white border-b border-gray-200 shadow-sm">
         <Text className="text-2xl font-bold text-blue-900">Mensajes</Text>
@@ -135,6 +133,6 @@ export default function ChatHistoryScreen({ navigation }: any) {
         }
       />
       <Footer navigation={navigation} />
-    </View>
+    </ScreenWrapper>
   );
 }

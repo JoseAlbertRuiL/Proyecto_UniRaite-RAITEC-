@@ -292,3 +292,5 @@ const RegisterScreen = ({ navigation }: any) => {
     </ScrollView>
   );
 };
+
+export default RegisterScreen;

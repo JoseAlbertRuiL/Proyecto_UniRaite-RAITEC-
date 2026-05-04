@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -362,10 +363,7 @@ const StartScreen = ({ navigation }: any) => {
   }, []);
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Inicio" />
 
       <KeyboardAvoidingView
@@ -593,7 +591,7 @@ const StartScreen = ({ navigation }: any) => {
 
       <EmergencyButton />
       <Footer navigation={navigation} />
-    </View>
+    </ScreenWrapper>
   );
 };
 

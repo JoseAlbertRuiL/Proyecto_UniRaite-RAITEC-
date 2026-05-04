@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
@@ -134,10 +135,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
   const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={false}>
       <HeaderBack navigation={navigation} title="Notificaciones" />
 
       <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
@@ -224,7 +222,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
           ))
         )}
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

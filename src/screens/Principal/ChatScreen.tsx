@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
@@ -198,10 +199,7 @@ export default function ChatScreen({ navigation, route }: any) {
   }
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Chat" />
 
       <KeyboardAvoidingView
@@ -254,6 +252,6 @@ export default function ChatScreen({ navigation, route }: any) {
         </View>
       </KeyboardAvoidingView>
       <Footer navigation={navigation} />
-    </View>
+    </ScreenWrapper>
   );
 }

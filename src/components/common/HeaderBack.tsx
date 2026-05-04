@@ -18,7 +18,7 @@ const HeaderBack: React.FC<HeaderBackProps> = ({ navigation, title }) => {
   return (
     <View
       className="flex-row justify-between items-center px-4 bg-blue-900"
-      style={{ paddingTop: insets.top + 6, paddingBottom: 8 }}
+      style={{ paddingTop: insets.top + 12, paddingBottom: 12 }}
     >
       {/* Botón de regreso izquierda - más bonito */}
       <TouchableOpacity

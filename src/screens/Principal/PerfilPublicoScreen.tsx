@@ -11,6 +11,7 @@ import {
 import { getUsuarioById } from "../../services/auth/authService";
 import { BASE_URL } from "../../services/api/apiClient";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const PerfilPublicoScreen = ({ navigation, route }: any) => {
@@ -43,10 +44,7 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
   }
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={false}>
       <HeaderBack navigation={navigation} title="Perfil" />
 
       <ScrollView className="px-6 pt-6">
@@ -55,7 +53,7 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
           {perfil?.foto_perfil ? (
             <Image
               source={{
-                uri: `${BASE_URL}/uploads/perfiles/${perfil.foto_perfil}`,
+                uri: perfil.foto_perfil,
               }}
               className="w-32 h-32 rounded-full"
             />
@@ -100,7 +98,7 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

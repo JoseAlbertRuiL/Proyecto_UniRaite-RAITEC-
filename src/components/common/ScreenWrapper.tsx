@@ -2,32 +2,28 @@
  * ScreenWrapper
  *
  * Envoltorio estándar para todas las pantallas de la app.
- * Gestiona automáticamente los insets de SafeArea (top, bottom) para
- * que el contenido nunca quede detrás de la barra de estado ni de
- * los botones de navegación del sistema (Android gesture/button nav).
- *
- * Props:
- *  - hasFooter: si la pantalla incluye el componente <Footer />,
- *    pasa `true` para que el ScreenWrapper NO aplique paddingBottom
- *    (el Footer ya lo gestiona por su cuenta).
- *  - edges: control fino de qué lados aplicar. Por defecto aplica top + bottom.
+ * Gestiona automáticamente el inset de SafeArea inferior.
+ * NOTA: El inset superior (top) lo manejan los Headers individualmente.
  */
 import React from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, StatusBar } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
-  /** Si true, el paddingBottom lo gestiona el componente Footer internamente. */
   hasFooter?: boolean;
-  /** Color de fondo. Default: "white". */
   backgroundColor?: string;
+  // Agregamos opciones para controlar la barra de estado globalmente
+  statusBarColor?: string;
+  barStyle?: "default" | "light-content" | "dark-content";
 }
 
 export default function ScreenWrapper({
   children,
   hasFooter = false,
   backgroundColor = "white",
+  statusBarColor = "#1e3a8a", // Azul por defecto
+  barStyle = "light-content", // Íconos blancos por defecto
 }: ScreenWrapperProps) {
   const insets = useSafeAreaInsets();
 
@@ -37,12 +33,12 @@ export default function ScreenWrapper({
         styles.container,
         {
           backgroundColor,
-          paddingTop: insets.top,
-          // Si hay Footer, él aplica su propio paddingBottom
           paddingBottom: hasFooter ? 0 : insets.bottom,
         },
       ]}
     >
+      {/* 🚀 Centralizamos el StatusBar aquí para no repetirlo en cada pantalla */}
+      <StatusBar barStyle={barStyle} backgroundColor={statusBarColor} />
       {children}
     </View>
   );
