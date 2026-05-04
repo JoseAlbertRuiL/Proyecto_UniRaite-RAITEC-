@@ -26,9 +26,25 @@ export const publicarViaje = async (params: {
 // ─── Solicitudes ──────────────────────────────────────────────────────────────
 
 // CORREGIDO: usar orpc.solicitudes.solicitar en lugar de orpc.viajes.solicitar
-export const solicitarViaje = async (viajeId: number) => {
-  return orpc.solicitudes.solicitar({ viajeId })
-}
+// export const solicitarViaje = async (viajeId: number) => {
+//   return orpc.solicitudes.solicitar({ viajeId })
+// }
+
+// Solicitar viaje con coordenadas de recogida
+export const solicitarViaje = async (
+  viajeId: number,
+  coordenadas?: { latitud_recogida: number; longitud_recogida: number }
+) => {
+  return orpc.solicitudes.solicitar({
+    viajeId,
+    ...coordenadas,
+  });
+};
+
+// Iniciar viaje (conductor)
+export const iniciarViaje = async (viajeId: number) => {
+  return orpc.viajes.iniciar({ viajeId });
+};
 
 export const responderSolicitud = async (
   solicitudId: number,

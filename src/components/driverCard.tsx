@@ -74,7 +74,7 @@ const DriverCard = ({
   };
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
-    ? `${BASE_URL}/uploads/perfiles/${viaje.conductor.usuario.foto_perfil}`
+    ? viaje.conductor.usuario.foto_perfil
     : null;
 
   return (

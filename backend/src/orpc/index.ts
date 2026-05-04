@@ -28,6 +28,7 @@ import {
   cancelarViaje,
   finalizarViaje,
   obtenerViajePorId,
+  iniciarViaje,
 } from './routers/viajes'
 import { 
   solicitarViaje, 
@@ -93,6 +94,7 @@ export const router = {
     historialPasajero: obtenerHistorialPasajero,
     cancelar: cancelarViaje,
     finalizarViaje: finalizarViaje,
+    iniciarViaje: iniciarViaje,
   },
   solicitudes: {
     solicitar: solicitarViaje,

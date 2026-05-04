@@ -17,6 +17,7 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
+import LiveMapModal from "../../components/LiveMapModal";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, MapPressEvent } from "react-native-maps";
@@ -47,6 +48,7 @@ const StartScreen = ({ navigation }: any) => {
   const [mapEncuentroVisible, setMapEncuentroVisible] = useState(false);
   const [markerTemp,          setMarkerTemp]          = useState<{ latitude: number; longitude: number } | null>(null);
   const [geocodingLoad,       setGeocodingLoad]       = useState(false);
+  const [liveMapVisible, setLiveMapVisible] = useState(false);
   const mapEncuentroRef = useRef<MapView>(null);
   const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
     [key: number]: string;
@@ -234,8 +236,15 @@ const StartScreen = ({ navigation }: any) => {
     }
 
     try {
-      const result = await solicitarViaje(viajeId);
-      if (result && result.success) {
+      const guardado = await AsyncStorage.getItem("punto_encuentro");
+      const coords = guardado ? JSON.parse(guardado) : null;
+      const result = await solicitarViaje(
+      viajeId,
+        coords
+          ? { latitud_recogida: coords.latitude, longitud_recogida: coords.longitude }
+          : undefined
+      );
+      if (result?.success) {
         setEstadosSolicitudes((prev) => ({ ...prev, [viajeId]: "pendiente" }));
         setSolicitudActiva({
           tieneSolicitud: true,
@@ -362,6 +371,22 @@ const StartScreen = ({ navigation }: any) => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+  const socket = getSocket();
+  if (!socket) return;
+
+  if (solicitudActiva.tieneSolicitud && solicitudActiva.estado === 'aceptada' && solicitudActiva.viajeId) {
+    socket.emit('join_viaje', solicitudActiva.viajeId);
+    console.log('🗺️ Pasajero unido a sala del viaje', solicitudActiva.viajeId);
+  }
+
+  return () => {
+    if (solicitudActiva.viajeId) {
+      socket.emit('leave_viaje', solicitudActiva.viajeId);
+    }
+  };
+}, [solicitudActiva.viajeId, solicitudActiva.estado]);
+
   return (
     <ScreenWrapper hasFooter={true}>
       <Header navigation={navigation} title="Inicio" />
@@ -438,6 +463,15 @@ const StartScreen = ({ navigation }: any) => {
                   }
                 />
               ))
+            )}
+            {/* Botón para abrir mapa en vivo — solo si hay viaje aceptado */}
+            {solicitudActiva.estado === 'aceptada' && (
+              <TouchableOpacity
+                className="bg-blue-900 rounded-xl py-3 px-6 mb-4 flex-row items-center justify-center"
+                onPress={() => setLiveMapVisible(true)}
+              >
+                <Text className="text-white font-bold text-base">🗺️ Ver mapa</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -588,6 +622,16 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <LiveMapModal
+        visible={liveMapVisible}
+        onClose={() => setLiveMapVisible(false)}
+        viajeId={solicitudActiva.viajeId!}
+        puntoEncuentro={puntoEncuentro
+          ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
+          : null
+        }
+      />
 
       <EmergencyButton />
       <Footer navigation={navigation} />
