@@ -84,8 +84,8 @@ const FinishTripScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const [driverRating, setDriverRating] = useState<number>(0);
-  const [ratingSaved, setRatingSaved] = useState(false);
+  // const [driverRating, setDriverRating] = useState<number>(0);
+  // const [ratingSaved, setRatingSaved] = useState(false);
 
   const acceptedPassengers = Array.isArray(viaje?.solicitudes)
     ? viaje.solicitudes
@@ -96,14 +96,14 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const asientosDisponibles = viaje?.asientos_disponibles ?? 0;
   const asientosTotales = Math.min(MAX_PASAJEROS, pasajerosCount + asientosDisponibles);
 
-  const handleSaveDriverRating = () => {
-    if (driverRating === 0) {
-      Alert.alert("Atención", "Selecciona una calificación antes de guardar.");
-      return;
-    }
-    setRatingSaved(true);
-    Alert.alert("¡Listo!", "Tu calificación de pasajeros ha sido registrada.");
-  };
+  // const handleSaveDriverRating = () => {
+  //   if (driverRating === 0) {
+  //     Alert.alert("Atención", "Selecciona una calificación antes de guardar.");
+  //     return;
+  //   }
+  //   setRatingSaved(true);
+  //   Alert.alert("¡Listo!", "Tu calificación de pasajeros ha sido registrada.");
+  // };
 
 
   return (
@@ -235,6 +235,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                 </View>
               </View>
 
+              {/**
               <View className="bg-white rounded-2xl shadow-sm mb-8 overflow-hidden border border-gray-100">
                 <View className="bg-gradient-to-r from-yellow-50 to-yellow-100 px-6 py-4 border-b border-gray-200">
                   <Text className="text-yellow-900 font-bold text-base">⭐ CALIFICACIÓN</Text>
@@ -270,6 +271,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                   </TouchableOpacity>
                 </View>
               </View>
+              */}
 
               <View className="mb-6">
                 <TouchableOpacity
