@@ -91,10 +91,12 @@ Proyecto_UNIRAITE/
 
 ## 🤝 Contribución
 
-Este proyecto es parte del desarrollo colaborativo para mejorar la movilidad estudiantil. Si deseas contribuir, por favor abre un *Issue* o envía un *Pull Request* a la rama correspondiente.
+Este proyecto es parte del desarrollo de nuestro proyecto de Topicos Selectos de Ingenieria en 
+Software del Instituto Tecnologico de Morelia, Esperamos que sea de gran utilidad para la comunidad 
+y que podamos construir una comunidad mas unida y colaborativa.
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia [MIT](LICENSE).
+Desarrollado por Ponys <3
