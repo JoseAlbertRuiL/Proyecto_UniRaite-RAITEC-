@@ -238,9 +238,6 @@ const ConducirScreen = ({ navigation }: any) => {
           <Text className="text-gray-800 font-medium">
             {viaje.destino_texto}
           </Text>
-          <Text className="text-gray-800 font-medium">
-            Prueva viaje activo: {esViajeActivo(viaje.id_viaje_pub) ? "Sí" : "No"}, id: {viaje.id_viaje_pub}
-          </Text>
         </View>
         <View className="items-end">
           <Text className="text-lg font-bold text-blue-900">

@@ -58,30 +58,14 @@ const NotificacionesScreen = ({ navigation }: any) => {
   };
 
   const marcarTodasLeidas = async () => {
-    Alert.alert(
-      "Marcar todas como leídas",
-      "¿Estás seguro de que deseas marcar todas las notificaciones como leídas?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sí, marcar todas",
-          onPress: async () => {
-            try {
-              await orpc.notificaciones.marcarTodasLeidas();
-              setNotificaciones((prev) =>
-                prev.map((notif) => ({ ...notif, leido: true })),
-              );
-              Alert.alert(
-                "Éxito",
-                "Todas las notificaciones fueron marcadas como leídas",
-              );
-            } catch (error) {
-              Alert.alert("Error", "No se pudieron marcar las notificaciones");
-            }
-          },
-        },
-      ],
-    );
+    try {
+      await orpc.notificaciones.marcarTodasLeidas();
+      setNotificaciones((prev) =>
+        prev.map((notif) => ({ ...notif, leido: true })),
+      );
+    } catch (error) {
+      Alert.alert("Error", "No se pudieron marcar las notificaciones");
+    }
   };
 
   const eliminarNotificacion = async (id: number) => {

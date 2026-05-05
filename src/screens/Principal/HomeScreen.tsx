@@ -631,6 +631,15 @@ const StartScreen = ({ navigation }: any) => {
           ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
           : null
         }
+
+        origen={(() => {
+          const viaje = viajes.find((v) => v.id_viaje_pub === solicitudActiva.viajeId);
+          return viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined;
+        })()}
+        destino={(() => {
+          const viaje = viajes.find((v) => v.id_viaje_pub === solicitudActiva.viajeId);
+          return viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined;
+        })()}
       />
 
       <EmergencyButton />

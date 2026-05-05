@@ -44,7 +44,8 @@ import {
   misChats,
   getEstado,
   contarMensajesNoLeidos,
-  marcarComoLeidos
+  marcarComoLeidos,
+  eliminarHistorial
 } from './routers/chat'
 import { 
   obtenerTodas,
@@ -111,6 +112,7 @@ export const router = {
     getEstado,
     contarMensajesNoLeidos,
     marcarComoLeidos,
+    eliminarHistorial,
   },
   notificaciones: {
     obtenerTodas,

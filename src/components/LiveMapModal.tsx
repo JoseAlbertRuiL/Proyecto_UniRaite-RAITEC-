@@ -2,7 +2,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import MapViewDirections from "react-native-maps-directions";
 import { getSocket } from "../services/socket";
+
+const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 interface Props {
   visible:    boolean;
@@ -64,6 +67,27 @@ const LiveMapModal: React.FC<Props> = ({
       <View style={{ flex: 1 }}>
         <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={regionInicial}>
 
+          {/* Ruta planeada */}
+          {origen && destino && (
+            <MapViewDirections
+              origin={{ latitude: origen.lat, longitude: origen.lng }}
+              destination={{ latitude: destino.lat, longitude: destino.lng }}
+              // Si hay punto de encuentro, obligamos a la ruta a pasar por ahí
+              waypoints={puntoEncuentro ? [puntoEncuentro] : []} 
+              apikey={GOOGLE_MAPS_APIKEY}
+              strokeWidth={4}
+              strokeColor="#3b82f6" // Un azul claro para la ruta planeada
+              language="es"
+              optimizeWaypoints={true}
+              onReady={(result) => {
+                // Opcional: Centrar el mapa automáticamente para que se vea toda la ruta
+                mapRef.current?.fitToCoordinates(result.coordinates, {
+                  edgePadding: { right: 50, bottom: 50, left: 50, top: 50 },
+                });
+              }}
+            />
+          )}
+
           {/* Marcador del conductor */}
           {conductorPos && (
             <Marker coordinate={conductorPos} title="Conductor">
@@ -93,7 +117,7 @@ const LiveMapModal: React.FC<Props> = ({
             <Polyline
               coordinates={ruta}
               strokeColor="#1e3a8a"
-              strokeWidth={4}
+              strokeWidth={5}
             />
           )}
         </MapView>
