@@ -145,7 +145,7 @@ export const responderSolicitud = protectedProcedure
 
     // VALIDAR QUE NO SUPERE LOS ASIENTOS DISPONIBLES
     if (input.estado === 'aceptada') {
-      if (solicitudesAceptadas >= solicitud.viaje.asientos_disponibles) {
+      if (solicitud.viaje.asientos_disponibles <= 0) {
         throw new ORPCError('BAD_REQUEST', { 
           message: 'No hay suficientes asientos disponibles. El viaje ya está completo.' 
         })
