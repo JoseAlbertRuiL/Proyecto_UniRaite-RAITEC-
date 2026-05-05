@@ -17,6 +17,7 @@ import { useBackHandler } from "../../hooks/useBackHandler";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
+import LiveMapModal from "../../components/LiveMapModal";
 
 type TabType = "activos" | "solicitudes" | "historial";
 
@@ -30,7 +31,11 @@ const ConducirScreen = ({ navigation }: any) => {
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
   const [historial, setHistorial] = useState<any[]>([]);
   const [viajesActivos, setViajesActivos] = useState<any[]>([]);
-  const locationInterval = useRef<any>(null);
+  const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
+  const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
+  const [liveMapVisible, setLiveMapVisible] = useState(false);
+  const locationSub = useRef<Location.LocationSubscription | null>(null);
+  // const locationInterval = useRef<any>(null);
 
   useBackHandler(navigation, "normal");
 
@@ -66,49 +71,57 @@ const ConducirScreen = ({ navigation }: any) => {
     try {
       const result = await orpc.viajes.iniciarViaje({ viajeId });
       if (result.success) {
-        setViajeActivoId(result.viajeActivo.id_viaje_activo);
-        iniciarTransmisionUbicacion(viajeId, result.viajeActivo.id_viaje_activo);
-        Alert.alert("¡Viaje iniciado!", "Tu ubicación se está compartiendo con los pasajeros.");
+        await iniciarTransmisionUbicacion(viajeId, result.viajeActivo.id_viaje_activo);
+        Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
+        await cargarDatos();
       }
     } catch (error: any) {
       Alert.alert("Error", error?.message || "No se pudo iniciar el viaje");
     }
   };
 
-  const iniciarTransmisionUbicacion = (viajeId: number, viajeActivoId: number) => {
+  const iniciarTransmisionUbicacion = async (viajeId: number, viajeActivoId: number) => {
     const socket = getSocket();
     if (!socket) return;
 
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso requerido", "Necesitas dar permiso de ubicación para transmitir.");
+      return;
+    }
+
     socket.emit('join_viaje', viajeId);
-    // setTransmitiendo(true);
+    setTransmitiendo(viajeId);
 
-    // Emitir ubicación cada 5 segundos
-    locationInterval.current = setInterval(async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
+    locationSub.current?.remove();
+    locationSub.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 10,
+      },
+      (loc) => {
+        const socket = getSocket();
+        if (!socket?.connect) return;
 
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         socket.emit('driver_location', {
           viajeActivoId,
           viajeId,
           lat: loc.coords.latitude,
           lng: loc.coords.longitude,
         });
-      } catch (e) {
-        console.log("Error obteniendo ubicación:", e);
+        console.log(`📡 Ubicación emitida: ${loc.coords.latitude}, ${loc.coords.longitude}`);
       }
-    }, 5000);
+    );
   };
 
   const detenerTransmision = (viajeId: number) => {
-    if (locationInterval.current) {
-      clearInterval(locationInterval.current);
-      locationInterval.current = null;
-    }
+    locationSub.current?.remove();
+    locationSub.current = null;
+
     const socket = getSocket();
     socket?.emit('leave_viaje', viajeId);
-    // setTransmitiendo(false);
+    setTransmitiendo(null);
   };
 
   const cancelarViaje = async (viajeId: number) => {
@@ -212,7 +225,7 @@ const ConducirScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     return () => {
-      if (locationInterval.current) clearInterval(locationInterval.current);
+      locationSub.current?.remove();
     };
   }, []);
 
@@ -287,10 +300,15 @@ const ConducirScreen = ({ navigation }: any) => {
                 <Text className="text-white font-semibold text-sm">Iniciar</Text>
               </TouchableOpacity>
             ) : (
-              <View className="bg-green-100 rounded-lg px-4 py-2 mr-2 items-center flex-row justify-center">
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e", marginRight: 8 }} />
-                <Text className="text-green-800 font-semibold text-sm">Transmitiendo ubicación...</Text>
-              </View>
+              <TouchableOpacity
+                className="bg-blue-600 rounded-lg px-4 py-2 mr-2"
+                onPress={() => {
+                  setLiveMapViajeId(viaje.id_viaje_pub);
+                  setLiveMapVisible(true);
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Ver ruta</Text>
+              </TouchableOpacity>
             )}
             <TouchableOpacity
               className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
@@ -475,6 +493,28 @@ const ConducirScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       <Footer navigation={navigation} />
+      {liveMapViajeId && (() => {
+        const viaje = viajesActivos.find((v) => v.id_viaje_pub === liveMapViajeId);
+        const pasajerosCoordenadas = (viaje?.solicitudes ?? [])
+          .filter((s: any) => s.latitud_recogida && s.longitud_recogida)
+          .map((s: any) => ({
+            latitude: s.latitud_recogida,
+            longitude: s.longitud_recogida,
+            nombre: `${s.pasajero?.nombre ?? "Pasajero"}`,
+          }));
+
+        return (
+          <LiveMapModal
+            visible={liveMapVisible}
+            onClose={() => setLiveMapVisible(false)}
+            viajeId={liveMapViajeId}
+            mode="conductor"
+            pasajerosCoordenadas={pasajerosCoordenadas}
+            origen={viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined}
+            destino={viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined}
+          />
+        );
+      })()}
     </ScreenWrapper>
   );
 };

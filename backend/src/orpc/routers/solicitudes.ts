@@ -280,12 +280,37 @@ export const obtenerSolicitudesActivas = protectedProcedure
           viajes_activos: {
             none: {
               estado_trayecto: 'finalizado'
-            }
-          }
-        }
+            },
+          },
+        },
+      },
+      include: {
+        viaje: {
+          select: {
+            id_viaje_pub: true,
+            origen_texto: true,
+            destino_texto: true,
+            latitud_origen: true,
+            longitud_origen: true,
+            latitud_destino: true,
+            longitud_destino: true,
+            fecha_hora_salida: true,
+            costo_estimado: true,
+          },
+        },
       },
       orderBy: { fecha_solicitud: 'desc' },
       take: 1,
     });
+
     return { success: true, solicitudes };
+
+    // return {
+    //   success: true,
+    //   solicitudes: solicitudes.map((s) => ({
+    //     ...s,
+    //     latitud_recogida: s.latitud_recogida,
+    //     longitud_recogida: s.longitud_recogida,
+    //   })),
+    // };
   });

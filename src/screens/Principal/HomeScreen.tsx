@@ -59,6 +59,10 @@ const StartScreen = ({ navigation }: any) => {
     viajeId?: number;
   }>({ tieneSolicitud: false, estado: null });
 
+  const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
+    latitude: number; longitude: number;
+  } | null>(null);
+
   useBackHandler(navigation, "main");
 
   const verificarSolicitudActiva = async () => {
@@ -66,13 +70,13 @@ const StartScreen = ({ navigation }: any) => {
       const result = await obtenerSolicitudesActivas();
       if (
         result.success &&
-        result.solicitudes &&
         result.solicitudes.length > 0
       ) {
         const solicitud = result.solicitudes[0];
 
         if (solicitud.estado_solicitud === 'rechazada') {
           setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
           return;
         }
 
@@ -81,8 +85,18 @@ const StartScreen = ({ navigation }: any) => {
           estado: solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
         });
+
+        if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
+          setCoordsRecogidaBD(
+            {
+              latitude: solicitud.latitud_recogida,
+              longitude: solicitud.longitud_recogida,
+            }
+          );
+        }
       } else {
         setSolicitudActiva({ tieneSolicitud: false, estado: null });
+        setCoordsRecogidaBD(null);
       }
     } catch (error) {
       console.log("Error al verificar solicitud activa:", error);
@@ -622,14 +636,19 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      <Footer navigation={navigation} />
 
       <LiveMapModal
         visible={liveMapVisible}
         onClose={() => setLiveMapVisible(false)}
         viajeId={solicitudActiva.viajeId!}
-        puntoEncuentro={puntoEncuentro
+        mode="pasajero"
+        puntoEncuentro=
+        {
+          coordsRecogidaBD ??
+          (puntoEncuentro
           ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
-          : null
+          : null)
         }
 
         origen={(() => {
@@ -643,7 +662,6 @@ const StartScreen = ({ navigation }: any) => {
       />
 
       <EmergencyButton />
-      <Footer navigation={navigation} />
     </ScreenWrapper>
   );
 };
