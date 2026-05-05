@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
-// Obtener mensajes de un viaje
+// 1. Obtener mensajes de un viaje
 export const getMensajes = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
   .handler(async ({ input, context }) => {
@@ -48,7 +48,7 @@ export const getMensajes = protectedProcedure
     return mensajes;
   });
 
-// Enviar mensaje
+// 2. Enviar mensaje
 export const enviarMensaje = protectedProcedure
   .input(z.object({
     id_viaje_pub: z.number(),
@@ -105,13 +105,17 @@ export const enviarMensaje = protectedProcedure
     return mensaje;
   });
 
-// Obtener chats del usuario - TODOS los viajes (sin filtrar por fecha)
+// 3. Obtener chats del usuario (Corregido: Solo muestra chats con match confirmado)
 export const misChats = protectedProcedure
   .handler(async ({ context }) => {
     const viajesConductor = await prisma.viajes_publicados.findMany({
       where: {
         conductor: {
           usuario: { id_usuario: context.user.id }
+        },
+        // --- FILTRO CORREGIDO: Solo viajes que tengan al menos una solicitud aceptada ---
+        solicitudes: {
+          some: { estado_solicitud: 'aceptada' }
         }
       },
       select: { 
@@ -139,7 +143,6 @@ export const misChats = protectedProcedure
       }
     });
 
-    // Crear un array de viajes desde las solicitudes aceptadas
     const viajesDesdeSolicitudes = solicitudesAceptadas.map(solicitud => ({
       id_viaje_pub: solicitud.viaje.id_viaje_pub,
       destino_texto: solicitud.viaje.destino_texto,
@@ -147,7 +150,6 @@ export const misChats = protectedProcedure
       asientos_disponibles: solicitud.viaje.asientos_disponibles
     }));
 
-    // Combinar todos los IDs de viajes
     const idsViajes: number[] = [
       ...viajesConductor.map(v => v.id_viaje_pub),
       ...viajesDesdeSolicitudes.map(v => v.id_viaje_pub)
@@ -157,46 +159,60 @@ export const misChats = protectedProcedure
 
     const chats = [];
     for (const viajeId of idsUnicos) {
-      // Obtener el último mensaje del chat
       const ultimoMensaje = await prisma.mensajes_chat.findFirst({
         where: { id_viaje_pub: viajeId },
         orderBy: { fecha_envio: 'desc' },
         include: { emisor: { select: { nombre: true } } }
       });
 
-      // Buscar el viaje en los arrays
       let viaje = viajesConductor.find(v => v.id_viaje_pub === viajeId);
       if (!viaje) {
         viaje = viajesDesdeSolicitudes.find(v => v.id_viaje_pub === viajeId);
       }
 
-      // Si no se encuentra el viaje, saltar
-      if (!viaje) {
+      if (!viaje) continue;
+
+      const estaFinalizado = viaje.asientos_disponibles === 0;
+
+      // LÓGICA DE VISIBILIDAD MANTENIDA:
+      // Si no hay mensajes y el viaje ya terminó, se oculta (asumimos borrado)[cite: 4].
+      if (!ultimoMensaje && estaFinalizado) {
         continue;
       }
 
-      // Determinar si el viaje está finalizado (solo por asientos disponibles)
-      const estaFinalizado = viaje.asientos_disponibles === 0;
-      
       chats.push({
         idViaje: viajeId,
         destino: viaje.destino_texto || 'Viaje',
         fechaViaje: viaje.fecha_hora_salida,
-        remitente: ultimoMensaje?.emisor?.nombre || 'Usuario',
-        texto: ultimoMensaje?.contenido || 'Sin mensajes',
-        fecha: ultimoMensaje?.fecha_envio || new Date(),
-        esMio: ultimoMensaje?.id_emisor === context.user.id,
+        remitente: ultimoMensaje ? (ultimoMensaje.emisor?.nombre || 'Usuario') : 'Sistema',
+        texto: ultimoMensaje ? ultimoMensaje.contenido : '¡Match confirmado! Escribe algo...',
+        fecha: ultimoMensaje ? ultimoMensaje.fecha_envio : viaje.fecha_hora_salida,
+        esMio: ultimoMensaje ? (ultimoMensaje.id_emisor === context.user.id) : false,
         finalizado: estaFinalizado
       });
     }
 
-    // Ordenar chats por fecha del último mensaje (más reciente primero)
+    // Ordenar chats por fecha (más reciente primero)
     chats.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-    return { success: true, chats, idUsuario: context.user.id };
+    // Regresar solo los últimos 10 chats[cite: 4]
+    return { success: true, chats: chats.slice(0, 10), idUsuario: context.user.id };
+  });
+  
+// 4. Eliminar historial de chat
+export const eliminarHistorial = protectedProcedure
+  .input(z.object({ idViaje: z.number() }))
+  .handler(async ({ input }) => {
+    await prisma.mensajes_chat.deleteMany({
+      where: {
+        id_viaje_pub: input.idViaje
+      }
+    });
+
+    return { success: true, message: 'Historial eliminado correctamente' };
   });
 
-// Obtener estado del viaje
+// 5. Obtener estado del viaje
 export const getEstado = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
@@ -209,15 +225,13 @@ export const getEstado = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
     }
 
-    // El viaje está activo si tiene asientos disponibles
     const estado = viaje.asientos_disponibles > 0 ? 'activo' : 'finalizado';
     return { estado };
   });
 
-// Contar mensajes no leídos del usuario - TODOS los viajes
+// 6. Contar mensajes no leídos del usuario
 export const contarMensajesNoLeidos = protectedProcedure
   .handler(async ({ context }) => {
-    // Obtener viajes donde el usuario es conductor
     const viajesConductor = await prisma.viajes_publicados.findMany({
       where: {
         conductor: {
@@ -227,7 +241,6 @@ export const contarMensajesNoLeidos = protectedProcedure
       select: { id_viaje_pub: true }
     });
 
-    // Obtener viajes donde el usuario es pasajero y fue aceptado
     const solicitudesAceptadas = await prisma.solicitudes_viaje.findMany({
       where: {
         id_pasajero: context.user.id,
@@ -236,7 +249,6 @@ export const contarMensajesNoLeidos = protectedProcedure
       select: { id_viaje_pub: true }
     });
 
-    // Combinar IDs de viajes
     const idsViajes = [
       ...viajesConductor.map(v => v.id_viaje_pub),
       ...solicitudesAceptadas.map(s => s.id_viaje_pub)
@@ -244,7 +256,6 @@ export const contarMensajesNoLeidos = protectedProcedure
 
     const idsUnicos = [...new Set(idsViajes)];
 
-    // Contar mensajes no leídos
     let totalNoLeidos = 0;
     for (const viajeId of idsUnicos) {
       const count = await prisma.mensajes_chat.count({
@@ -260,7 +271,7 @@ export const contarMensajesNoLeidos = protectedProcedure
     return { success: true, total: totalNoLeidos };
   });
 
-// Marcar mensajes como leídos en un viaje
+// 7. Marcar mensajes como leídos en un viaje
 export const marcarComoLeidos = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {

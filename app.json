@@ -15,7 +15,8 @@
       },
       "config": {
         "googleMapsApiKey": "AIzaSyD4IgxpdgHqthd5wai-ubZ4P2Z4bRAtx6M"
-      }
+      },
+      "bundleIdentifier": "n"
     },
     "android": {
       "edgeToEdgeEnabled": true,
