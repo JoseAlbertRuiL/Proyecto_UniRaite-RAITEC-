@@ -25,11 +25,12 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 const REGION_MORELIA = {
   latitude:      19.7069,
   longitude:    -101.1945,
-  latitudeDelta:  0.05,
-  longitudeDelta: 0.05,
+  latitudeDelta:  0.001,
+  longitudeDelta: 0.001,
 };
 
-const ITM_COORDS = { latitude: 19.7226, longitude: -101.1858 };
+const ITM_COORDS = { latitude: 19.720909, longitude: -101.186786 };
+const ITM_COORDS_ALT = { latitude: 19.723697, longitude: -101.184259 };
 const ITM_TEXTO  = "Avenida Tecnológico, 1500, Morelia";
 
 interface Coordenada {
@@ -137,14 +138,21 @@ const PublishTripScreen = ({ navigation }: any) => {
   const onChangeFecha = (_: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      setDate(selectedDate);
+      const merged = new Date(selectedDate);
+      merged.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      setDate(merged);
       setForm((p) => ({ ...p, fecha: formatFecha(selectedDate) }));
     }
   };
 
   const onChangeHora = (_: any, selectedDate?: Date) => {
     setShowTimePicker(false);
-    if (selectedDate) setForm((p) => ({ ...p, hora: formatHora(selectedDate) }));
+    if (selectedDate) {
+      const merged = new Date(date);
+      merged.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      setDate(merged);
+      setForm((p) => ({ ...p, hora: formatHora(selectedDate) }));
+    }
   };
 
   const incrementarAsientos = () => {
@@ -263,6 +271,17 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
+    if (form.fecha && form.hora) {
+      const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
+      if (date <= limiteFuturo) {
+        Alert.alert(
+          "Horario inválido",
+          "El viaje debe programarse con al menos 10 minutos de anticipación."
+        );
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const data = await publicarViaje({
@@ -310,7 +329,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             style={{ flex: 1 }}
             initialRegion={
               markerTemp
-                ? { ...markerTemp, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                ? { ...markerTemp, latitudeDelta: 0.001, longitudeDelta: 0.001 }
                 : REGION_MORELIA
             }
             onPress={onMapPress}

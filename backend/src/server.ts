@@ -131,14 +131,18 @@ io.on('connection', (socket) => {
     lat: number;
     lng: number;
   }) => {
-    const user = (socket as any).user;
-
-    // Broadcast a todos en la sala del viaje
-    io.to(`viaje_${data.viajeId}`).emit('driver_location_update', {
+    console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
+    
+    const roomName = `viaje_${data.viajeId}`;
+    const socketsEnRoom = await io.in(roomName).fetchSockets();
+    console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
+    
+    io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
       lng: data.lng,
+      viajeId: data.viajeId,
       timestamp: new Date().toISOString(),
-      conductorId: user.id_usuario,
+      conductorId: (socket as any).user?.id_usuario,
     });
 
     // Guardar en historial_ruta cada N puntos (opcional, para no saturar la BD)

@@ -32,7 +32,6 @@ import {
   getViajePorId,
 } from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
-import EmergencyButton from "../../components/EmergencyButton";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket } from "../../services/socket";
 
@@ -59,6 +58,10 @@ const StartScreen = ({ navigation }: any) => {
     viajeId?: number;
   }>({ tieneSolicitud: false, estado: null });
 
+  const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
+    latitude: number; longitude: number;
+  } | null>(null);
+
   useBackHandler(navigation, "main");
 
   const verificarSolicitudActiva = async () => {
@@ -66,13 +69,13 @@ const StartScreen = ({ navigation }: any) => {
       const result = await obtenerSolicitudesActivas();
       if (
         result.success &&
-        result.solicitudes &&
         result.solicitudes.length > 0
       ) {
         const solicitud = result.solicitudes[0];
 
         if (solicitud.estado_solicitud === 'rechazada') {
           setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
           return;
         }
 
@@ -81,8 +84,18 @@ const StartScreen = ({ navigation }: any) => {
           estado: solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
         });
+
+        if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
+          setCoordsRecogidaBD(
+            {
+              latitude: solicitud.latitud_recogida,
+              longitude: solicitud.longitud_recogida,
+            }
+          );
+        }
       } else {
         setSolicitudActiva({ tieneSolicitud: false, estado: null });
+        setCoordsRecogidaBD(null);
       }
     } catch (error) {
       console.log("Error al verificar solicitud activa:", error);
@@ -188,6 +201,8 @@ const StartScreen = ({ navigation }: any) => {
             viajesCercanos = [];
           }
           viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
+        } else {
+          viajesFiltrados = [];
         }
 
         setViajes(viajesFiltrados);
@@ -372,20 +387,30 @@ const StartScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
-  const socket = getSocket();
-  if (!socket) return;
+    const socket = getSocket();
+    if (!socket) return;
 
-  if (solicitudActiva.tieneSolicitud && solicitudActiva.estado === 'aceptada' && solicitudActiva.viajeId) {
-    socket.emit('join_viaje', solicitudActiva.viajeId);
-    console.log('🗺️ Pasajero unido a sala del viaje', solicitudActiva.viajeId);
-  }
+    const joinRoom = () => {
+      if (
+        solicitudActiva.tieneSolicitud &&
+        solicitudActiva.estado === 'aceptada' &&
+        solicitudActiva.viajeId
+      ) {
+        socket.emit('join_viaje', solicitudActiva.viajeId);
+        console.log('🗺️ Pasajero unido (o re-unido) al viaje', solicitudActiva.viajeId);
+      }
+    };
 
-  return () => {
-    if (solicitudActiva.viajeId) {
-      socket.emit('leave_viaje', solicitudActiva.viajeId);
-    }
-  };
-}, [solicitudActiva.viajeId, solicitudActiva.estado]);
+    joinRoom();
+    socket.on('connect', joinRoom);
+
+    return () => {
+      socket.off('connect', joinRoom);
+      if (solicitudActiva.viajeId) {
+        socket.emit('leave_viaje', solicitudActiva.viajeId);
+      }
+    };
+  }, [solicitudActiva.viajeId, solicitudActiva.estado]);
 
   return (
     <ScreenWrapper hasFooter={true}>
@@ -622,14 +647,19 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      <Footer navigation={navigation} />
 
       <LiveMapModal
         visible={liveMapVisible}
         onClose={() => setLiveMapVisible(false)}
         viajeId={solicitudActiva.viajeId!}
-        puntoEncuentro={puntoEncuentro
+        mode="pasajero"
+        puntoEncuentro=
+        {
+          coordsRecogidaBD ??
+          (puntoEncuentro
           ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
-          : null
+          : null)
         }
 
         origen={(() => {
@@ -641,9 +671,6 @@ const StartScreen = ({ navigation }: any) => {
           return viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined;
         })()}
       />
-
-      <EmergencyButton />
-      <Footer navigation={navigation} />
     </ScreenWrapper>
   );
 };
