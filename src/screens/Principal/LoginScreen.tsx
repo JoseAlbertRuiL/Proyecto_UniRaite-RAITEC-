@@ -16,6 +16,9 @@ import { useBackHandler } from "../../hooks/useBackHandler";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { connectSocket } from "../../services/socket";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { BASE_URL } from "../../services/api/apiClient";
+
+console.log('🔥 BASE_URL:', BASE_URL) 
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
