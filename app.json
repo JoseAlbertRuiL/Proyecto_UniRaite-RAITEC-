@@ -2,7 +2,7 @@
   "expo": {
     "name": "app-raitec",
     "slug": "app-raitec",
-    "icon": "./src/images/icon.png",
+    "icon": "./src/images/Icon.png",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
