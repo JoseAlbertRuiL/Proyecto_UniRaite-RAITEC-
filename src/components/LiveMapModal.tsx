@@ -4,7 +4,7 @@ import { View, Text, TouchableOpacity, Modal   } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import * as Location from "expo-location";
-import { getSocket } from "../services/socket";
+import { getSocket, getLastDriverPosition } from "../services/socket";
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -44,7 +44,14 @@ const LiveMapModal: React.FC<Props> = ({
     const socket = getSocket();
     if (!socket) return;
 
-    socket.emit('join_viaje', viajeId);
+    // socket.emit('join_viaje', viajeId);
+    const cached = getLastDriverPosition(viajeId);
+    if (cached) {
+      const coords = { latitude: cached.lat, longitude: cached.lng };
+      setConductorPos(coords);
+      setRuta([coords]);
+      console.log(`✅ Posición del conductor restaurada desde caché`);
+    }
 
     const onDriverLocation = (data: { lat: number; lng: number }) => {
       const coords = { latitude: data.lat, longitude: data.lng };
@@ -60,7 +67,7 @@ const LiveMapModal: React.FC<Props> = ({
 
     return () => {
       socket.off('driver_location_update', onDriverLocation);
-      socket.emit('leave_viaje', viajeId);
+      // socket.emit('leave_viaje', viajeId);
     };
   }, [visible, viajeId, mode]);
 

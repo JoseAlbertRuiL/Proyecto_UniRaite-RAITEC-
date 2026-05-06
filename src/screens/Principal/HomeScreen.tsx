@@ -202,6 +202,8 @@ const StartScreen = ({ navigation }: any) => {
             viajesCercanos = [];
           }
           viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
+        } else {
+          viajesFiltrados = [];
         }
 
         setViajes(viajesFiltrados);
@@ -386,20 +388,30 @@ const StartScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
-  const socket = getSocket();
-  if (!socket) return;
+    const socket = getSocket();
+    if (!socket) return;
 
-  if (solicitudActiva.tieneSolicitud && solicitudActiva.estado === 'aceptada' && solicitudActiva.viajeId) {
-    socket.emit('join_viaje', solicitudActiva.viajeId);
-    console.log('🗺️ Pasajero unido a sala del viaje', solicitudActiva.viajeId);
-  }
+    const joinRoom = () => {
+      if (
+        solicitudActiva.tieneSolicitud &&
+        solicitudActiva.estado === 'aceptada' &&
+        solicitudActiva.viajeId
+      ) {
+        socket.emit('join_viaje', solicitudActiva.viajeId);
+        console.log('🗺️ Pasajero unido (o re-unido) al viaje', solicitudActiva.viajeId);
+      }
+    };
 
-  return () => {
-    if (solicitudActiva.viajeId) {
-      socket.emit('leave_viaje', solicitudActiva.viajeId);
-    }
-  };
-}, [solicitudActiva.viajeId, solicitudActiva.estado]);
+    joinRoom();
+    socket.on('connect', joinRoom);
+
+    return () => {
+      socket.off('connect', joinRoom);
+      if (solicitudActiva.viajeId) {
+        socket.emit('leave_viaje', solicitudActiva.viajeId);
+      }
+    };
+  }, [solicitudActiva.viajeId, solicitudActiva.estado]);
 
   return (
     <ScreenWrapper hasFooter={true}>

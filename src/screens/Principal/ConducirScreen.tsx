@@ -89,22 +89,18 @@ const ConducirScreen = ({ navigation }: any) => {
       Alert.alert("Permiso requerido", "Necesitas dar permiso de ubicación para transmitir.");
       return;
     }
-
+    
     socket.emit('join_viaje', viajeId);
     setTransmitiendo(viajeId);
 
     locationSub.current?.remove();
     locationSub.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 5000,
-        distanceInterval: 10,
-      },
+      { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 8 },
       (loc) => {
-        const socket = getSocket();
-        if (!socket?.connect) return;
-
-        socket.emit('driver_location', {
+        const currentSocket  = getSocket();
+        if (!currentSocket?.connected) return;
+        
+        currentSocket.emit('driver_location', {
           viajeActivoId,
           viajeId,
           lat: loc.coords.latitude,
