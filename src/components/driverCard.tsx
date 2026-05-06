@@ -10,6 +10,7 @@ interface DriverCardProps {
     fecha_hora_salida: string;
     asientos_disponibles: number;
     asientos_totales: number;
+    asientos_ocupados?: number;
     costo_estimado: number;
     conductor: {
       modelo: string;
@@ -72,6 +73,13 @@ const DriverCard = ({
   const getBotonDisabled = () => {
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
+
+  const ocupados = typeof viaje.asientos_ocupados === "number"
+    ? viaje.asientos_ocupados
+    : viaje.asientos_totales - viaje.asientos_disponibles;
+  const mostrarOcupados = typeof viaje.asientos_ocupados === "number";
+  const lugaresTexto = mostrarOcupados ? "ocupados" : "disponibles";
+  const valorMostrar = mostrarOcupados ? ocupados : viaje.asientos_disponibles;
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
     ? viaje.conductor.usuario.foto_perfil
@@ -174,7 +182,7 @@ const DriverCard = ({
           <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-800 font-medium">
-            {viaje.asientos_disponibles}/{viaje.asientos_totales} lugares
+            {valorMostrar}/{viaje.asientos_totales} {lugaresTexto}
           </Text>
         </View>
       </View>

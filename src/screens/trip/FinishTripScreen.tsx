@@ -93,8 +93,9 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const totalCobrado = viaje ? acceptedPassengers.length * (viaje.costo_estimado || 0) : 0;
   const fechaSalida = viaje ? new Date(viaje.fecha_hora_salida) : null;
   const pasajerosCount = acceptedPassengers.length;
+  const capacidadTotal = viaje?.conductor?.capacidad_pasajeros ?? MAX_PASAJEROS;
   const asientosDisponibles = viaje?.asientos_disponibles ?? 0;
-  const asientosTotales = Math.min(MAX_PASAJEROS, pasajerosCount + asientosDisponibles);
+  const asientosTotales = Math.min(capacidadTotal, pasajerosCount + asientosDisponibles);
 
   // const handleSaveDriverRating = () => {
   //   if (driverRating === 0) {
@@ -184,7 +185,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                     </View>
                     <View className="bg-slate-50 rounded-2xl px-4 py-3">
                       <Text className="text-xs text-gray-500">Máx. pasajeros</Text>
-                      <Text className="text-gray-900 font-semibold">{MAX_PASAJEROS}</Text>
+                      <Text className="text-gray-900 font-semibold">{capacidadTotal}</Text>
                     </View>
                   </View>
                 </View>

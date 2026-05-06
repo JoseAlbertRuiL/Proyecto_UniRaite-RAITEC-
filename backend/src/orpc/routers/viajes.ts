@@ -548,7 +548,15 @@ export const finalizarViaje = protectedProcedure
         conductor: { include: { usuario: true } },
         solicitudes: { 
           where: { estado_solicitud: 'aceptada' },
-          select: { id_pasajero: true } 
+          include: {
+            pasajero: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
         }
       },
     });
@@ -561,16 +569,21 @@ export const finalizarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado para finalizar este viaje' });
     }
 
-    // 1. Actualizar el viaje - SOLO asientos disponibles, NO modificar la fecha
+    // 1. Contar pasajeros confirmados (aceptados)
+    const pasajerosCount = viaje.solicitudes ? viaje.solicitudes.length : 0;
+
+    // 2. Actualizar el viaje - guardar asientos disponibles y pasajeros confirmados
     await prisma.viajes_publicados.update({
       where: { id_viaje_pub: input.viajeId },
       data: {
         asientos_disponibles: 0,
+        pasajeros_confirmados: pasajerosCount,
         // ELIMINADO: fecha_hora_salida: new Date(),
       },
     });
 
-    // 2. Incrementar viajes_completados del conductor
+    // 3. Incrementar viajes_completados del conductor
+
     await prisma.usuarios.update({
       where: { id_usuario: viaje.conductor.usuario.id_usuario },
       data: {

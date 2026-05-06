@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
 import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
 
@@ -18,6 +19,7 @@ const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
+  const [modoConductorActivo, setModoConductorActivo] = useState(false);
 
   const cargarMensajesNoLeidos = async () => {
     try {
@@ -31,8 +33,21 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
     }
   };
 
+  const verificarModoConductor = async () => {
+    try {
+      const data = await orpc.usuarios.getPerfil();
+      const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
+      const esConductorActivo = data?.user?.es_conductor === true && modoGuardado === "true";
+      setModoConductorActivo(esConductorActivo);
+    } catch (error) {
+      console.error("Error al verificar modo conductor:", error);
+      setModoConductorActivo(false);
+    }
+  };
+
   useEffect(() => {
     cargarMensajesNoLeidos();
+    verificarModoConductor();
 
     const socket = getSocket();
     if (socket) {
@@ -117,10 +132,12 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         <Text className="text-xs text-gray-600">Chat</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity className="items-center" onPress={verificarConductor}>
-        <SvgXml xml={carSvg} width={24} height={24} fill="#6B7280" />
-        <Text className="text-xs text-gray-600">Conducir</Text>
-      </TouchableOpacity>
+      {modoConductorActivo && (
+        <TouchableOpacity className="items-center" onPress={verificarConductor}>
+          <SvgXml xml={carSvg} width={24} height={24} fill="#6B7280" />
+          <Text className="text-xs text-gray-600">Conducir</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         className="items-center"
