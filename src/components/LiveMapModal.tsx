@@ -5,6 +5,7 @@ import MapView, { Marker, Polyline } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import * as Location from "expo-location";
 import { getSocket, getLastDriverPosition } from "../services/socket";
+import EmergencyButton from './EmergencyButton';
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -237,6 +238,9 @@ const LiveMapModal: React.FC<Props> = ({
           <Text style={{ color: "#3b82f6", fontSize: 12 }}>— Ruta planeada</Text>
           <Text style={{ color: "#1e3a8a", fontSize: 12 }}>— Ruta recorrida</Text>
         </View>
+
+        {/* Boton de emergencia */}
+        <EmergencyButton />
 
         {/* Botón cerrar */}
         <View style={{ position: "absolute", bottom: 32, left: 16, right: 16 }}>

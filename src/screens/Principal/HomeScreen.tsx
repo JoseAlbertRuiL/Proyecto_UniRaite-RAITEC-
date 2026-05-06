@@ -32,7 +32,6 @@ import {
   getViajePorId,
 } from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
-import EmergencyButton from "../../components/EmergencyButton";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket } from "../../services/socket";
 
@@ -672,8 +671,6 @@ const StartScreen = ({ navigation }: any) => {
           return viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined;
         })()}
       />
-
-      <EmergencyButton />
     </ScreenWrapper>
   );
 };

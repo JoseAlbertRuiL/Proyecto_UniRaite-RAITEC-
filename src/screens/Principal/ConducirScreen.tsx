@@ -14,6 +14,7 @@ import * as Location from 'expo-location';
 import { orpc } from "../../services/api/apiClient";
 import { getSocket } from "../../services/socket";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import EmergencyButton from "../../components/EmergencyButton";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
@@ -35,6 +36,7 @@ const ConducirScreen = ({ navigation }: any) => {
   const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
+  const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
 
   useBackHandler(navigation, "normal");
@@ -42,7 +44,40 @@ const ConducirScreen = ({ navigation }: any) => {
   const cargarDatos = async () => {
     try {
       const activosData = await orpc.viajes.activos();
-      if (activosData.success) setViajesActivos(activosData.viajes || []);
+      const todosActivos = activosData.viajes || [];
+
+      if (activosData.success) {
+        const ahora = new Date();
+
+        const expirados = todosActivos.filter((viaje: any) => {
+          const haIniciado = viaje.viajes_activos?.length > 0;
+          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
+          return !haIniciado && fechaPasada;
+        });
+
+        if (expirados.length > 0) {
+          Promise.allSettled(
+            expirados.map((v: any) =>
+              orpc.viajes.cancelar({ viajeId: v.id_viaje_pub })
+            )
+          ).then((results) => {
+            const cancelados = results.filter((r) => r.status === 'fulfilled').length;
+            if (cancelados > 0) {
+              console.log(`🗑️ ${cancelados} viaje(s) expirado(s) cancelado(s) automáticamente`);
+              // Refrescar para que desaparezcan de la lista
+              cargarDatos();
+            }
+          });
+        }
+        
+        const vigentes = todosActivos.filter((viaje: any) => {
+          const haIniciado = viaje.viajes_activos?.length > 0;
+          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
+          return haIniciado || !fechaPasada;
+        });
+
+        setViajesActivos(vigentes);
+      }
 
       const solicitudesData = await orpc.solicitudes.recibidas();
       if (solicitudesData.success)
@@ -67,11 +102,28 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   const handleIniciarViaje = async (viajeId: number) => {
+    const viaje = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+
+    const pasajerosAceptados = (viaje?.solicitudes ?? []).length;
+    if (pasajerosAceptados === 0) {
+      Alert.alert(
+        "Sin pasajeros",
+        "No puedes iniciar el viaje sin pasajeros aceptados. Acepta al menos una solicitud en la pestaña \"Solicitudes\"."
+      );
+      return;
+    }
+    
     console.log(`Intentando iniciar el viaje con ID: ${viajeId}`);
     try {
       const result = await orpc.viajes.iniciarViaje({ viajeId });
       if (result.success) {
-        await iniciarTransmisionUbicacion(viajeId, result.viajeActivo.id_viaje_activo);
+        const viajeCompleto = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+
+        await iniciarTransmisionUbicacion(
+          viajeId,
+          result.viajeActivo.id_viaje_activo,
+          viajeCompleto
+        );
         Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
         await cargarDatos();
       }
@@ -80,7 +132,7 @@ const ConducirScreen = ({ navigation }: any) => {
     }
   };
 
-  const iniciarTransmisionUbicacion = async (viajeId: number, viajeActivoId: number) => {
+  const iniciarTransmisionUbicacion = async (viajeId: number, viajeActivoId: number, viaje?: any) => {
     const socket = getSocket();
     if (!socket) return;
 
@@ -92,21 +144,51 @@ const ConducirScreen = ({ navigation }: any) => {
     
     socket.emit('join_viaje', viajeId);
     setTransmitiendo(viajeId);
+    destinoAlertado.current = false;
 
     locationSub.current?.remove();
     locationSub.current = await Location.watchPositionAsync(
       { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 8 },
       (loc) => {
-        const currentSocket  = getSocket();
-        if (!currentSocket?.connected) return;
-        
-        currentSocket.emit('driver_location', {
-          viajeActivoId,
-          viajeId,
-          lat: loc.coords.latitude,
-          lng: loc.coords.longitude,
-        });
-        console.log(`📡 Ubicación emitida: ${loc.coords.latitude}, ${loc.coords.longitude}`);
+        const { latitude, longitude } = loc.coords;
+        const currentSocket = getSocket();
+
+        if (currentSocket?.connected) {
+          currentSocket.emit('driver_location', {
+            viajeActivoId,
+            viajeId,
+            lat: latitude,
+            lng: longitude,
+          });
+          console.log(`📡 Ubicación emitida: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+
+        if (
+          !destinoAlertado.current &&
+          viaje?.latitud_destino != null &&
+          viaje?.longitud_destino != null
+        ) {
+          const distancia = calcularDistanciaMetros(
+            latitude, longitude,
+            viaje.latitud_destino, viaje.longitud_destino
+          );
+
+          console.log(`📏 Distancia al destino: ${Math.round(distancia)}m`);
+
+          if (distancia <= 150) {
+            destinoAlertado.current = true;
+
+            locationSub.current?.remove();
+            locationSub.current = null;
+            getSocket()?.emit('leave_viaje', viajeId);
+            setTransmitiendo(null);
+
+            navigation.navigate("FinishTrip", {
+              viajeId: viaje.id_viaje_pub,
+              viaje,
+            });
+          }
+        }
       }
     );
   };
@@ -146,6 +228,21 @@ const ConducirScreen = ({ navigation }: any) => {
         { text: "No", style: "cancel" },
       ],
     );
+  };
+
+  const calcularDistanciaMetros = (
+    lat1: number, lng1: number,
+    lat2: number, lng2: number
+  ): number => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const responderSolicitud = async (
@@ -308,11 +405,17 @@ const ConducirScreen = ({ navigation }: any) => {
             )}
             <TouchableOpacity
               className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
-              onPress={() =>
-              navigation.navigate("FinishTrip", {
-                viajeId: viaje.id_viaje_pub,
-                viaje, 
-              })
+              onPress={() => {
+                destinoAlertado.current = true;
+                locationSub.current?.remove();
+                locationSub.current = null;
+                getSocket()?.emit('leave_viaje', viaje.id_viaje_pub);
+                setTransmitiendo(null);
+                navigation.navigate("FinishTrip", {
+                  viajeId: viaje.id_viaje_pub,
+                  viaje, 
+                })
+              }
             }
             >
               <Text className="text-white font-semibold text-sm">Finalizar</Text>
