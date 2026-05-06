@@ -20,7 +20,7 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import LiveMapModal from "../../components/LiveMapModal";
 
-type TabType = "activos" | "solicitudes" | "historial";
+type TabType = "activos" | "solicitudes";
 
 const ConducirScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -30,7 +30,6 @@ const ConducirScreen = ({ navigation }: any) => {
   // const [transmitiendo, setTransmitiendo] = useState(false);
   const [viajeActivoId, setViajeActivoId] = useState<number | null>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [historial, setHistorial] = useState<any[]>([]);
   const [viajesActivos, setViajesActivos] = useState<any[]>([]);
   const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
   const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
@@ -82,9 +81,6 @@ const ConducirScreen = ({ navigation }: any) => {
       const solicitudesData = await orpc.solicitudes.recibidas();
       if (solicitudesData.success)
         setSolicitudes(solicitudesData.solicitudes || []);
-
-      const historialData = await orpc.viajes.historialConductor();
-      if (historialData.success) setHistorial(historialData.viajes || []);
     } catch (error) {
       console.error("Error al cargar datos:", error);
     } finally {
@@ -112,7 +108,7 @@ const ConducirScreen = ({ navigation }: any) => {
       );
       return;
     }
-    
+
     console.log(`Intentando iniciar el viaje con ID: ${viajeId}`);
     try {
       const result = await orpc.viajes.iniciarViaje({ viajeId });
@@ -517,22 +513,6 @@ const ConducirScreen = ({ navigation }: any) => {
       ));
     }
 
-    if (activeTab === "historial") {
-      if (historial.length === 0) {
-        return (
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-4xl mb-4">📜</Text>
-            <Text className="text-gray-500 text-center">
-              No hay viajes en el historial
-            </Text>
-          </View>
-        );
-      }
-      return historial.map((viaje) =>
-        renderViajeCard(viaje, false, undefined, false),
-      );
-    }
-
     return null;
   };
 
@@ -559,16 +539,6 @@ const ConducirScreen = ({ navigation }: any) => {
             className={`font-semibold ${activeTab === "solicitudes" ? "text-blue-900" : "text-gray-500"}`}
           >
             Solicitudes
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          className={`flex-1 py-3 items-center ${activeTab === "historial" ? "border-b-2 border-blue-900" : ""}`}
-          onPress={() => setActiveTab("historial")}
-        >
-          <Text
-            className={`font-semibold ${activeTab === "historial" ? "text-blue-900" : "text-gray-500"}`}
-          >
-            Historial
           </Text>
         </TouchableOpacity>
       </View>
