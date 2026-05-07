@@ -184,6 +184,7 @@ io.on('connection', (socket) => {
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
 
 app.use(cors())
+app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
 const orpcHandler = new RPCHandler(router, {
@@ -207,9 +208,6 @@ app.use('/rpc', async (req, res, next) => {
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
 });
-
-// express.json()
-app.use(express.json())
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
 

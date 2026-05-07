@@ -50,7 +50,8 @@
     "extra": {
       "eas": {
         "projectId": "7c74df44-b187-42fc-a235-82f2064cd0b5"
-      }
+      },
+      "apiUrl": "https://proyecto-uniraite-raitec.onrender.com"
     }
   }
 }
