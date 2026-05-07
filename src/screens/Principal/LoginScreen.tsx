@@ -18,12 +18,13 @@ import { connectSocket } from "../../services/socket";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { BASE_URL } from "../../services/api/apiClient";
 
-console.log('🔥 BASE_URL:', BASE_URL) 
+
 
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useBackHandler(navigation, "login");
 
@@ -48,15 +49,19 @@ const LoginScreen = ({ navigation }: any) => {
     }
 
     try {
+      setLoading(true);
+      console.log("🔄 Intentando login con:", { email, password: "***" });
       const data = await login(email, password);
-      console.log("Login exitoso:", data);
+      console.log("✅ Login exitoso:", data);
       // Conectar WebSocket después del login exitoso
       await connectSocket();
       navigation.navigate("Home");
     } catch (error: any) {
-      const msg = error?.message ?? "No se pudo conectar al servidor";
-      console.error("Error de conexión:", error);
-      alert(msg);
+      console.error("❌ Error en login:", error);
+      const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,12 +142,15 @@ const LoginScreen = ({ navigation }: any) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              className="bg-blue-900 rounded-xl py-4 items-center mb-6 shadow-lg"
+              className={`rounded-xl py-4 items-center mb-6 shadow-lg ${
+                loading ? 'bg-gray-400' : 'bg-blue-900'
+              }`}
               onPress={handleLogin}
+              disabled={loading}
               activeOpacity={0.8}
             >
               <Text className="text-white text-base font-semibold">
-                Iniciar Sesión
+                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </Text>
             </TouchableOpacity>
 

@@ -5,10 +5,12 @@ import { orpc, UPLOAD_URL } from '../api/apiClient'
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 export const login = async (correo_inst: string, password: string) => {
-  const data = await orpc.auth.login({ correo_inst, password })
-  await AsyncStorage.setItem('token', data.token)
-  await AsyncStorage.setItem('user', JSON.stringify(data.user))
-  return data
+
+    const data = await orpc.auth.login({ correo_inst, password })
+    await AsyncStorage.setItem('token', data.token)
+    await AsyncStorage.setItem('user', JSON.stringify(data.user))
+    return data
+ 
 }
 
 // ─── Registro ─────────────────────────────────────────────────────────────────
