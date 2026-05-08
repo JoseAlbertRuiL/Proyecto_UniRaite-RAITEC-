@@ -1,13 +1,17 @@
 // src/components/LiveMapModal.tsx
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Modal   } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import { View, Text, TouchableOpacity, Modal, Alert } from "react-native";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import * as Location from "expo-location";
 import { getSocket, getLastDriverPosition } from "../services/socket";
 import EmergencyButton from './EmergencyButton';
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+if (!GOOGLE_MAPS_APIKEY) {
+  console.warn('⚠️ GOOGLE_MAPS_APIKEY no está configurada. Las rutas no funcionarán.');
+}
 
 interface PuntoRecogida {
   latitude: number;
@@ -136,10 +140,10 @@ const LiveMapModal: React.FC<Props> = ({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1 }}>
-        <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={regionInicial}>
+        <MapView ref={mapRef} style={{ flex: 1 }} initialRegion={regionInicial} provider={PROVIDER_GOOGLE}>
 
           {/* Ruta planeada */}
-          {origen && destino && (
+          {origen && destino && GOOGLE_MAPS_APIKEY ? (
             <MapViewDirections
               origin={{ latitude: origen.lat, longitude: origen.lng }}
               destination={{ latitude: destino.lat, longitude: destino.lng }}
@@ -149,13 +153,27 @@ const LiveMapModal: React.FC<Props> = ({
               strokeColor="#3b82f6"
               language="es"
               optimizeWaypoints={false}
+              onError={(error) => {
+                console.error('❌ Error en MapViewDirections:', error);
+                Alert.alert(
+                  'Error al obtener ruta',
+                  'No se pudo calcular la ruta. Verifica tu conexión a internet y que la API Key esté configurada.',
+                  [{ text: 'OK' }]
+                );
+              }}
               onReady={(result) => {
                 mapRef.current?.fitToCoordinates(result.coordinates, {
                   edgePadding: { right: 50, bottom: 120, left: 50, top: 80 },
                 });
               }}
             />
-          )}
+          ) : origen && destino && !GOOGLE_MAPS_APIKEY ? (
+            <View style={{ position: 'absolute', top: 100, left: 20, right: 20, backgroundColor: 'rgba(255,0,0,0.8)', padding: 10, borderRadius: 8 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>
+                ⚠️ Google Maps API Key no configurada. Las rutas no estarán disponibles.
+              </Text>
+            </View>
+          ) : null}
 
           {/* Ruta recorrida en tiempo real */}
           {ruta.length > 1 && (

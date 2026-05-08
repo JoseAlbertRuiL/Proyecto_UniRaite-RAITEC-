@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "UniRaite necesita acceso a la cámara para tomar fotos de perfil y credencial",
-        "NSPhotoLibraryUsageDescription": "UniRaite necesita acceso a la galería para seleccionar fotos de perfil y credencial"
+        "NSPhotoLibraryUsageDescription": "UniRaite necesita acceso a la galería para seleccionar fotos de perfil y credencial",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "n"
     },
@@ -20,14 +21,17 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.appraitec",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD4IgxpdgHqthd5wai-ubZ4P2Z4bRAtx6M"
+        }
+      },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO"
       ]
     },

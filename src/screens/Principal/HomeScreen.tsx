@@ -20,7 +20,7 @@ import DriverCard from "../../components/driverCard";
 import LiveMapModal from "../../components/LiveMapModal";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, MapPressEvent } from "react-native-maps";
+import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { filtrarViajesCercanos } from "../../services/map/mapService";
