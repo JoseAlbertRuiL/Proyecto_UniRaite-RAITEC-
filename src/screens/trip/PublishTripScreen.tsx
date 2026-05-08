@@ -138,8 +138,8 @@ const PublishTripScreen = ({ navigation }: any) => {
   const onChangeFecha = (_: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      const merged = new Date(selectedDate);
-      merged.setHours(date.getHours(), date.getMinutes(), 0, 0);
+      const merged = new Date(date);
+      merged.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
       setDate(merged);
       setForm((p) => ({ ...p, fecha: formatFecha(selectedDate) }));
     }
@@ -271,28 +271,23 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
-    if (form.fecha && form.hora) {
-      const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
-      if (date <= limiteFuturo) {
-        Alert.alert(
-          "Horario inválido",
-          "El viaje debe programarse con al menos 10 minutos de anticipación."
-        );
-        return;
-      }
+    // Validación de tiempo mínimo (usa `date` directamente)
+    const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
+    if (date <= limiteFuturo) {
+      Alert.alert("Horario inválido", "El viaje debe programarse con al menos 10 minutos de anticipación.");
+      return;
     }
 
     setIsLoading(true);
     try {
       const data = await publicarViaje({
-        origen_texto: form.origen.texto,
-        destino_texto: form.destino.texto,
-        latitud_origen: form.origen.latitude,
-        longitud_origen: form.origen.longitude,
-        latitud_destino: form.destino.latitude,
-        longitud_destino: form.destino.longitude,
-        fecha: form.fecha,
-        hora: form.hora,
+        origen_texto: form.origen!.texto,
+        destino_texto: form.destino!.texto,
+        latitud_origen: form.origen!.latitude,
+        longitud_origen: form.origen!.longitude,
+        latitud_destino: form.destino!.latitude,
+        longitud_destino: form.destino!.longitude,
+        fechaHoraISO: date.toISOString(),
         asientos: form.asientos,
         precio: parseFloat(form.precio),
       });
