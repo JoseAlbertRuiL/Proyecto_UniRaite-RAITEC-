@@ -125,8 +125,7 @@ export const publicarViaje = protectedProcedure
       latitud_destino: z.number(),
       longitud_destino: z.number(),
       
-      fecha: z.string().min(1),
-      hora: z.string().min(1),
+      fechaHoraISO: z.string().min(1),
       asientos: z.number().int().min(1),
       precio: z.number().positive(),
     })
@@ -154,7 +153,7 @@ export const publicarViaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
     }
 
-    const fechaHoraSalida = parseFechaHora(input.fecha, input.hora)
+    const fechaHoraSalida = new Date(input.fechaHoraISO)
 
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {

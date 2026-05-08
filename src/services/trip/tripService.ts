@@ -15,8 +15,7 @@ export const publicarViaje = async (params: {
   longitud_origen: number
   latitud_destino: number
   longitud_destino: number
-  fecha: string
-  hora: string
+  fechaHoraISO: string
   asientos: number
   precio: number
 }) => {
