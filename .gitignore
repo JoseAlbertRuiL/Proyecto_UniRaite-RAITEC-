@@ -4,7 +4,6 @@
 .env
 .env.cloudinary
 google-key.json
-eas.json
 app.json
 
 backend/.env
