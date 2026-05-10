@@ -131,14 +131,18 @@ io.on('connection', (socket) => {
     lat: number;
     lng: number;
   }) => {
-    const user = (socket as any).user;
-
-    // Broadcast a todos en la sala del viaje
-    io.to(`viaje_${data.viajeId}`).emit('driver_location_update', {
+    console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
+    
+    const roomName = `viaje_${data.viajeId}`;
+    const socketsEnRoom = await io.in(roomName).fetchSockets();
+    console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
+    
+    io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
       lng: data.lng,
+      viajeId: data.viajeId,
       timestamp: new Date().toISOString(),
-      conductorId: user.id_usuario,
+      conductorId: (socket as any).user?.id_usuario,
     });
 
     // Guardar en historial_ruta cada N puntos (opcional, para no saturar la BD)
@@ -180,6 +184,7 @@ io.on('connection', (socket) => {
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
 
 app.use(cors())
+app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
 const orpcHandler = new RPCHandler(router, {
@@ -203,9 +208,6 @@ app.use('/rpc', async (req, res, next) => {
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
 });
-
-// express.json()
-app.use(express.json())
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
 

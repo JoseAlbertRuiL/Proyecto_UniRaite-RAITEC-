@@ -125,8 +125,7 @@ export const publicarViaje = protectedProcedure
       latitud_destino: z.number(),
       longitud_destino: z.number(),
       
-      fecha: z.string().min(1),
-      hora: z.string().min(1),
+      fechaHoraISO: z.string().min(1),
       asientos: z.number().int().min(1),
       precio: z.number().positive(),
     })
@@ -154,7 +153,7 @@ export const publicarViaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
     }
 
-    const fechaHoraSalida = parseFechaHora(input.fecha, input.hora)
+    const fechaHoraSalida = new Date(input.fechaHoraISO)
 
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
@@ -548,7 +547,15 @@ export const finalizarViaje = protectedProcedure
         conductor: { include: { usuario: true } },
         solicitudes: { 
           where: { estado_solicitud: 'aceptada' },
-          select: { id_pasajero: true } 
+          include: {
+            pasajero: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
         }
       },
     });
@@ -561,16 +568,21 @@ export const finalizarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado para finalizar este viaje' });
     }
 
-    // 1. Actualizar el viaje - SOLO asientos disponibles, NO modificar la fecha
+    // 1. Contar pasajeros confirmados (aceptados)
+    const pasajerosCount = viaje.solicitudes ? viaje.solicitudes.length : 0;
+
+    // 2. Actualizar el viaje - guardar asientos disponibles y pasajeros confirmados
     await prisma.viajes_publicados.update({
       where: { id_viaje_pub: input.viajeId },
       data: {
         asientos_disponibles: 0,
+        pasajeros_confirmados: pasajerosCount,
         // ELIMINADO: fecha_hora_salida: new Date(),
       },
     });
 
-    // 2. Incrementar viajes_completados del conductor
+    // 3. Incrementar viajes_completados del conductor
+
     await prisma.usuarios.update({
       where: { id_usuario: viaje.conductor.usuario.id_usuario },
       data: {

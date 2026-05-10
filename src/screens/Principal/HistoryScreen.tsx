@@ -123,31 +123,42 @@ const HistoryScreen = ({ navigation }: any) => {
               <Text className="text-gray-500 text-center px-6">Aún no tienes viajes completados en tu historial.</Text>
             </View>
           }
-          renderItem={({ item }) => (
-            <View className="mb-4 relative">
-              <View className="absolute z-10 top-2 right-2 bg-black/60 px-2 py-1 rounded-full">
-                <Text className="text-white text-xs font-bold">
-                  {item.rol === "conductor" ? "🚗 Conductor" : "🧑‍🤝‍🧑 Pasajero"}
-                </Text>
-              </View>
-              <DriverCard
-                viaje={{
-                  ...item,
-                  asientos_totales: 4,
-                  conductor: {
-                    ...item.conductor,
-                    usuario: {
-                      ...item.conductor.usuario,
-                      total_viajes: item.conductor.usuario.viajes_completados || 0,
+          renderItem={({ item }) => {
+            const capacidadTotal = item.conductor?.capacidad_pasajeros ?? 4;
+            // Usar pasajeros_confirmados si existe, si no calcular desde asientos_disponibles
+            const pasajerosOcupados = typeof (item as any).pasajeros_confirmados === "number"
+              ? (item as any).pasajeros_confirmados
+              : (typeof item.asientos_disponibles === "number"
+                  ? Math.max(0, capacidadTotal - item.asientos_disponibles)
+                  : 0);
+
+            return (
+              <View className="mb-4 relative">
+                <View className="absolute z-10 top-2 right-2 bg-black/60 px-2 py-1 rounded-full">
+                  <Text className="text-white text-xs font-bold">
+                    {item.rol === "conductor" ? "🚗 Conductor" : "🧑‍🤝‍🧑 Pasajero"}
+                  </Text>
+                </View>
+                <DriverCard
+                  viaje={{
+                    ...item,
+                    asientos_totales: capacidadTotal,
+                    asientos_ocupados: pasajerosOcupados,
+                    conductor: {
+                      ...item.conductor,
+                      usuario: {
+                        ...item.conductor.usuario,
+                        total_viajes: item.conductor.usuario.viajes_completados || 0,
+                      }
                     }
-                  }
-                }}
-                onPress={() => {}}
-                onVerPerfil={(id) => navigation.navigate("PerfilPublico", { usuarioId: id })}
-                estadoSolicitud="completado"
-              />
-            </View>
-          )}
+                  }}
+                  onPress={() => {}}
+                  onVerPerfil={(id) => navigation.navigate("PerfilPublico", { usuarioId: id })}
+                  estadoSolicitud="completado"
+                />
+              </View>
+            );
+          }}
         />
       )}
 

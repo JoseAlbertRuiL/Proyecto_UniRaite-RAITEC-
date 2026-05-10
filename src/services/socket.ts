@@ -4,6 +4,8 @@ import { BASE_URL } from './api/apiClient';
 
 let socket: Socket | null = null;
 
+const lastDriverPositions: Record<number, { lat: number; lng: number }> = {};
+
 export const connectSocket = async (): Promise<Socket | null> => {
   const token = await AsyncStorage.getItem('token');
   if (!token) return null;
@@ -25,7 +27,20 @@ export const connectSocket = async (): Promise<Socket | null> => {
     console.error('Error de conexión:', error.message);
   });
   
+  socket.on('driver_location_update', (data: { lat: number; lng: number; viajeId: number }) => {
+    if (data.viajeId) {
+      lastDriverPositions[data.viajeId] = { lat: data.lat, lng: data.lng };
+      console.log(`📦 Posición cacheada viaje ${data.viajeId}: ${data.lat}, ${data.lng}`);
+    }
+  });
+
   return socket;
+};
+
+export const getLastDriverPosition = (
+  viajeId: number
+): { lat: number; lng: number } | null => {
+  return lastDriverPositions[viajeId] ?? null;
 };
 
 export const disconnectSocket = (): void => {
