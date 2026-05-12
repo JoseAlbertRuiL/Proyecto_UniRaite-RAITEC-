@@ -17,11 +17,30 @@ const EmergencyButton = () => {
     Linking.openURL(`whatsapp://send?phone=${number}`);
   };
 
+ const registrarIncidente = async (tipo) => {
+  try {
+    const res = await fetch("http://192.168.1.15:3000/rpc/incidentes/registrar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tipo: tipo, // 🔥 SIN input
+      }),
+    });
+
+    const data = await res.json();
+    console.log("RESPUESTA:", data);
+
+  } catch (error) {
+    console.log("Error registrando incidente:", error);
+  }
+};
 
   return (
   <>
     <TouchableOpacity style={styles.floatingButton} onPress={() => setVisible(true)}>
-      <Text style={styles.text}>!</Text>
+      <Text style={styles.text}>SOS</Text>
     </TouchableOpacity>
 
     <Modal transparent={true} visible={visible} animationType="slide">
@@ -29,17 +48,34 @@ const EmergencyButton = () => {
         <View style={styles.modal}>
           <Text style={styles.title}>Opciones de emergencia</Text>
 
-          <TouchableOpacity onPress={() => callNumber("911")}>
-            <Text style={styles.option}>📞 Llamar 911</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => callNumber("4430000000")}>
-            <Text style={styles.option}>📱 Contacto de emergencia</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => openWhatsApp("524430000000")}>
-  <Text style={styles.option}>💬 WhatsApp</Text>
+<TouchableOpacity
+  onPress={() => {
+    registrarIncidente("accidente");
+    callNumber("911");
+  }}
+>
+  <Text style={styles.option}>Llamar 911</Text>
 </TouchableOpacity>
+
+<TouchableOpacity
+  onPress={() => {
+    registrarIncidente("acoso");
+    callNumber("4430000000");
+  }}
+>
+  <Text style={styles.option}> Contacto de emergencia</Text>
+</TouchableOpacity>
+
+<TouchableOpacity
+  onPress={() => {
+    registrarIncidente("otro");
+    openWhatsApp("524430000000");
+  }}
+>
+  <Text style={styles.option}> WhatsApp</Text>
+</TouchableOpacity>
+
+          
 
           <TouchableOpacity onPress={() => setVisible(false)}>
             <Text style={styles.close}>Cerrar</Text>
