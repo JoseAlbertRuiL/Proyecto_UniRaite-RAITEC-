@@ -11,19 +11,22 @@ import {
   StatusBar,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const LicenciaScreen = ({ navigation }: any) => {
   const [fotoLicencia, setFotoLicencia] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   useBackHandler(navigation, "normal");
 
   const seleccionarFoto = () => {
     Alert.alert("Subir licencia", "¿Cómo quieres subir la imagen?", [
       { text: "Cancelar", style: "cancel" },
-      { text: "🖼️ Elegir de galería", onPress: elegirDeGaleria },
-      { text: "📷 Tomar foto", onPress: tomarFoto },
+      { text: "Elegir de galería", onPress: elegirDeGaleria },
+      { text: "Tomar foto", onPress: tomarFoto },
     ]);
   };
 
@@ -78,15 +81,15 @@ const LicenciaScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
-      <HeaderBack navigation={navigation} title="" />
+    <ScreenWrapper hasFooter={false}>
+      <HeaderBack navigation={navigation} title="Licencia" />
 
       <ScrollView
-        className="px-6 pt-6"
-        contentContainerStyle={{ flexGrow: 1 }}
+        className="px-6 pt-2"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingBottom: insets.bottom + 40
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Encabezado */}
@@ -177,7 +180,7 @@ const LicenciaScreen = ({ navigation }: any) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

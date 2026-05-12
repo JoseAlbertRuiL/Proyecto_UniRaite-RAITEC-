@@ -121,6 +121,10 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx");
           return;
         }
+        if (password.length < 6) {
+          Alert.alert("Error", "La contraseña debe tener mínimo 6 caracteres");
+          return;
+        }
         try {
           const data = await verificarCorreo(email);
           if (data.existe) {
@@ -181,14 +185,7 @@ const RegisterScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper>
-      <KeyboardAwareScrollView 
-        className="flex-1 bg-white px-6 pt-12"
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
-        enableOnAndroid={true}
-        extraScrollHeight={20}
-        keyboardShouldPersistTaps="handled"
-      >
+    <ScrollView className="flex-1 bg-white px-6 pt-12">
       <View className="items-center mb-4">
         {fotoPerfil ? (
           <Image source={{ uri: fotoPerfil }} className="w-24 h-24 rounded-full border-2 border-blue-900" />
@@ -227,6 +224,12 @@ const RegisterScreen = ({ navigation }: any) => {
             <TouchableOpacity className="px-4" onPress={() => setShowPassword(!showPassword)}>
               <Text className="text-blue-900 font-semibold">{showPassword ? "Ocultar" : "Mostrar"}</Text>
             </TouchableOpacity>
+          </View>
+          <View className="flex-row items-center mt-2">
+            <Text className={`text-xs ${password.length >= 6 ? 'text-green-600' : 'text-red-600'}`}>
+              {password.length >= 6 ? '✓' : '✗'} Mínimo 6 caracteres
+            </Text>
+            <Text className="text-xs text-gray-500 ml-2">({password.length}/6)</Text>
           </View>
         </View>
       )}
@@ -286,8 +289,7 @@ const RegisterScreen = ({ navigation }: any) => {
           <Text className="text-white text-center font-bold">{paso === 4 ? "Registrarme" : "Siguiente"}</Text>
         </TouchableOpacity>
       </View>
-      </KeyboardAwareScrollView>
-    </ScreenWrapper>
+    </ScrollView>
   );
 };
 

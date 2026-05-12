@@ -20,7 +20,7 @@ export const estaCercaDeRuta = (
   conductorOrigenLng: number,
   conductorDestinoLat: number, 
   conductorDestinoLng: number,
-  limiteKm: number = 1.0 
+  limiteKm: number = 0.5
 ): boolean => {
   
   const puntoPasajero = turf.point([pasajeroLng, pasajeroLat]);

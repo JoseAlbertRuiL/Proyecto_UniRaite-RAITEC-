@@ -25,7 +25,11 @@ const crearNotificacion = async (
 
 // POST /api/viajes/:id/solicitar
 export const solicitarViaje = protectedProcedure
-  .input(z.object({ viajeId: z.number() }))
+  .input(z.object({
+    viajeId: z.number(),
+    latitud_recogida: z.number().optional(),
+    longitud_recogida: z.number().optional(),
+  }))
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
@@ -63,10 +67,16 @@ export const solicitarViaje = protectedProcedure
         id_pasajero: context.user.id,
         estado_solicitud: 'pendiente',
         fecha_solicitud: new Date(),
+        latitud_recogida:  input.latitud_recogida ?? null,
+        longitud_recogida: input.longitud_recogida ?? null,
       },
     });
 
     // NOTIFICACIÓN: Avisar al conductor que tiene una nueva solicitud
+    if (!viaje.conductor?.usuario) {
+      throw new ORPCError('NOT_FOUND', { message: 'Conductor no encontrado' });
+    }
+
     await crearNotificacion(
       viaje.conductor.usuario.id_usuario,
       "Nueva solicitud de viaje",
@@ -135,7 +145,7 @@ export const responderSolicitud = protectedProcedure
 
     // VALIDAR QUE NO SUPERE LOS ASIENTOS DISPONIBLES
     if (input.estado === 'aceptada') {
-      if (solicitudesAceptadas >= solicitud.viaje.asientos_disponibles) {
+      if (solicitud.viaje.asientos_disponibles <= 0) {
         throw new ORPCError('BAD_REQUEST', { 
           message: 'No hay suficientes asientos disponibles. El viaje ya está completo.' 
         })
@@ -265,10 +275,42 @@ export const obtenerSolicitudesActivas = protectedProcedure
         id_pasajero: context.user.id,
         estado_solicitud: {
           in: ['pendiente', 'aceptada']
-        }
+        },
+        viaje: {
+          viajes_activos: {
+            none: {
+              estado_trayecto: 'finalizado'
+            },
+          },
+        },
+      },
+      include: {
+        viaje: {
+          select: {
+            id_viaje_pub: true,
+            origen_texto: true,
+            destino_texto: true,
+            latitud_origen: true,
+            longitud_origen: true,
+            latitud_destino: true,
+            longitud_destino: true,
+            fecha_hora_salida: true,
+            costo_estimado: true,
+          },
+        },
       },
       orderBy: { fecha_solicitud: 'desc' },
       take: 1,
     });
+
     return { success: true, solicitudes };
+
+    // return {
+    //   success: true,
+    //   solicitudes: solicitudes.map((s) => ({
+    //     ...s,
+    //     latitud_recogida: s.latitud_recogida,
+    //     longitud_recogida: s.longitud_recogida,
+    //   })),
+    // };
   });

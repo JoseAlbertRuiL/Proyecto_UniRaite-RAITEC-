@@ -124,6 +124,57 @@ io.on('connection', (socket) => {
       socket.emit('message_error', 'No se pudo enviar el mensaje');
     }
   });
+
+  socket.on('driver_location', async (data: {
+    viajeActivoId: number;
+    viajeId: number;
+    lat: number;
+    lng: number;
+  }) => {
+    console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
+    
+    const roomName = `viaje_${data.viajeId}`;
+    const socketsEnRoom = await io.in(roomName).fetchSockets();
+    console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
+    
+    io.to(roomName).emit('driver_location_update', {
+      lat: data.lat,
+      lng: data.lng,
+      viajeId: data.viajeId,
+      timestamp: new Date().toISOString(),
+      conductorId: (socket as any).user?.id_usuario,
+    });
+
+    // Guardar en historial_ruta cada N puntos (opcional, para no saturar la BD)
+    try {
+      const viajeActivo = await prisma.viajes_activos.findUnique({
+        where: { id_viaje_activo: data.viajeActivoId },
+      });
+      if (viajeActivo) {
+        const historial = (viajeActivo.historial_ruta as any[]) || [];
+        // Guardar cada 10 puntos para no saturar
+        if (historial.length % 10 === 0) {
+          historial.push({ lat: data.lat, lng: data.lng, ts: Date.now() });
+          await prisma.viajes_activos.update({
+            where: { id_viaje_activo: data.viajeActivoId },
+            data: { historial_ruta: historial },
+          });
+        }
+      }
+    } catch (e) {
+      // No bloquear si falla el guardado
+    }
+  });
+
+  // Pasajero/conductor se une a la sala del viaje
+  socket.on('join_viaje', (viajeId: number) => {
+    socket.join(`viaje_${viajeId}`);
+    console.log(`🗺️ Usuario unido al viaje ${viajeId}`);
+  });
+
+  socket.on('leave_viaje', (viajeId: number) => {
+    socket.leave(`viaje_${viajeId}`);
+  });
   
   socket.on('disconnect', () => {
     console.log('⚡ Usuario desconectado');
@@ -133,6 +184,7 @@ io.on('connection', (socket) => {
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
 
 app.use(cors())
+app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
 const orpcHandler = new RPCHandler(router, {
@@ -156,9 +208,6 @@ app.use('/rpc', async (req, res, next) => {
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
 });
-
-// express.json()
-app.use(express.json())
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
 

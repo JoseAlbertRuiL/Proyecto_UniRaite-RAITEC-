@@ -1,13 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { PanResponder, Animated } from "react-native";
+import { orpc } from "../services/api/apiClient";
 
 
 const EmergencyButton = () => {
   const [visible, setVisible] = useState(false);
+  const [contactoEmergencia, setContactoEmergencia] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      console.log("🔍 EmergencyButton: Iniciando fetchPerfil");
+      try {
+        const response = await orpc.usuarios.getPerfil();
+        console.log("✅ EmergencyButton: Respuesta de getPerfil:", response);
+        if (response.success && response.user) {
+          console.log("📞 EmergencyButton: Contacto de emergencia encontrado:", response.user.contacto_emergencia);
+          setContactoEmergencia(response.user.contacto_emergencia);
+        } else {
+          console.log("❌ EmergencyButton: Respuesta no exitosa o sin usuario");
+        }
+      } catch (error) {
+        console.error("❌ EmergencyButton: Error al obtener perfil:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerfil();
+  }, []);
 
   const callNumber = (number: string) => {
     Linking.openURL(`tel:${number}`);
@@ -121,6 +143,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginVertical: 10,
   },
+  optionDisabled: {
+    fontSize: 16,
+    marginVertical: 10,
+    color: "gray",
+  },
   close: {
     color: "red",
     marginTop: 15,
@@ -129,8 +156,8 @@ const styles = StyleSheet.create({
 
   floatingButton: {
     position: "absolute",
-    bottom: 80,
-    right: 20,
+    bottom: 110,
+    left: 20,
     backgroundColor: "red",
     width: 60,
     height: 60,

@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import HeaderBack from "../../components/common/HeaderBack";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
@@ -57,30 +58,14 @@ const NotificacionesScreen = ({ navigation }: any) => {
   };
 
   const marcarTodasLeidas = async () => {
-    Alert.alert(
-      "Marcar todas como leídas",
-      "¿Estás seguro de que deseas marcar todas las notificaciones como leídas?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sí, marcar todas",
-          onPress: async () => {
-            try {
-              await orpc.notificaciones.marcarTodasLeidas();
-              setNotificaciones((prev) =>
-                prev.map((notif) => ({ ...notif, leido: true })),
-              );
-              Alert.alert(
-                "Éxito",
-                "Todas las notificaciones fueron marcadas como leídas",
-              );
-            } catch (error) {
-              Alert.alert("Error", "No se pudieron marcar las notificaciones");
-            }
-          },
-        },
-      ],
-    );
+    try {
+      await orpc.notificaciones.marcarTodasLeidas();
+      setNotificaciones((prev) =>
+        prev.map((notif) => ({ ...notif, leido: true })),
+      );
+    } catch (error) {
+      Alert.alert("Error", "No se pudieron marcar las notificaciones");
+    }
   };
 
   const eliminarNotificacion = async (id: number) => {
@@ -134,10 +119,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
   const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
   return (
-    <View
-      className="flex-1 bg-white"
-      style={{ paddingTop: StatusBar.currentHeight || 0 }}
-    >
+    <ScreenWrapper hasFooter={false}>
       <HeaderBack navigation={navigation} title="Notificaciones" />
 
       <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
@@ -193,7 +175,9 @@ const NotificacionesScreen = ({ navigation }: any) => {
                         ? "📝"
                         : notif.tipo_notif === "pago"
                           ? "💰"
-                          : "🔔"}
+                          : notif.tipo_notif === "finalizacion"
+                            ? "✅"
+                            : "🔔"}
                   </Text>
                 </View>
 
@@ -214,6 +198,20 @@ const NotificacionesScreen = ({ navigation }: any) => {
                 )}
               </View>
 
+              {notif.tipo_notif === "finalizacion" && (
+                <TouchableOpacity
+                  className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
+                  onPress={async () => {
+                    if (!notif.leido) await marcarComoLeida(notif.id_notificacion);
+                    navigation.navigate("RateTrip");
+                  }}
+                >
+                  <Text className="text-white text-sm font-semibold">
+                    Calificar viaje
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 className="absolute right-4 top-4"
                 onPress={() => eliminarNotificacion(notif.id_notificacion)}
@@ -224,7 +222,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
           ))
         )}
       </ScrollView>
-    </View>
+    </ScreenWrapper>
   );
 };
 

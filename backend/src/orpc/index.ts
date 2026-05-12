@@ -12,15 +12,23 @@ import {
   actualizarFotoPerfil,
   cambiarPassword,
   actualizarPerfil,
-  actualizarCarrera
+  actualizarCarrera,
+  actualizarContactoEmergencia
 } from './routers/usuarios'
-import { getVehiculo, registroConductor, actualizarVehiculo } from './routers/conductor'
+import { getVehiculo,
+  registroConductor,
+  actualizarVehiculo
+} from './routers/conductor'
 import { 
   listarViajes, 
   publicarViaje,
   obtenerViajesActivos,
   obtenerHistorialConductor,
-  cancelarViaje
+  obtenerHistorialPasajero,
+  cancelarViaje,
+  finalizarViaje,
+  obtenerViajePorId,
+  iniciarViaje,
 } from './routers/viajes'
 import { 
   solicitarViaje, 
@@ -36,7 +44,8 @@ import {
   misChats,
   getEstado,
   contarMensajesNoLeidos,
-  marcarComoLeidos
+  marcarComoLeidos,
+  eliminarHistorial
 } from './routers/chat'
 import { 
   obtenerTodas,
@@ -44,7 +53,15 @@ import {
   marcarTodasLeidas,
   eliminar
 } from './routers/notificaciones'
-import { registrarIncidente } from './routers/incidentes'
+import { 
+  registrarIncidente
+} from './routers/incidentes'
+import {
+  guardarCalificacion,
+  obtenerCalificacionesRecibidas,
+  obtenerMisCalificaciones
+} from './routers/calificaciones'
+
 
 export const router = {
   auth: {
@@ -62,6 +79,7 @@ export const router = {
     cambiarPassword,
     actualizarPerfil,
     actualizarCarrera,
+    actualizarContactoEmergencia,
   },
   conductor: {
     registroConductor,
@@ -71,9 +89,13 @@ export const router = {
   viajes: {
     listar: listarViajes,
     publicar: publicarViaje,
+    porId: obtenerViajePorId,
     activos: obtenerViajesActivos,
     historialConductor: obtenerHistorialConductor,
+    historialPasajero: obtenerHistorialPasajero,
     cancelar: cancelarViaje,
+    finalizarViaje: finalizarViaje,
+    iniciarViaje: iniciarViaje,
   },
   solicitudes: {
     solicitar: solicitarViaje,
@@ -90,6 +112,7 @@ export const router = {
     getEstado,
     contarMensajesNoLeidos,
     marcarComoLeidos,
+    eliminarHistorial,
   },
   notificaciones: {
     obtenerTodas,
@@ -100,6 +123,11 @@ export const router = {
 
 incidentes: {
   registrar: registrarIncidente,
+},
+calificaciones: {
+  guardar: guardarCalificacion,
+  obtenerRecibidas: obtenerCalificacionesRecibidas,
+  obtenerMias: obtenerMisCalificaciones,
 },
 
 }

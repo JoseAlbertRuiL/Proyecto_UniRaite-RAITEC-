@@ -77,6 +77,7 @@ model viajes_publicados {
 
   fecha_hora_salida    DateTime
   asientos_disponibles Int
+  pasajeros_confirmados Int?
   costo_estimado       Float
   es_recurrente        Boolean
   comentario_extra     String?
@@ -95,6 +96,8 @@ model solicitudes_viaje {
   id_pasajero       String
   estado_solicitud  EstadoSolicitud
   fecha_solicitud   DateTime
+  latitud_recogida  Float?
+  longitud_recogida Float?
 
   viaje             viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
   pasajero          usuarios @relation(fields: [id_pasajero], references: [id_usuario])
@@ -120,6 +123,7 @@ model viajes_activos {
   hora_inicio_real  DateTime
   hora_fin_real     DateTime?
   estado_trayecto   EstadoTrayecto
+  historial_ruta    Json?
 
   viaje             viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
   incidentes        incidentes_seguridad[]

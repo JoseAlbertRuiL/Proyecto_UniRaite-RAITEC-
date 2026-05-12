@@ -33,6 +33,7 @@ export const getPerfil = protectedProcedure.handler(async ({ context }) => {
       verificado: true,
       reputacion_promedio: true,
       licencia_de_conducir: true,
+      contacto_emergencia: true,
     },
   })
 
@@ -151,4 +152,15 @@ export const actualizarCarrera = protectedProcedure
       data: { carrera: input.carrera },
     })
     return { success: true, message: 'Carrera actualizada' }
+  })
+
+// PUT /api/usuarios/actualizar-contacto-emergencia
+export const actualizarContactoEmergencia = protectedProcedure
+  .input(z.object({ contacto_emergencia: z.string().min(10) }))
+  .handler(async ({ input, context }) => {
+    await prisma.usuarios.update({
+      where: { id_usuario: context.user.id },
+      data: { contacto_emergencia: input.contacto_emergencia },
+    })
+    return { success: true, message: 'Contacto de emergencia actualizado' }
   })

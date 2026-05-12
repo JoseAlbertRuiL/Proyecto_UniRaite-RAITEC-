@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,44 +9,193 @@ import {
   Alert,
   StatusBar,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from 'expo-location';
 import { orpc } from "../../services/api/apiClient";
+import { getSocket } from "../../services/socket";
+import { useBackHandler } from "../../hooks/useBackHandler";
+import EmergencyButton from "../../components/EmergencyButton";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
-import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { useBackHandler } from "../../hooks/useBackHandler";
-import { getSocket } from "../../services/socket";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import LiveMapModal from "../../components/LiveMapModal";
 
-type TabType = "activos" | "solicitudes" | "historial";
+type TabType = "activos" | "solicitudes";
 
 const ConducirScreen = ({ navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("activos");
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
-  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
+  // const [transmitiendo, setTransmitiendo] = useState(false);
+  const [viajeActivoId, setViajeActivoId] = useState<number | null>(null);
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [historial, setHistorial] = useState<any[]>([]);
-  const insets = useSafeAreaInsets();
+  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
+  const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
+  const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
+  const [liveMapVisible, setLiveMapVisible] = useState(false);
+  const locationSub = useRef<Location.LocationSubscription | null>(null);
+  const destinoAlertado = useRef<boolean>(false);
+  // const locationInterval = useRef<any>(null);
 
   useBackHandler(navigation, "normal");
 
   const cargarDatos = async () => {
     try {
       const activosData = await orpc.viajes.activos();
-      if (activosData.success) setViajesActivos(activosData.viajes || []);
+      const todosActivos = activosData.viajes || [];
+
+      if (activosData.success) {
+        const ahora = new Date();
+
+        const expirados = todosActivos.filter((viaje: any) => {
+          const haIniciado = viaje.viajes_activos?.length > 0;
+          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
+          return !haIniciado && fechaPasada;
+        });
+
+        if (expirados.length > 0) {
+          Promise.allSettled(
+            expirados.map((v: any) =>
+              orpc.viajes.cancelar({ viajeId: v.id_viaje_pub })
+            )
+          ).then((results) => {
+            const cancelados = results.filter((r) => r.status === 'fulfilled').length;
+            if (cancelados > 0) {
+              console.log(`🗑️ ${cancelados} viaje(s) expirado(s) cancelado(s) automáticamente`);
+              // Refrescar para que desaparezcan de la lista
+              cargarDatos();
+            }
+          });
+        }
+        
+        const vigentes = todosActivos.filter((viaje: any) => {
+          const haIniciado = viaje.viajes_activos?.length > 0;
+          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
+          return haIniciado || !fechaPasada;
+        });
+
+        setViajesActivos(vigentes);
+      }
 
       const solicitudesData = await orpc.solicitudes.recibidas();
       if (solicitudesData.success)
         setSolicitudes(solicitudesData.solicitudes || []);
-
-      const historialData = await orpc.viajes.historialConductor();
-      if (historialData.success) setHistorial(historialData.viajes || []);
     } catch (error) {
       console.error("Error al cargar datos:", error);
     } finally {
       setCargando(false);
       setRefrescando(false);
     }
+  };
+
+  // Revisa si el id_viaje_pub actual existe dentro del arreglo de viajesActivos
+  const esViajeActivo = (idViajePub: number) => {
+    if (!Array.isArray(viajesActivos) || viajesActivos.length === 0) return false;
+    
+    const viajeActual = viajesActivos.find((v) => v.id_viaje_pub === idViajePub);
+    return viajeActual?.viajes_activos && viajeActual.viajes_activos.length > 0;
+  };
+
+  const handleIniciarViaje = async (viajeId: number) => {
+    const viaje = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+
+    const pasajerosAceptados = (viaje?.solicitudes ?? []).length;
+    if (pasajerosAceptados === 0) {
+      Alert.alert(
+        "Sin pasajeros",
+        "No puedes iniciar el viaje sin pasajeros aceptados. Acepta al menos una solicitud en la pestaña \"Solicitudes\"."
+      );
+      return;
+    }
+
+    console.log(`Intentando iniciar el viaje con ID: ${viajeId}`);
+    try {
+      const result = await orpc.viajes.iniciarViaje({ viajeId });
+      if (result.success) {
+        const viajeCompleto = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+
+        await iniciarTransmisionUbicacion(
+          viajeId,
+          result.viajeActivo.id_viaje_activo,
+          viajeCompleto
+        );
+        Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
+        await cargarDatos();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo iniciar el viaje");
+    }
+  };
+
+  const iniciarTransmisionUbicacion = async (viajeId: number, viajeActivoId: number, viaje?: any) => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso requerido", "Necesitas dar permiso de ubicación para transmitir.");
+      return;
+    }
+    
+    socket.emit('join_viaje', viajeId);
+    setTransmitiendo(viajeId);
+    destinoAlertado.current = false;
+
+    locationSub.current?.remove();
+    locationSub.current = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 8 },
+      (loc) => {
+        const { latitude, longitude } = loc.coords;
+        const currentSocket = getSocket();
+
+        if (currentSocket?.connected) {
+          currentSocket.emit('driver_location', {
+            viajeActivoId,
+            viajeId,
+            lat: latitude,
+            lng: longitude,
+          });
+          console.log(`📡 Ubicación emitida: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+
+        if (
+          !destinoAlertado.current &&
+          viaje?.latitud_destino != null &&
+          viaje?.longitud_destino != null
+        ) {
+          const distancia = calcularDistanciaMetros(
+            latitude, longitude,
+            viaje.latitud_destino, viaje.longitud_destino
+          );
+
+          console.log(`📏 Distancia al destino: ${Math.round(distancia)}m`);
+
+          if (distancia <= 150) {
+            destinoAlertado.current = true;
+
+            locationSub.current?.remove();
+            locationSub.current = null;
+            getSocket()?.emit('leave_viaje', viajeId);
+            setTransmitiendo(null);
+
+            navigation.navigate("FinishTrip", {
+              viajeId: viaje.id_viaje_pub,
+              viaje,
+            });
+          }
+        }
+      }
+    );
+  };
+
+  const detenerTransmision = (viajeId: number) => {
+    locationSub.current?.remove();
+    locationSub.current = null;
+
+    const socket = getSocket();
+    socket?.emit('leave_viaje', viajeId);
+    setTransmitiendo(null);
   };
 
   const cancelarViaje = async (viajeId: number) => {
@@ -75,6 +224,21 @@ const ConducirScreen = ({ navigation }: any) => {
         { text: "No", style: "cancel" },
       ],
     );
+  };
+
+  const calcularDistanciaMetros = (
+    lat1: number, lng1: number,
+    lat2: number, lng2: number
+  ): number => {
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
   const responderSolicitud = async (
@@ -127,18 +291,31 @@ const ConducirScreen = ({ navigation }: any) => {
         cargarDatos();
       };
 
+      const onViajeFinalizado = (data: any) => {
+        console.log("📢 Viaje finalizado en Conducir:", data);
+        cargarDatos();
+      };
+
       socket.on("nueva_solicitud", onNuevaSolicitud);
       socket.on("solicitud_actualizada", onSolicitudActualizada);
       socket.on("viaje_cancelado", onViajeCancelado);
       socket.on("nuevo_viaje", onNuevoViajePublicado);
+      socket.on("viaje_finalizado", onViajeFinalizado);
 
       return () => {
         socket.off("nueva_solicitud", onNuevaSolicitud);
         socket.off("solicitud_actualizada", onSolicitudActualizada);
         socket.off("viaje_cancelado", onViajeCancelado);
         socket.off("nuevo_viaje", onNuevoViajePublicado);
+        socket.off("viaje_finalizado", onViajeFinalizado);
       };
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      locationSub.current?.remove();
+    };
   }, []);
 
   const renderViajeCard = (
@@ -202,12 +379,50 @@ const ConducirScreen = ({ navigation }: any) => {
       {/* Botones de acción */}
       <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
         {isActive && (
-          <TouchableOpacity
-            className="bg-red-500 rounded-lg px-4 py-2 mr-2"
-            onPress={() => cancelarViaje(viaje.id_viaje_pub)}
-          >
-            <Text className="text-white font-semibold text-sm">Cancelar</Text>
-          </TouchableOpacity>
+          <>
+            {/* Botón Iniciar Viaje */}
+            {!esViajeActivo(viaje.id_viaje_pub) ? (
+              <TouchableOpacity
+                className="bg-green-600 rounded-lg px-4 py-2 mr-2"
+                onPress={() => handleIniciarViaje(viaje.id_viaje_pub)}
+              >
+                <Text className="text-white font-semibold text-sm">Iniciar</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                className="bg-blue-600 rounded-lg px-4 py-2 mr-2"
+                onPress={() => {
+                  setLiveMapViajeId(viaje.id_viaje_pub);
+                  setLiveMapVisible(true);
+                }}
+              >
+                <Text className="text-white font-semibold text-sm">Ver ruta</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => {
+                destinoAlertado.current = true;
+                locationSub.current?.remove();
+                locationSub.current = null;
+                getSocket()?.emit('leave_viaje', viaje.id_viaje_pub);
+                setTransmitiendo(null);
+                navigation.navigate("FinishTrip", {
+                  viajeId: viaje.id_viaje_pub,
+                  viaje, 
+                })
+              }
+            }
+            >
+              <Text className="text-white font-semibold text-sm">Finalizar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className="bg-red-500 rounded-lg px-4 py-2 mr-2"
+              onPress={() => cancelarViaje(viaje.id_viaje_pub)}
+            >
+              <Text className="text-white font-semibold text-sm">Cancelar</Text>
+            </TouchableOpacity>
+          </>
         )}
         {showActions && (
           <>
@@ -298,22 +513,6 @@ const ConducirScreen = ({ navigation }: any) => {
       ));
     }
 
-    if (activeTab === "historial") {
-      if (historial.length === 0) {
-        return (
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-4xl mb-4">📜</Text>
-            <Text className="text-gray-500 text-center">
-              No hay viajes en el historial
-            </Text>
-          </View>
-        );
-      }
-      return historial.map((viaje) =>
-        renderViajeCard(viaje, false, undefined, false),
-      );
-    }
-
     return null;
   };
 
@@ -342,16 +541,6 @@ const ConducirScreen = ({ navigation }: any) => {
             Solicitudes
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          className={`flex-1 py-3 items-center ${activeTab === "historial" ? "border-b-2 border-blue-900" : ""}`}
-          onPress={() => setActiveTab("historial")}
-        >
-          <Text
-            className={`font-semibold ${activeTab === "historial" ? "text-blue-900" : "text-gray-500"}`}
-          >
-            Historial
-          </Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -373,6 +562,28 @@ const ConducirScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       <Footer navigation={navigation} />
+      {liveMapViajeId && (() => {
+        const viaje = viajesActivos.find((v) => v.id_viaje_pub === liveMapViajeId);
+        const pasajerosCoordenadas = (viaje?.solicitudes ?? [])
+          .filter((s: any) => s.latitud_recogida && s.longitud_recogida)
+          .map((s: any) => ({
+            latitude: s.latitud_recogida,
+            longitude: s.longitud_recogida,
+            nombre: `${s.pasajero?.nombre ?? "Pasajero"}`,
+          }));
+
+        return (
+          <LiveMapModal
+            visible={liveMapVisible}
+            onClose={() => setLiveMapVisible(false)}
+            viajeId={liveMapViajeId}
+            mode="conductor"
+            pasajerosCoordenadas={pasajerosCoordenadas}
+            origen={viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined}
+            destino={viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined}
+          />
+        );
+      })()}
     </ScreenWrapper>
   );
 };

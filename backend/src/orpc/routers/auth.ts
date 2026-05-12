@@ -158,7 +158,7 @@ export const verifyCode = baseProcedure
 export const resetPassword = baseProcedure
   .input(z.object({
     correo_inst: z.string().email(),
-    newPassword: z.string().min(6),
+    newPassword: z.string().min(6, { message: 'La contraseña debe tener mínimo 6 caracteres' }),
   }))
   .handler(async ({ input }) => {
     const hashedPassword = await bcrypt.hash(input.newPassword, 10)
@@ -184,7 +184,7 @@ export const register = baseProcedure
       apellido_materno: z.string().optional(),
       num_control: z.string().min(1),
       correo_inst: z.string().email(),
-      password: z.string().min(6),
+      password: z.string().min(6, { message: 'La contraseña debe tener mínimo 6 caracteres' }),
       carrera: z.string().optional(),
       // URLs de Cloudinary devueltas por el endpoint de upload
       foto_credencial: z.string().optional(),

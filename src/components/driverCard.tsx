@@ -10,6 +10,7 @@ interface DriverCardProps {
     fecha_hora_salida: string;
     asientos_disponibles: number;
     asientos_totales: number;
+    asientos_ocupados?: number;
     costo_estimado: number;
     conductor: {
       modelo: string;
@@ -47,8 +48,7 @@ const DriverCard = ({
     month: "short",
   });
 
-  const asientosOcupados =
-    (viaje.asientos_totales || 4) - viaje.asientos_disponibles;
+  
   const reputacion = viaje.conductor.usuario.reputacion_promedio || 0;
   const totalViajes = viaje.conductor.usuario.total_viajes || 0;
 
@@ -57,6 +57,7 @@ const DriverCard = ({
     if (estadoSolicitud === "aceptada") return "Aceptado ✅";
     if (estadoSolicitud === "rechazada") return "Rechazado ❌";
     if (estadoSolicitud === "cancelado") return "Cancelado 🚫";
+    if (estadoSolicitud === "completado") return "Finalizado 🏁";
     return "Solicitar";
   };
 
@@ -65,6 +66,7 @@ const DriverCard = ({
     if (estadoSolicitud === "aceptada") return "bg-green-500";
     if (estadoSolicitud === "rechazada") return "bg-red-500";
     if (estadoSolicitud === "cancelado") return "bg-gray-500";
+    if (estadoSolicitud === "completado") return "bg-gray-600";
     return "bg-blue-900";
   };
 
@@ -72,8 +74,15 @@ const DriverCard = ({
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
+  const ocupados = typeof viaje.asientos_ocupados === "number"
+    ? viaje.asientos_ocupados
+    : viaje.asientos_totales - viaje.asientos_disponibles;
+  const mostrarOcupados = typeof viaje.asientos_ocupados === "number";
+  const lugaresTexto = mostrarOcupados ? "ocupados" : "disponibles";
+  const valorMostrar = mostrarOcupados ? ocupados : viaje.asientos_disponibles;
+
   const fotoUrl = viaje.conductor.usuario.foto_perfil
-    ? `${BASE_URL}/uploads/perfiles/${viaje.conductor.usuario.foto_perfil}`
+    ? viaje.conductor.usuario.foto_perfil
     : null;
 
   return (
@@ -170,11 +179,10 @@ const DriverCard = ({
           <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-2">⏰</Text>
           <Text className="text-sm text-gray-800 font-medium">{hora}</Text>
-        </View>
-        <View className="flex-row items-center">
+          <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-800 font-medium">
-            {asientosOcupados}/{viaje.asientos_totales || 4} lugares
+            {valorMostrar}/{viaje.asientos_totales} {lugaresTexto}
           </Text>
         </View>
       </View>

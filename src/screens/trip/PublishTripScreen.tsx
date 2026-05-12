@@ -25,11 +25,13 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 const REGION_MORELIA = {
   latitude:      19.7069,
   longitude:    -101.1945,
-  latitudeDelta:  0.05,
-  longitudeDelta: 0.05,
+  latitudeDelta:  0.001,
+  longitudeDelta: 0.001,
 };
 
-const ITM_COORDS = { latitude: 19.7226, longitude: -101.1858 };
+const ITM_COORDS = { latitude: 19.720909, longitude: -101.186786 };
+const ITM_COORDS_ALT = { latitude: 19.723697, longitude: -101.184259 };
+const ITM_TEXTO  = "Avenida Tecnológico, 1500, Morelia";
 
 interface Coordenada {
   latitude:  number;
@@ -136,14 +138,21 @@ const PublishTripScreen = ({ navigation }: any) => {
   const onChangeFecha = (_: any, selectedDate?: Date) => {
     setShowDatePicker(false);
     if (selectedDate) {
-      setDate(selectedDate);
+      const merged = new Date(date);
+      merged.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      setDate(merged);
       setForm((p) => ({ ...p, fecha: formatFecha(selectedDate) }));
     }
   };
 
   const onChangeHora = (_: any, selectedDate?: Date) => {
     setShowTimePicker(false);
-    if (selectedDate) setForm((p) => ({ ...p, hora: formatHora(selectedDate) }));
+    if (selectedDate) {
+      const merged = new Date(date);
+      merged.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+      setDate(merged);
+      setForm((p) => ({ ...p, hora: formatHora(selectedDate) }));
+    }
   };
 
   const incrementarAsientos = () => {
@@ -196,15 +205,32 @@ const PublishTripScreen = ({ navigation }: any) => {
       const texto  = partes.length > 0 ? partes.join(", ") : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
 
       const coordenada: Coordenada = { ...markerTemp, texto };
-      setForm((prev) => ({
-        ...prev,
-        [mapTipo]: coordenada,
-      }));
+      setForm((prev) => {
+        const nuevo = {...prev, [mapTipo]: coordenada};
+
+        if (mapTipo === "origen" && texto !== ITM_TEXTO) {
+          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+        }
+
+        if (mapTipo === "origen" && texto === ITM_TEXTO) {
+          nuevo.destino = null;
+        }
+
+        return nuevo;
+      });
       setMapVisible(false);
     } catch (e) {
       // Si falla la geocodificación, usar coordenadas como texto
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
-      setForm((prev) => ({ ...prev, [mapTipo]: { ...markerTemp!, texto } }));
+      const coordenada: Coordenada = { ...markerTemp, texto };
+
+      setForm((prev) => {
+        const nuevo = { ...prev, [mapTipo]: coordenada };
+        if (mapTipo === "origen") {
+          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+        }
+        return nuevo;
+      });
       setMapVisible(false);
     } finally {
       setGeocodingLoad(false);
@@ -220,6 +246,18 @@ const PublishTripScreen = ({ navigation }: any) => {
       Alert.alert("Faltan datos", "Por favor ingresa el destino del viaje.");
       return;
     }
+    if (form.origen.texto === form.destino.texto) {
+      Alert.alert("Ruta inválida", "El origen y el destino no pueden ser el mismo punto.");
+      return;
+    }
+    const pasaPorITM = form.origen.texto === ITM_TEXTO || form.destino.texto === ITM_TEXTO;
+    if (!pasaPorITM) {
+      Alert.alert(
+        "Ruta inválida",
+        "Al menos el origen o el destino debe ser el Tecnológico de Morelia (Av. Tecnológico 1500)."
+      );
+      return;
+    }
     if (!form.fecha) {
       Alert.alert("Faltan datos", "Por favor selecciona la fecha del viaje.");
       return;
@@ -233,17 +271,23 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
+    // Validación de tiempo mínimo (usa `date` directamente)
+    const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
+    if (date <= limiteFuturo) {
+      Alert.alert("Horario inválido", "El viaje debe programarse con al menos 10 minutos de anticipación.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const data = await publicarViaje({
-        origen_texto: form.origen.texto,
-        destino_texto: form.destino.texto,
-        latitud_origen: form.origen.latitude,
-        longitud_origen: form.origen.longitude,
-        latitud_destino: form.destino.latitude,
-        longitud_destino: form.destino.longitude,
-        fecha: form.fecha,
-        hora: form.hora,
+        origen_texto: form.origen!.texto,
+        destino_texto: form.destino!.texto,
+        latitud_origen: form.origen!.latitude,
+        longitud_origen: form.origen!.longitude,
+        latitud_destino: form.destino!.latitude,
+        longitud_destino: form.destino!.longitude,
+        fechaHoraISO: date.toISOString(),
         asientos: form.asientos,
         precio: parseFloat(form.precio),
       });
@@ -269,7 +313,7 @@ const PublishTripScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper hasFooter={false}>
       <Header navigation={navigation} title="Publica tu Viaje" />
 
       {/* ── Modal mapa picker ── */}
@@ -280,7 +324,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             style={{ flex: 1 }}
             initialRegion={
               markerTemp
-                ? { ...markerTemp, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+                ? { ...markerTemp, latitudeDelta: 0.001, longitudeDelta: 0.001 }
                 : REGION_MORELIA
             }
             onPress={onMapPress}
@@ -302,12 +346,14 @@ const PublishTripScreen = ({ navigation }: any) => {
 
           {/* Botones inferiores */}
           <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
-            <TouchableOpacity
-              onPress={centrarEnUbicacion}
-              style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
-            >
-              <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
-            </TouchableOpacity>
+            {mapTipo  === "origen" && (
+              <TouchableOpacity
+                onPress={centrarEnUbicacion}
+                style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+              >
+                <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+              </TouchableOpacity>
+            )}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <TouchableOpacity
@@ -338,7 +384,7 @@ const PublishTripScreen = ({ navigation }: any) => {
         className="flex-1" 
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
-        extraScrollHeight={20}
+        extraScrollHeight={100}
         keyboardShouldPersistTaps="handled"
       >
         <View className="px-4 py-5 gap-5">

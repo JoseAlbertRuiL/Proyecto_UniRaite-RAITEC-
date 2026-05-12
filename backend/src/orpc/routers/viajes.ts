@@ -27,11 +27,15 @@ const crearNotificacion = async (
   }
 };
 
+
+
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
     ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
     jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
   }
+
+  
 
   const ahora = new Date()
   let dia = ahora.getDate()
@@ -73,7 +77,7 @@ export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
       asientos_disponibles: { gt: 0 },
-      fecha_hora_salida: { gt: new Date() },
+      // ELIMINADO: fecha_hora_salida: { gt: new Date() },
     },
     include: {
       conductor: {
@@ -96,7 +100,7 @@ export const listarViajes = baseProcedure.handler(async () => {
 
   const viajesConDatos = viajes.map((viaje: any) => ({
     ...viaje,
-    asientos_totales: 4,
+    asientos_totales: viaje.conductor.capacidad_pasajeros,
     conductor: {
       ...viaje.conductor,
       usuario: {
@@ -121,8 +125,7 @@ export const publicarViaje = protectedProcedure
       latitud_destino: z.number(),
       longitud_destino: z.number(),
       
-      fecha: z.string().min(1),
-      hora: z.string().min(1),
+      fechaHoraISO: z.string().min(1),
       asientos: z.number().int().min(1),
       precio: z.number().positive(),
     })
@@ -150,7 +153,7 @@ export const publicarViaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
     }
 
-    const fechaHoraSalida = parseFechaHora(input.fecha, input.hora)
+    const fechaHoraSalida = new Date(input.fechaHoraISO)
 
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
@@ -200,7 +203,11 @@ export const obtenerViajesActivos = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
-        fecha_hora_salida: { gt: new Date() },
+        viajes_activos: {
+          none: {
+            estado_trayecto: 'finalizado'
+          }
+        }
       },
       include: {
         conductor: {
@@ -214,10 +221,32 @@ export const obtenerViajesActivos = protectedProcedure
               }
             }
           }
-        }
+        },
+        solicitudes: {
+          where: { estado_solicitud: 'aceptada' },
+          include: {
+            pasajero: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+              }
+            }
+          }
+        },
+        viajes_activos: {
+          where: { estado_trayecto: 'en_curso' }
+        },
       },
       orderBy: { fecha_hora_salida: 'asc' }
     })
+
+    if (viajes.length > 0) {
+      console.log("Viaje [0] listo para enviar:", JSON.stringify(viajes[0], null, 2));
+    } else {
+      console.log("No se encontraron viajes para este conductor.");
+    }
 
     return { success: true, viajes }
   })
@@ -230,7 +259,16 @@ export const obtenerHistorialConductor = protectedProcedure
         conductor: {
           usuario: { id_usuario: context.user.id }
         },
-        fecha_hora_salida: { lt: new Date() }
+        OR: [
+          { fecha_hora_salida: { lt: new Date() } },
+          {
+            viajes_activos: {
+              some: {
+                estado_trayecto: 'finalizado'
+              }
+            }
+          }
+        ]
       },
       include: {
         conductor: {
@@ -241,6 +279,8 @@ export const obtenerHistorialConductor = protectedProcedure
                 nombre: true,
                 apellido_paterno: true,
                 foto_perfil: true,
+                reputacion_promedio: true,
+                viajes_completados: true,
               }
             }
           }
@@ -252,6 +292,177 @@ export const obtenerHistorialConductor = protectedProcedure
 
     return { success: true, viajes }
   })
+
+// GET /api/viajes/pasajero/historial
+export const obtenerHistorialPasajero = protectedProcedure
+  .handler(async ({ context }) => {
+    const solicitudes = await prisma.solicitudes_viaje.findMany({
+      where: {
+        id_pasajero: context.user.id,
+        estado_solicitud: 'aceptada',
+        OR: [
+          { viaje: { fecha_hora_salida: { lt: new Date() } } },
+          {
+            viaje: {
+              viajes_activos: {
+                some: {
+                  estado_trayecto: 'finalizado'
+                }
+              }
+            }
+          }
+        ]
+      },
+      include: {
+        viaje: {
+          include: {
+            conductor: {
+              include: {
+                usuario: {
+                  select: {
+                    id_usuario: true,
+                    nombre: true,
+                    apellido_paterno: true,
+                    foto_perfil: true,
+                    reputacion_promedio: true,
+                    viajes_completados: true,
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        viaje: {
+          fecha_hora_salida: 'desc'
+        }
+      },
+      take: 20
+    })
+
+    const viajes = solicitudes.map(s => s.viaje)
+    return { success: true, viajes }
+  })
+
+// GET viaje específico por ID — incluye viajes con 0 asientos (para pasajeros con solicitud)
+export const obtenerViajePorId = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+  where: { id_viaje_pub: input.viajeId },
+  include: {
+    conductor: {
+      include: {
+        usuario: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            apellido_paterno: true,
+            foto_perfil: true,
+            reputacion_promedio: true,
+            viajes_completados: true,
+          },
+        },
+      },
+    },
+    solicitudes: {
+      where: { estado_solicitud: 'aceptada' },
+      include: {
+        pasajero: {
+          select: {
+            id_usuario: true,
+            nombre: true,
+            apellido_paterno: true,
+            foto_perfil: true,
+          },
+        },
+      },
+    },
+  },
+});
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    }
+
+    if (!viaje.conductor?.usuario) {
+      throw new ORPCError('NOT_FOUND', { message: 'Datos del conductor no encontrados' });
+    }
+
+    return {
+      success: true,
+      viaje: {
+        ...viaje,
+        asientos_totales: viaje.conductor.capacidad_pasajeros,
+        conductor: {
+          ...viaje.conductor,
+          usuario: {
+            ...viaje.conductor.usuario,
+            reputacion_promedio: viaje.conductor.usuario.reputacion_promedio || 0,
+            total_viajes: viaje.conductor.usuario.viajes_completados || 0,
+          },
+        },
+      },
+    };
+  });
+
+// Iniciar viaje (conductor) — crea el viaje_activo y avisa a pasajeros
+export const iniciarViaje = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.viajeId },
+      include: {
+        conductor: { include: { usuario: true } },
+        solicitudes: {
+          where: { estado_solicitud: 'aceptada' },
+          select: { id_pasajero: true, latitud_recogida: true, longitud_recogida: true },
+        },
+      },
+    });
+
+    if (!viaje) throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    if (viaje.conductor.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'No autorizado' });
+    }
+
+    const viajeActivoExistente = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: input.viajeId },
+    });
+    if (viajeActivoExistente) {
+      return { success: true, viajeActivo: viajeActivoExistente };
+    }
+
+    const viajeActivo = await prisma.viajes_activos.create({
+      data: {
+        id_viaje_pub:    input.viajeId,
+        hora_inicio_real: new Date(),
+        estado_trayecto: 'en_curso',
+        historial_ruta:  [], 
+      },
+    });
+
+    // Notificar a pasajeros aceptados
+    for (const solicitud of viaje.solicitudes) {
+      await crearNotificacion(
+        solicitud.id_pasajero,
+        '¡El conductor está en camino!',
+        `Tu viaje a ${viaje.destino_texto} ha comenzado.`,
+        'viaje_iniciado'
+      );
+
+      if (io) {
+        io.emit('viaje_iniciado', {
+          viajeId: input.viajeId,
+          viajeActivoId: viajeActivo.id_viaje_activo,
+          usuarioId: solicitud.id_pasajero,
+        });
+      }
+    }
+
+    return { success: true, viajeActivo };
+  });
 
 // Cancelar un viaje (solo conductor)
 export const cancelarViaje = protectedProcedure
@@ -325,3 +536,108 @@ export const cancelarViaje = protectedProcedure
 
     return { success: true, message: 'Viaje cancelado' }
   })
+
+// Finalizar un viaje (solo conductor) - Guarda en historial
+export const finalizarViaje = protectedProcedure
+  .input(z.object({ viajeId: z.number() }))
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.viajeId },
+      include: { 
+        conductor: { include: { usuario: true } },
+        solicitudes: { 
+          where: { estado_solicitud: 'aceptada' },
+          include: {
+            pasajero: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+              },
+            },
+          },
+        }
+      },
+    });
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    }
+
+    if (viaje.conductor.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'No autorizado para finalizar este viaje' });
+    }
+
+    // 1. Contar pasajeros confirmados (aceptados)
+    const pasajerosCount = viaje.solicitudes ? viaje.solicitudes.length : 0;
+
+    // 2. Actualizar el viaje - guardar asientos disponibles y pasajeros confirmados
+    await prisma.viajes_publicados.update({
+      where: { id_viaje_pub: input.viajeId },
+      data: {
+        asientos_disponibles: 0,
+        pasajeros_confirmados: pasajerosCount,
+        // ELIMINADO: fecha_hora_salida: new Date(),
+      },
+    });
+
+    // 3. Incrementar viajes_completados del conductor
+
+    await prisma.usuarios.update({
+      where: { id_usuario: viaje.conductor.usuario.id_usuario },
+      data: {
+        viajes_completados: { increment: 1 },
+      },
+    });
+
+    // 3. Opcional: Crear o actualizar viaje_activo con estado finalizado
+    const viajeActivoExistente = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: input.viajeId },
+    });
+
+    if (!viajeActivoExistente) {
+      await prisma.viajes_activos.create({
+        data: {
+          id_viaje_pub: input.viajeId,
+          hora_inicio_real: viaje.fecha_hora_salida,
+          hora_fin_real: new Date(),
+          estado_trayecto: 'finalizado',
+        },
+      });
+    } else {
+      await prisma.viajes_activos.update({
+        where: { id_viaje_activo: viajeActivoExistente.id_viaje_activo },
+        data: {
+          hora_fin_real: new Date(),
+          estado_trayecto: 'finalizado',
+        },
+      });
+    }
+
+    // 4. Notificar a pasajeros aceptados
+    if (viaje.solicitudes && viaje.solicitudes.length > 0) {
+      for (const solicitud of viaje.solicitudes) {
+        await crearNotificacion(
+          solicitud.id_pasajero,
+          "Viaje finalizado",
+          `El viaje a ${viaje.destino_texto} ha sido completado.`,
+          "finalizacion"
+        );
+        if (io) {
+          io.emit('nueva_notificacion', {
+            usuarioId: solicitud.id_pasajero,
+            titulo: "Viaje finalizado",
+            cuerpo: `El viaje a ${viaje.destino_texto} ha sido completado.`,
+            tipo: "finalizacion"
+          });
+        }
+      }
+    }
+
+    // 5. Emitir evento para actualizar listas en tiempo real
+    if (io) {
+      io.emit('viaje_finalizado', { viajeId: input.viajeId });
+    }
+
+    return { success: true, message: 'Viaje finalizado y guardado en historial' };
+  });
