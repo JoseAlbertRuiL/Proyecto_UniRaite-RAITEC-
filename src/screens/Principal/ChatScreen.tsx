@@ -1,5 +1,6 @@
 // src/screens/Principal/ChatScreen.tsx
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -31,13 +32,50 @@ export default function ChatScreen({ navigation, route }: any) {
 
   useBackHandler(navigation, "normal");
 
-  const [mensajes, setMensajes] = useState<any[]>([]);
-  const [mensajeEscrito, setMensajeEscrito] = useState("");
-  const [estaFinalizado, setEstaFinalizado] = useState(false);
-  const [myId, setMyId] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const flatListRef = useRef<FlatList>(null);
+const queryClient = useQueryClient();
+
+const [mensajeEscrito, setMensajeEscrito] = useState("");
+const [error, setError] = useState<string | null>(null);
+
+const flatListRef = useRef<FlatList>(null);
+
+const { data: perfil } = useQuery({
+  queryKey: ["mi-perfil-chat"],
+  queryFn: async () => {
+    const data = await orpc.usuarios.getPerfil();
+    return data.user;
+  },
+});
+
+const myId = perfil?.id_usuario;
+
+const {
+  data: mensajes = [],
+  isLoading: cargandoMensajes,
+} = useQuery({
+  queryKey: ["chat-mensajes", idViaje],
+  queryFn: async () => {
+    const data = await orpc.chat.getMensajes({ idViaje });
+
+    return data.map((msg: any) => ({
+      id: msg.id_mensaje.toString(),
+      texto: msg.contenido,
+      remitente: msg.id_emisor === myId ? "yo" : "otro",
+      nombre: msg.emisor?.nombre || "Usuario",
+    }));
+  },
+  enabled: !!myId,
+});
+
+const { data: estadoViaje } = useQuery({
+  queryKey: ["estado-viaje-chat", idViaje],
+  queryFn: async () => {
+    return await orpc.chat.getEstado({ viajeId: idViaje });
+  },
+});
+
+const estaFinalizado = estadoViaje?.estado === "finalizado";
+
 
   const marcarMensajesComoLeidos = async () => {
     try {
@@ -47,87 +85,48 @@ export default function ChatScreen({ navigation, route }: any) {
       console.error("Error al marcar mensajes como leídos:", error);
     }
   };
-
-  useEffect(() => {
-    const inicializarChat = async () => {
-      try {
-        await marcarMensajesComoLeidos();
-
-        const perfil = await orpc.usuarios.getPerfil();
-        setMyId(perfil.user.id_usuario);
-
-        await cargarMensajes(perfil.user.id_usuario);
-        await checarEstadoViaje();
-
-        const socket = getSocket();
-        if (socket && socket.connected) {
-          joinChat(idViaje);
-          console.log(`📱 Unido al chat del viaje ${idViaje}`);
-        }
-      } catch (error: any) {
-        console.error("Error al inicializar chat:", error);
-        if (error?.code === "NOT_FOUND") {
-          setError("El viaje no existe o ya no está disponible");
-        } else if (error?.code === "FORBIDDEN") {
-          setError("No tienes acceso a este chat");
-        } else {
-          setError("Error al cargar el chat");
-        }
-      } finally {
-        setCargando(false);
-      }
-    };
-
-    inicializarChat();
-
-    const handleNewMessage = (data: any) => {
-      if (data.id_viaje_pub === idViaje) {
-        const nuevoMensaje = {
-          id: data.id_mensaje.toString(),
-          texto: data.contenido,
-          remitente: data.id_emisor === myId ? "yo" : "otro",
-          nombre: data.emisor?.nombre || "Usuario",
-        };
-
-        setMensajes((prev) => [...prev, nuevoMensaje]);
-
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    };
-
-    onNewMessage(handleNewMessage);
-
-    return () => {
-      offNewMessage();
-    };
-  }, [idViaje, myId]);
-
-  const cargarMensajes = async (currentUserId: string) => {
+useEffect(() => {
+  const inicializarChat = async () => {
     try {
-      const data = await orpc.chat.getMensajes({ idViaje });
-      const formateados = data.map((msg: any) => ({
-        id: msg.id_mensaje.toString(),
-        texto: msg.contenido,
-        remitente: msg.id_emisor === currentUserId ? "yo" : "otro",
-        nombre: msg.emisor?.nombre || "Usuario",
-      }));
-      setMensajes(formateados);
-    } catch (error) {
-      console.error("Error al obtener mensajes:", error);
-      throw error;
+      await marcarMensajesComoLeidos();
+
+      const socket = getSocket();
+
+      if (socket && socket.connected) {
+        joinChat(idViaje);
+        console.log(`📱 Unido al chat del viaje ${idViaje}`);
+      }
+    } catch (error: any) {
+      console.error("Error al inicializar chat:", error);
+
+      if (error?.code === "NOT_FOUND") {
+        setError("El viaje no existe o ya no está disponible");
+      } else if (error?.code === "FORBIDDEN") {
+        setError("No tienes acceso a este chat");
+      } else {
+        setError("Error al cargar el chat");
+      }
     }
   };
 
-  const checarEstadoViaje = async () => {
-    try {
-      const data = await orpc.chat.getEstado({ viajeId: idViaje });
-      if (data.estado === "finalizado") setEstaFinalizado(true);
-    } catch (error) {
-      console.error("Error al checar estado:", error);
-    }
+  inicializarChat();
+
+  const handleNewMessage = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["chat-mensajes", idViaje],
+    });
   };
+
+  onNewMessage(handleNewMessage);
+
+  return () => {
+    offNewMessage();
+  };
+}, [idViaje]);
+
+  
+
+  
 
   const enviarMensaje = async () => {
     if (mensajeEscrito.trim() === "" || estaFinalizado) return;
@@ -168,7 +167,7 @@ export default function ChatScreen({ navigation, route }: any) {
     );
   };
 
-  if (cargando) {
+ if (cargandoMensajes) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
         <ActivityIndicator size="large" color="#1e3a8a" />
