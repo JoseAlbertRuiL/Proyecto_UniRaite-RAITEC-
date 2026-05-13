@@ -1,39 +1,34 @@
 // src/screens/Principal/PerfilPublicoScreen.tsx
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   View,
   Text,
   Image,
   ActivityIndicator,
   ScrollView,
-  StatusBar,
 } from "react-native";
+import { useQuery } from "@tanstack/react-query";
 import { getUsuarioById } from "../../services/auth/authService";
-import { BASE_URL } from "../../services/api/apiClient";
 import HeaderBack from "../../components/common/HeaderBack";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const PerfilPublicoScreen = ({ navigation, route }: any) => {
   const { usuarioId } = route.params;
-  const [perfil, setPerfil] = useState<any>(null);
-  const [cargando, setCargando] = useState(true);
 
   useBackHandler(navigation, "normal");
 
-  useEffect(() => {
-    const cargarPerfil = async () => {
-      try {
-        const data = await getUsuarioById(usuarioId);
-        if (data.success) setPerfil(data.user);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setCargando(false);
-      }
-    };
-    cargarPerfil();
-  }, [usuarioId]);
+  const {
+    data: perfil,
+    isLoading: cargando,
+  } = useQuery({
+    queryKey: ["perfil-publico", usuarioId],
+    queryFn: async () => {
+      const data = await getUsuarioById(usuarioId);
+      return data.success ? data.user : null;
+    },
+    enabled: !!usuarioId,
+  });
 
   if (cargando) {
     return (
@@ -48,13 +43,10 @@ const PerfilPublicoScreen = ({ navigation, route }: any) => {
       <HeaderBack navigation={navigation} title="Perfil" />
 
       <ScrollView className="px-6 pt-6">
-        {/* Foto de perfil */}
         <View className="items-center mb-6">
           {perfil?.foto_perfil ? (
             <Image
-              source={{
-                uri: perfil.foto_perfil,
-              }}
+              source={{ uri: perfil.foto_perfil }}
               className="w-32 h-32 rounded-full"
             />
           ) : (

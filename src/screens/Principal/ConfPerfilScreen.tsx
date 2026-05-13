@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
   TouchableOpacity,
-  StatusBar,
   Image,
   ScrollView,
   Switch,
@@ -23,44 +23,32 @@ import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc, BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { disconnectSocket } from "../../services/socket";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
+  const queryClient = useQueryClient();
+
   const [user, setUser] = useState<any>(null);
-  const [viajesComoConductor, setViajesComoConductor] = useState(0);
-  const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
   const [modoConductor, setModoConductor] = useState(false);
-  const [vehiculo, setVehiculo] = useState<any>(null);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
-  const insets = useSafeAreaInsets();
 
-  // Modales para configuraciones
   const [modalNombreVisible, setModalNombreVisible] = useState(false);
   const [modalPasswordVisible, setModalPasswordVisible] = useState(false);
   const [modalCarreraVisible, setModalCarreraVisible] = useState(false);
   const [modalContactoVisible, setModalContactoVisible] = useState(false);
 
-  // Estados para cambiar nombre
   const [nombre, setNombre] = useState("");
   const [apellidoPaterno, setApellidoPaterno] = useState("");
   const [apellidoMaterno, setApellidoMaterno] = useState("");
 
-  // Estados para cambiar contraseña
   const [passwordActual, setPasswordActual] = useState("");
   const [nuevaPassword, setNuevaPassword] = useState("");
   const [confirmarPassword, setConfirmarPassword] = useState("");
 
-  // Estados para cambiar contacto de emergencia
   const [contactoEmergencia, setContactoEmergencia] = useState("");
-
-  // Estado para cambiar carrera
   const [carrera, setCarrera] = useState("");
-
-  // Estado para foto de perfil
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
-  // Lista de carreras
   const carreras = [
     "Bioquímica",
     "Biomédica",
@@ -78,10 +66,43 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   useBackHandler(navigation, "normal");
 
+  const { data: perfilData } = useQuery({
+    queryKey: ["perfil"],
+    queryFn: getPerfil,
+  });
+
+  const { data: estadisticasData } = useQuery({
+    queryKey: ["estadisticas-perfil"],
+    queryFn: async () => {
+      const historialConductor = await orpc.viajes.historialConductor();
+      const solicitudes = await orpc.solicitudes.misSolicitudes?.();
+
+      return {
+        viajesComoConductor: historialConductor?.viajes?.length || 0,
+        viajesComoPasajero:
+          solicitudes?.solicitudes?.filter(
+            (s: any) => s.estado_solicitud === "aceptada"
+          ).length || 0,
+      };
+    },
+  });
+
+  const { data: vehiculoData } = useQuery({
+    queryKey: ["vehiculo"],
+    queryFn: getVehiculo,
+    enabled: modoConductor,
+  });
+
   useEffect(() => {
-    obtenerPerfil();
-    obtenerEstadisticas();
-  }, []);
+    if (perfilData?.user) {
+      setUser(perfilData.user);
+      setNombre(perfilData.user?.nombre || "");
+      setApellidoPaterno(perfilData.user?.apellido_paterno || "");
+      setApellidoMaterno(perfilData.user?.apellido_materno || "");
+      setCarrera(perfilData.user?.carrera || "");
+      setContactoEmergencia(perfilData.user?.contacto_emergencia || "");
+    }
+  }, [perfilData]);
 
   useEffect(() => {
     const cargarEstadoSwitch = async () => {
@@ -92,57 +113,13 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         setModoConductor(false);
       }
     };
+
     if (user) cargarEstadoSwitch();
   }, [user]);
 
-  useEffect(() => {
-    if (modoConductor && !vehiculo) {
-      obtenerVehiculo();
-    }
-  }, [modoConductor]);
-
-  const obtenerPerfil = async () => {
-    try {
-      const data = await getPerfil();
-      setUser(data.user);
-      setNombre(data.user?.nombre || "");
-      setApellidoPaterno(data.user?.apellido_paterno || "");
-      setApellidoMaterno(data.user?.apellido_materno || "");
-      setCarrera(data.user?.carrera || "");
-      setContactoEmergencia(data.user?.contacto_emergencia || "");
-    } catch (error) {
-      console.log("ERROR al obtener perfil:", error);
-      navigation.navigate("Login");
-    }
-  };
-
-  const obtenerEstadisticas = async () => {
-    try {
-      const historialConductor = await orpc.viajes.historialConductor();
-      if (historialConductor.success) {
-        setViajesComoConductor(historialConductor.viajes?.length || 0);
-      }
-
-      const solicitudes = await orpc.solicitudes.misSolicitudes?.();
-      if (solicitudes?.success) {
-        const aceptadas =
-          solicitudes.solicitudes?.filter(
-            (s: any) => s.estado_solicitud === "aceptada",
-          ).length || 0;
-        setViajesComoPasajero(aceptadas);
-      }
-    } catch (error) {
-      console.log("Error al obtener estadísticas:", error);
-    }
-  };
-
-  const obtenerVehiculo = async () => {
-    try {
-      const data = await getVehiculo();
-      if (data.success) setVehiculo(data.vehiculo);
-    } catch (error) {
-      console.log("Error al obtener vehículo:", error);
-    }
+  const refrescarPerfil = () => {
+    queryClient.invalidateQueries({ queryKey: ["perfil"] });
+    queryClient.invalidateQueries({ queryKey: ["estadisticas-perfil"] });
   };
 
   const handleModoConductor = async (value: boolean) => {
@@ -150,6 +127,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       if (user?.es_conductor) {
         setModoConductor(true);
         await AsyncStorage.setItem("modo_conductor_activo", "true");
+        queryClient.invalidateQueries({ queryKey: ["vehiculo"] });
       } else {
         navigation.navigate("Licencia");
       }
@@ -194,10 +172,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         apellido_paterno: apellidoPaterno,
         apellido_materno: apellidoMaterno,
       });
+
       if (result.success) {
         Alert.alert("Éxito", "Datos actualizados correctamente");
         setModalNombreVisible(false);
-        obtenerPerfil();
+        refrescarPerfil();
       }
     } catch (error: any) {
       Alert.alert("Error", error.message || "No se pudo actualizar");
@@ -209,15 +188,14 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       Alert.alert("Error", "Todos los campos son obligatorios");
       return;
     }
+
     if (nuevaPassword !== confirmarPassword) {
       Alert.alert("Error", "Las contraseñas no coinciden");
       return;
     }
+
     if (nuevaPassword.length < 6) {
-      Alert.alert(
-        "Error",
-        "La nueva contraseña debe tener al menos 6 caracteres",
-      );
+      Alert.alert("Error", "La nueva contraseña debe tener al menos 6 caracteres");
       return;
     }
 
@@ -226,6 +204,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         passwordActual,
         nuevaPassword,
       });
+
       if (result.success) {
         Alert.alert("Éxito", "Contraseña actualizada correctamente");
         setModalPasswordVisible(false);
@@ -246,10 +225,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
     try {
       const result = await orpc.usuarios.actualizarCarrera({ carrera });
+
       if (result.success) {
         Alert.alert("Éxito", "Carrera actualizada correctamente");
         setModalCarreraVisible(false);
-        obtenerPerfil();
+        refrescarPerfil();
       }
     } catch (error: any) {
       Alert.alert("Error", error.message || "No se pudo actualizar la carrera");
@@ -270,7 +250,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       if (result.success) {
         Alert.alert("Éxito", "Contacto actualizado correctamente");
         setModalContactoVisible(false);
-        obtenerPerfil();
+        refrescarPerfil();
       }
     } catch (error: any) {
       Alert.alert("Error", error.message || "No se pudo actualizar");
@@ -279,6 +259,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   const tomarFoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
     if (status !== "granted") {
       Alert.alert("Permiso", "Necesitamos acceso a la cámara");
       return;
@@ -294,11 +275,13 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     if (!result.canceled && result.assets[0].uri) {
       await subirFoto(result.assets[0].uri);
     }
+
     setModalFotoVisible(false);
   };
 
   const elegirDeGaleria = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
     if (status !== "granted") {
       Alert.alert("Permiso", "Necesitamos acceso a la galería");
       return;
@@ -314,20 +297,16 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     if (!result.canceled && result.assets[0].uri) {
       await subirFoto(result.assets[0].uri);
     }
+
     setModalFotoVisible(false);
   };
 
   const subirFoto = async (uri: string) => {
-    if (uploadingFoto) {
-      return;
-    }
+    if (uploadingFoto) return;
 
     setUploadingFoto(true);
 
     try {
-      console.log("📸 Iniciando subida de foto...");
-      console.log("📸 URI:", uri);
-
       const formData = new FormData();
 
       const fileExtension = uri.split(".").pop() || "jpg";
@@ -336,7 +315,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         fileExtension === "jpg" ? "image/jpeg" : `image/${fileExtension}`;
 
       formData.append("foto_perfil", {
-        uri: uri,
+        uri,
         type: mimeType,
         name: fileName,
       } as any);
@@ -349,8 +328,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         return;
       }
 
-      console.log("🔑 Token disponible, enviando petición...");
-
       const response = await fetch(`${BASE_URL}/upload/perfil`, {
         method: "POST",
         body: formData,
@@ -360,10 +337,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         },
       });
 
-      console.log("📥 Status code:", response.status);
-
       const data = await response.json();
-      console.log("📥 Respuesta del servidor:", data);
 
       if (!response.ok) {
         throw new Error(data.message || `Error ${response.status}`);
@@ -375,7 +349,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         });
 
         if (result.success) {
-          await obtenerPerfil();
+          refrescarPerfil();
           Alert.alert("Éxito", "Foto de perfil actualizada");
         } else {
           throw new Error("No se pudo actualizar la foto en el perfil");
@@ -384,7 +358,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         throw new Error("No se recibió la URL de la foto");
       }
     } catch (error: any) {
-      console.error("❌ Error al subir foto:", error);
       Alert.alert("Error", error.message || "No se pudo actualizar la foto");
     } finally {
       setUploadingFoto(false);
@@ -398,7 +371,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       <HeaderBack navigation={navigation} title="Mi Perfil" />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Foto de perfil y nombre */}
         <View className="items-center mt-6 mb-4">
           <TouchableOpacity
             onPress={() => setModalFotoVisible(true)}
@@ -415,12 +387,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
                 <Text className="text-5xl">👤</Text>
               </View>
             )}
+
             <View className="absolute bottom-0 right-0 bg-blue-600 w-8 h-8 rounded-full items-center justify-center">
-              {uploadingFoto ? (
-                <Text className="text-white text-xs">⏳</Text>
-              ) : (
-                <Text className="text-white text-xs">✎</Text>
-              )}
+              <Text className="text-white text-xs">
+                {uploadingFoto ? "⏳" : "✎"}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -441,7 +412,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Estadísticas */}
         <View className="px-6 mt-4">
           <Text className="text-lg font-bold text-gray-800 mb-3">
             Estadísticas
@@ -450,16 +420,18 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           <View className="flex-row justify-between bg-gray-50 rounded-2xl p-4">
             <View className="items-center flex-1">
               <Text className="text-2xl font-bold text-blue-900">
-                {viajesComoConductor}
+                {estadisticasData?.viajesComoConductor || 0}
               </Text>
               <Text className="text-xs text-gray-500 mt-1">
                 Viajes como conductor
               </Text>
             </View>
+
             <View className="w-px bg-gray-200" />
+
             <View className="items-center flex-1">
               <Text className="text-2xl font-bold text-blue-900">
-                {viajesComoPasajero}
+                {estadisticasData?.viajesComoPasajero || 0}
               </Text>
               <Text className="text-xs text-gray-500 mt-1">
                 Viajes como pasajero
@@ -468,7 +440,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Configuración */}
         <View className="px-6 mt-6 mb-10">
           <Text className="text-lg font-bold text-gray-800 mb-3">
             Configuración
@@ -525,6 +496,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               <Text className="text-2xl mr-3">🔑</Text>
               <Text className="text-base text-gray-700">Modo conductor</Text>
             </View>
+
             <Switch
               value={modoConductor}
               onValueChange={handleModoConductor}
@@ -567,7 +539,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             onPress={cerrarSesion}
           >
             <View className="flex-row items-center">
-              <Text className="text-2xl mr-3"></Text>
               <Text className="text-base text-red-600 font-semibold">
                 Cerrar sesión
               </Text>
@@ -576,7 +547,9 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
         </View>
       </ScrollView>
 
-      {/* Modal cambiar nombre */}
+
+
+        {/* Modal cambiar nombre */}
       <Modal visible={modalNombreVisible} transparent animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -781,26 +754,26 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             <Text className="text-lg font-semibold mb-4">
               Datos del Vehículo
             </Text>
-            {vehiculo ? (
+            {vehiculoData?.vehiculo ? (
               <View>
                 <View className="mb-3">
                   <Text className="text-xs text-gray-500 mb-1">Modelo</Text>
                   <Text className="text-base font-semibold text-gray-900">
-                    {vehiculo.modelo}
+                    {vehiculoData.vehiculo.modelo}
                   </Text>
                 </View>
                 <View className="h-px bg-gray-100 mb-3" />
                 <View className="mb-3">
                   <Text className="text-xs text-gray-500 mb-1">Placas</Text>
                   <Text className="text-base font-semibold text-gray-900">
-                    {vehiculo.placas}
+                    {vehiculoData.vehiculo.placas}
                   </Text>
                 </View>
                 <View className="h-px bg-gray-100 mb-3" />
                 <View className="mb-3">
                   <Text className="text-xs text-gray-500 mb-1">Color</Text>
                   <Text className="text-base font-semibold text-gray-900">
-                    {vehiculo.color}
+                    {vehiculoData.vehiculo.color}
                   </Text>
                 </View>
                 <View className="h-px bg-gray-100 mb-3" />
@@ -809,7 +782,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
                     Capacidad de pasajeros
                   </Text>
                   <Text className="text-base font-semibold text-gray-900">
-                    {vehiculo.capacidad_pasajeros} pasajeros
+                    {vehiculoData.vehiculo.capacidad_pasajeros} pasajeros
                   </Text>
                 </View>
               </View>
@@ -886,8 +859,11 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+    
     </ScreenWrapper>
   );
 };
 
 export default ConfigPerfilScreen;
+
+    
