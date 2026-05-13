@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   Alert,
   ActivityIndicator,
   RefreshControl,
@@ -19,8 +19,7 @@ import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
 import LiveMapModal from "../../components/LiveMapModal";
 import { getPerfil, getUsuarioById } from "../../services/auth/authService";
-import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { filtrarViajesCercanos } from "../../services/map/mapService";
@@ -31,27 +30,33 @@ import {
   obtenerSolicitudesActivas,
   getViajePorId,
 } from "../../services/trip/tripService";
-import { BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket } from "../../services/socket";
 
 const StartScreen = ({ navigation }: any) => {
-  const [viajes, setViajes] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
   const [esConductorActivo, setEsConductorActivo] = useState(false);
-  const [puntoEncuentro,    setPuntoEncuentro]    = useState<{ latitude: number; longitude: number; texto: string } | null>(null);
+  const [puntoEncuentro, setPuntoEncuentro] = useState<{
+    latitude: number;
+    longitude: number;
+    texto: string;
+  } | null>(null);
   const [mapEncuentroVisible, setMapEncuentroVisible] = useState(false);
-  const [markerTemp,          setMarkerTemp]          = useState<{ latitude: number; longitude: number } | null>(null);
-  const [geocodingLoad,       setGeocodingLoad]       = useState(false);
+  const [markerTemp, setMarkerTemp] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [geocodingLoad, setGeocodingLoad] = useState(false);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
   const mapEncuentroRef = useRef<MapView>(null);
+
   const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
     [key: number]: string;
   }>({});
+
   const [solicitudActiva, setSolicitudActiva] = useState<{
     tieneSolicitud: boolean;
     estado: string | null;
@@ -59,7 +64,8 @@ const StartScreen = ({ navigation }: any) => {
   }>({ tieneSolicitud: false, estado: null });
 
   const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
-    latitude: number; longitude: number;
+    latitude: number;
+    longitude: number;
   } | null>(null);
 
   useBackHandler(navigation, "main");
@@ -67,13 +73,11 @@ const StartScreen = ({ navigation }: any) => {
   const verificarSolicitudActiva = async () => {
     try {
       const result = await obtenerSolicitudesActivas();
-      if (
-        result.success &&
-        result.solicitudes.length > 0
-      ) {
+
+      if (result.success && result.solicitudes.length > 0) {
         const solicitud = result.solicitudes[0];
 
-        if (solicitud.estado_solicitud === 'rechazada') {
+        if (solicitud.estado_solicitud === "rechazada") {
           setSolicitudActiva({ tieneSolicitud: false, estado: null });
           setCoordsRecogidaBD(null);
           return;
@@ -86,12 +90,10 @@ const StartScreen = ({ navigation }: any) => {
         });
 
         if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
-          setCoordsRecogidaBD(
-            {
-              latitude: solicitud.latitud_recogida,
-              longitude: solicitud.longitud_recogida,
-            }
-          );
+          setCoordsRecogidaBD({
+            latitude: solicitud.latitud_recogida,
+            longitude: solicitud.longitud_recogida,
+          });
         }
       } else {
         setSolicitudActiva({ tieneSolicitud: false, estado: null });
@@ -105,124 +107,138 @@ const StartScreen = ({ navigation }: any) => {
   const verificarModoCondutor = async (perfil: any) => {
     const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
     const activo = perfil?.es_conductor === true && modoGuardado === "true";
+
     setEsConductorActivo(activo);
 
-    // Si era conductor activo, limpiar punto de encuentro guardado
     if (activo) {
       await AsyncStorage.removeItem("punto_encuentro");
       setPuntoEncuentro(null);
     } else {
-      // Cargar punto de encuentro guardado si existe
       const guardado = await AsyncStorage.getItem("punto_encuentro");
       if (guardado) setPuntoEncuentro(JSON.parse(guardado));
     }
+
+    return activo;
   };
 
   const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
     const nuevosEstados: { [key: number]: string } = {};
+
     for (const viaje of viajesLista) {
       try {
         const estado = await obtenerEstadoSolicitud(viaje.id_viaje_pub);
         if (estado) {
           nuevosEstados[viaje.id_viaje_pub] = estado;
         }
-      } catch (error) {
+      } catch {
         // No hay solicitud para este viaje
       }
     }
+
     setEstadosSolicitudes(nuevosEstados);
   };
 
-  const cargarViajes = async () => {
-    try {
-      const perfilData = await getPerfil();
-      if (!perfilData || !perfilData.user) {
-        navigation.navigate("Login");
-        return;
-      }
+  const obtenerViajesHome = async (): Promise<any[]> => {
+    const perfilData = await getPerfil();
 
-      await verificarModoCondutor(perfilData.user);
+    if (!perfilData || !perfilData.user) {
+      navigation.navigate("Login");
+      return [];
+    }
 
-      const usuarioActualId = perfilData.user?.id_usuario;
-      const viajesData = await listarViajes();
+    const conductorActivo = await verificarModoCondutor(perfilData.user);
+    const usuarioActualId = perfilData.user?.id_usuario;
+    const viajesData = await listarViajes();
 
-      if (viajesData && viajesData.success) {
-        let viajesFiltrados = viajesData.viajes.filter(
-          (viaje: any) =>
-            viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
+    if (!viajesData?.success) {
+      return [];
+    }
+
+    let viajesFiltrados = viajesData.viajes.filter(
+      (viaje: any) =>
+        viaje.conductor?.usuario?.id_usuario !== usuarioActualId
+    );
+
+    if (!conductorActivo) {
+      const solicitudActivaData = await obtenerSolicitudesActivas();
+      const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
+      const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
+      const estadoSolicitudReciente =
+        solicitudReciente?.estado_solicitud ?? null;
+
+      const tieneActivaPendienteOAceptada =
+        estadoSolicitudReciente === "pendiente" ||
+        estadoSolicitudReciente === "aceptada";
+
+      let viajesConSolicitudActiva: any[] = [];
+
+      if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
+        let viajeConSolicitud = viajesFiltrados.find(
+          (v: any) => v.id_viaje_pub === viajeIdConSolicitud
         );
 
-        if (!esConductorActivo) {
-          const solicitudActivaData = await obtenerSolicitudesActivas();
-          const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
-          const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
-          const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
-
-          const tieneActivaPendienteOAceptada =
-            estadoSolicitudReciente === 'pendiente' || estadoSolicitudReciente === 'aceptada';
-
-          let viajesConSolicitudActiva: any[] = [];
-
-          if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
-            let viajeConSolicitud = viajesFiltrados.find(
-              (v: any) => v.id_viaje_pub === viajeIdConSolicitud
-            );
-
-            if (!viajeConSolicitud) {
-              try {
-                const resultado = await getViajePorId(viajeIdConSolicitud);
-                if (resultado.success) viajeConSolicitud = resultado.viaje;
-              } catch {
-              }
-            }
-
-            if (viajeConSolicitud) {
-              viajesConSolicitudActiva = [viajeConSolicitud];
-            }
+        if (!viajeConSolicitud) {
+          try {
+            const resultado = await getViajePorId(viajeIdConSolicitud);
+            if (resultado.success) viajeConSolicitud = resultado.viaje;
+          } catch {
+            // No se pudo obtener el viaje por id
           }
-
-          const viajesSinSolicitud = tieneActivaPendienteOAceptada && viajeIdConSolicitud
-            ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
-            : viajesFiltrados;
-          
-          const guardado = await AsyncStorage.getItem("punto_encuentro");
-          let viajesCercanos: any[] = [];
-
-          if (guardado && estadoSolicitudReciente !== 'aceptada') {
-            const punto = JSON.parse(guardado);
-
-            viajesCercanos = filtrarViajesCercanos(
-              viajesSinSolicitud,
-              punto.latitude,
-              punto.longitude,
-              0.5
-            );            
-          } else {
-            viajesCercanos = [];
-          }
-          viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
-        } else {
-          viajesFiltrados = [];
         }
 
-        setViajes(viajesFiltrados);
-        await cargarEstadosSolicitudes(viajesFiltrados);
-        await verificarSolicitudActiva();
+        if (viajeConSolicitud) {
+          viajesConSolicitudActiva = [viajeConSolicitud];
+        }
       }
-    } catch (error) {
-      console.error("Error:", error);
-      navigation.navigate("Login");
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
+
+      const viajesSinSolicitud =
+        tieneActivaPendienteOAceptada && viajeIdConSolicitud
+          ? viajesFiltrados.filter(
+              (v: any) => v.id_viaje_pub !== viajeIdConSolicitud
+            )
+          : viajesFiltrados;
+
+      const guardado = await AsyncStorage.getItem("punto_encuentro");
+      let viajesCercanos: any[] = [];
+
+      if (guardado && estadoSolicitudReciente !== "aceptada") {
+        const punto = JSON.parse(guardado);
+
+        viajesCercanos = filtrarViajesCercanos(
+          viajesSinSolicitud,
+          punto.latitude,
+          punto.longitude,
+          0.5
+        );
+      }
+
+      viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
+    } else {
+      viajesFiltrados = [];
     }
+
+    await cargarEstadosSolicitudes(viajesFiltrados);
+    await verificarSolicitudActiva();
+
+    return viajesFiltrados;
   };
+
+  const {
+    data: viajes = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["viajes-home"],
+    queryFn: obtenerViajesHome,
+  });
 
   const handleVerPerfil = async (usuarioId: string) => {
     setCargandoPerfil(true);
     setModalVisible(true);
+
     try {
       const data = await getUsuarioById(usuarioId);
+
       if (data && data.success) {
         setPerfilSeleccionado(data.user);
       }
@@ -239,12 +255,12 @@ const StartScreen = ({ navigation }: any) => {
       if (solicitudActiva.estado === "pendiente") {
         Alert.alert(
           "Solicitud pendiente",
-          "Ya tienes una solicitud pendiente. Espera a que el conductor responda.",
+          "Ya tienes una solicitud pendiente. Espera a que el conductor responda."
         );
       } else if (solicitudActiva.estado === "aceptada") {
         Alert.alert(
           "Viaje aceptado",
-          "Ya tienes un viaje aceptado. No puedes solicitar otro viaje.",
+          "Ya tienes un viaje aceptado. No puedes solicitar otro viaje."
         );
       }
       return;
@@ -253,22 +269,34 @@ const StartScreen = ({ navigation }: any) => {
     try {
       const guardado = await AsyncStorage.getItem("punto_encuentro");
       const coords = guardado ? JSON.parse(guardado) : null;
+
       const result = await solicitarViaje(
-      viajeId,
+        viajeId,
         coords
-          ? { latitud_recogida: coords.latitude, longitud_recogida: coords.longitude }
+          ? {
+              latitud_recogida: coords.latitude,
+              longitud_recogida: coords.longitude,
+            }
           : undefined
       );
+
       if (result?.success) {
-        setEstadosSolicitudes((prev) => ({ ...prev, [viajeId]: "pendiente" }));
+        setEstadosSolicitudes((prev) => ({
+          ...prev,
+          [viajeId]: "pendiente",
+        }));
+
         setSolicitudActiva({
           tieneSolicitud: true,
           estado: "pendiente",
           viajeId,
         });
+
+        await refetch();
+
         Alert.alert(
           "Solicitud enviada",
-          "Tu solicitud ha sido enviada al conductor",
+          "Tu solicitud ha sido enviada al conductor"
         );
       }
     } catch (error: any) {
@@ -279,7 +307,10 @@ const StartScreen = ({ navigation }: any) => {
   const abrirMapaEncuentro = () => {
     setMarkerTemp(
       puntoEncuentro
-        ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
+        ? {
+            latitude: puntoEncuentro.latitude,
+            longitude: puntoEncuentro.longitude,
+          }
         : null
     );
     setMapEncuentroVisible(true);
@@ -289,11 +320,22 @@ const StartScreen = ({ navigation }: any) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
-      const loc    = await Location.getCurrentPositionAsync({});
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+
+      const loc = await Location.getCurrentPositionAsync({});
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
+
       setMarkerTemp(coords);
+
       mapEncuentroRef.current?.animateToRegion(
-        { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800
+        {
+          ...coords,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        800
       );
     } catch {
       Alert.alert("Error", "No se pudo obtener tu ubicación.");
@@ -302,71 +344,85 @@ const StartScreen = ({ navigation }: any) => {
 
   const confirmarPuntoEncuentro = async () => {
     if (!markerTemp) {
-      Alert.alert("Selecciona un punto", "Toca el mapa para marcar donde esperarás.");
+      Alert.alert(
+        "Selecciona un punto",
+        "Toca el mapa para marcar donde esperarás."
+      );
       return;
     }
+
     setGeocodingLoad(true);
+
     try {
       const resultados = await Location.reverseGeocodeAsync(markerTemp);
-      const r      = resultados[0];
-      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
-      const texto  = partes.length > 0
-        ? partes.join(", ")
-        : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+      const r = resultados[0];
+      const partes = [
+        r?.street,
+        r?.streetNumber,
+        r?.district,
+        r?.city,
+      ].filter(Boolean);
+
+      const texto =
+        partes.length > 0
+          ? partes.join(", ")
+          : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
 
       const punto = { ...markerTemp, texto };
+
       setPuntoEncuentro(punto);
       await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
-      await cargarViajes();
-      
+      await refetch();
+
       setMapEncuentroVisible(false);
       Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
     } catch {
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const punto = { ...markerTemp, texto };
+
       setPuntoEncuentro(punto);
       await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
+      await refetch();
+
       setMapEncuentroVisible(false);
     } finally {
       setGeocodingLoad(false);
     }
   };
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefrescando(true);
-    cargarViajes();
+    await refetch();
+    setRefrescando(false);
   };
 
-  // Configurar WebSocket y polling para actualizaciones
   useEffect(() => {
-    cargarViajes();
-
-    // Polling: recargar cada 30 segundos para actualizar viajes expirados
     const interval = setInterval(() => {
       console.log("🔄 Polling: recargando viajes...");
-      cargarViajes();
+      refetch();
     }, 30000);
 
     const socket = getSocket();
+
     if (socket) {
       const onSolicitudActualizada = (data: any) => {
         console.log("📢 Solicitud actualizada en tiempo real:", data);
-        cargarViajes();
+        refetch();
       };
 
       const onNuevaSolicitud = (data: any) => {
         console.log("📢 Nueva solicitud en tiempo real:", data);
-        cargarViajes();
+        refetch();
       };
 
       const onNuevoViaje = (data: any) => {
         console.log("📢 Nuevo viaje disponible:", data);
-        cargarViajes();
+        refetch();
       };
 
       const onViajeCancelado = (data: any) => {
         console.log("📢 Viaje cancelado:", data);
-        cargarViajes();
+        refetch();
       };
 
       socket.on("solicitud_actualizada", onSolicitudActualizada);
@@ -384,7 +440,7 @@ const StartScreen = ({ navigation }: any) => {
     }
 
     return () => clearInterval(interval);
-  }, []);
+  }, [refetch]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -393,21 +449,25 @@ const StartScreen = ({ navigation }: any) => {
     const joinRoom = () => {
       if (
         solicitudActiva.tieneSolicitud &&
-        solicitudActiva.estado === 'aceptada' &&
+        solicitudActiva.estado === "aceptada" &&
         solicitudActiva.viajeId
       ) {
-        socket.emit('join_viaje', solicitudActiva.viajeId);
-        console.log('🗺️ Pasajero unido (o re-unido) al viaje', solicitudActiva.viajeId);
+        socket.emit("join_viaje", solicitudActiva.viajeId);
+        console.log(
+          "🗺️ Pasajero unido (o re-unido) al viaje",
+          solicitudActiva.viajeId
+        );
       }
     };
 
     joinRoom();
-    socket.on('connect', joinRoom);
+    socket.on("connect", joinRoom);
 
     return () => {
-      socket.off('connect', joinRoom);
+      socket.off("connect", joinRoom);
+
       if (solicitudActiva.viajeId) {
-        socket.emit('leave_viaje', solicitudActiva.viajeId);
+        socket.emit("leave_viaje", solicitudActiva.viajeId);
       }
     };
   }, [solicitudActiva.viajeId, solicitudActiva.estado]);
@@ -434,9 +494,15 @@ const StartScreen = ({ navigation }: any) => {
             {!esConductorActivo && (
               <TouchableOpacity
                 className={`rounded-lg py-3 px-4 flex-1 mr-2 ${
-                  solicitudActiva.tieneSolicitud ? "bg-gray-400" : "bg-blue-600"
+                  solicitudActiva.tieneSolicitud
+                    ? "bg-gray-400"
+                    : "bg-blue-600"
                 }`}
-                onPress={solicitudActiva.tieneSolicitud ? undefined : abrirMapaEncuentro}
+                onPress={
+                  solicitudActiva.tieneSolicitud
+                    ? undefined
+                    : abrirMapaEncuentro
+                }
                 activeOpacity={solicitudActiva.tieneSolicitud ? 1 : 0.7}
               >
                 <Text className="text-white font-bold text-center text-sm">
@@ -446,8 +512,12 @@ const StartScreen = ({ navigation }: any) => {
                       ? "📍 Punto de encuentro"
                       : "📍 Establecer punto de encuentro"}
                 </Text>
+
                 {puntoEncuentro && (
-                  <Text className="text-white/70 text-xs text-center mt-0.5" numberOfLines={1}>
+                  <Text
+                    className="text-white/70 text-xs text-center mt-0.5"
+                    numberOfLines={1}
+                  >
                     {solicitudActiva.tieneSolicitud
                       ? "No editable con viaje activo"
                       : puntoEncuentro.texto}
@@ -470,7 +540,7 @@ const StartScreen = ({ navigation }: any) => {
               <View className="flex-1 h-px bg-gray-200" />
             </View>
 
-            {cargando ? (
+            {isLoading ? (
               <ActivityIndicator size="large" color="#1e3a8a" />
             ) : viajes.length === 0 ? (
               <Text className="text-gray-500 text-center">
@@ -489,13 +559,15 @@ const StartScreen = ({ navigation }: any) => {
                 />
               ))
             )}
-            {/* Botón para abrir mapa en vivo — solo si hay viaje aceptado */}
-            {solicitudActiva.estado === 'aceptada' && (
+
+            {solicitudActiva.estado === "aceptada" && (
               <TouchableOpacity
                 className="bg-blue-900 rounded-xl py-3 px-6 mb-4 flex-row items-center justify-center"
                 onPress={() => setLiveMapVisible(true)}
               >
-                <Text className="text-white font-bold text-base">🗺️ Ver mapa</Text>
+                <Text className="text-white font-bold text-base">
+                  🗺️ Ver mapa
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -507,8 +579,7 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
-      {/* Modal mapa punto de encuentro */}
+
       <Modal visible={mapEncuentroVisible} animationType="slide">
         <View style={{ flex: 1 }}>
           <MapView
@@ -516,61 +587,110 @@ const StartScreen = ({ navigation }: any) => {
             style={{ flex: 1 }}
             initialRegion={
               markerTemp
-                ? { ...markerTemp, latitudeDelta: 0.01, longitudeDelta: 0.01 }
-                : { latitude: 19.7069, longitude: -101.1945, latitudeDelta: 0.05, longitudeDelta: 0.05 }
+                ? {
+                    ...markerTemp,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }
+                : {
+                    latitude: 19.7069,
+                    longitude: -101.1945,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                  }
             }
-            onPress={(e: MapPressEvent) => setMarkerTemp(e.nativeEvent.coordinate)}
+            onPress={(e: MapPressEvent) =>
+              setMarkerTemp(e.nativeEvent.coordinate)
+            }
           >
             {markerTemp && <Marker coordinate={markerTemp} />}
           </MapView>
 
-          {/* Instrucción flotante */}
           <View
             style={{
-              position: "absolute", top: 16, left: 16, right: 16,
-              backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 12, padding: 12,
+              position: "absolute",
+              top: 16,
+              left: 16,
+              right: 16,
+              backgroundColor: "rgba(0,0,0,0.65)",
+              borderRadius: 12,
+              padding: 12,
             }}
           >
-            <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
+            <Text
+              style={{
+                color: "white",
+                textAlign: "center",
+                fontWeight: "600",
+              }}
+            >
               📍 Toca el mapa para marcar donde esperarás al conductor
             </Text>
           </View>
 
-          {/* Botones inferiores */}
-          <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
+          <View
+            style={{
+              position: "absolute",
+              bottom: 32,
+              left: 16,
+              right: 16,
+              gap: 10,
+            }}
+          >
             <TouchableOpacity
               onPress={centrarEnUbicacion}
-              style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+              style={{
+                backgroundColor: "#1e3a8a",
+                borderRadius: 14,
+                padding: 14,
+                alignItems: "center",
+              }}
             >
-              <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+              <Text style={{ color: "white", fontWeight: "600" }}>
+                📍 Usar mi ubicación actual
+              </Text>
             </TouchableOpacity>
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <TouchableOpacity
                 onPress={() => setMapEncuentroVisible(false)}
-                style={{ flex: 1, backgroundColor: "#e5e7eb", borderRadius: 14, padding: 14, alignItems: "center" }}
+                style={{
+                  flex: 1,
+                  backgroundColor: "#e5e7eb",
+                  borderRadius: 14,
+                  padding: 14,
+                  alignItems: "center",
+                }}
               >
-                <Text style={{ color: "#374151", fontWeight: "600" }}>Cancelar</Text>
+                <Text style={{ color: "#374151", fontWeight: "600" }}>
+                  Cancelar
+                </Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={confirmarPuntoEncuentro}
                 disabled={geocodingLoad || !markerTemp}
                 style={{
-                  flex: 2, borderRadius: 14, padding: 14, alignItems: "center",
+                  flex: 2,
+                  borderRadius: 14,
+                  padding: 14,
+                  alignItems: "center",
                   backgroundColor: markerTemp ? "#2563eb" : "#93c5fd",
                 }}
               >
-                {geocodingLoad
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={{ color: "white", fontWeight: "700" }}>Confirmar punto</Text>
-                }
+                {geocodingLoad ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "white", fontWeight: "700" }}>
+                    Confirmar punto
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Modal de perfil flotante */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -647,6 +767,7 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
       <Footer navigation={navigation} />
 
       <LiveMapModal
@@ -654,21 +775,36 @@ const StartScreen = ({ navigation }: any) => {
         onClose={() => setLiveMapVisible(false)}
         viajeId={solicitudActiva.viajeId!}
         mode="pasajero"
-        puntoEncuentro=
-        {
+        puntoEncuentro={
           coordsRecogidaBD ??
           (puntoEncuentro
-          ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
-          : null)
+            ? {
+                latitude: puntoEncuentro.latitude,
+                longitude: puntoEncuentro.longitude,
+              }
+            : null)
         }
-
         origen={(() => {
-          const viaje = viajes.find((v) => v.id_viaje_pub === solicitudActiva.viajeId);
-          return viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined;
+          const viaje = viajes.find(
+            (v: any) => v.id_viaje_pub === solicitudActiva.viajeId
+          );
+          return viaje
+            ? {
+                lat: viaje.latitud_origen,
+                lng: viaje.longitud_origen,
+              }
+            : undefined;
         })()}
         destino={(() => {
-          const viaje = viajes.find((v) => v.id_viaje_pub === solicitudActiva.viajeId);
-          return viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined;
+          const viaje = viajes.find(
+            (v: any) => v.id_viaje_pub === solicitudActiva.viajeId
+          );
+          return viaje
+            ? {
+                lat: viaje.latitud_destino,
+                lng: viaje.longitud_destino,
+              }
+            : undefined;
         })()}
       />
     </ScreenWrapper>

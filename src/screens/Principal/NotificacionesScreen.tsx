@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
   Alert,
   ActivityIndicator,
   RefreshControl,
@@ -24,49 +24,61 @@ interface Notificacion {
 }
 
 const NotificacionesScreen = ({ navigation }: any) => {
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
 
   useBackHandler(navigation, "normal");
+  const queryClient = useQueryClient();
 
-  const cargarNotificaciones = async () => {
-    try {
-      const data = await orpc.notificaciones.obtenerTodas();
-      if (data.success) {
-        setNotificaciones(data.notificaciones || []);
-      }
-    } catch (error) {
-      console.error("Error al cargar notificaciones:", error);
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
-  };
+  const obtenerNotificaciones = async () => {
+  const data = await orpc.notificaciones.obtenerTodas();
 
-  const marcarComoLeida = async (id: number) => {
-    try {
-      await orpc.notificaciones.marcarLeida({ id });
-      setNotificaciones((prev) =>
-        prev.map((notif) =>
-          notif.id_notificacion === id ? { ...notif, leido: true } : notif,
-        ),
-      );
-    } catch (error) {
-      console.error("Error al marcar como leída:", error);
-    }
-  };
+  if (data.success) {
+    return data.notificaciones || [];
+  }
 
-  const marcarTodasLeidas = async () => {
-    try {
-      await orpc.notificaciones.marcarTodasLeidas();
-      setNotificaciones((prev) =>
-        prev.map((notif) => ({ ...notif, leido: true })),
-      );
-    } catch (error) {
-      Alert.alert("Error", "No se pudieron marcar las notificaciones");
-    }
-  };
+  return [];
+};
+
+const {
+  data: notificaciones = [],
+  isLoading: cargando,
+  refetch,
+  isRefetching: refrescando,
+} = useQuery({
+  queryKey: ["notificaciones"],
+  queryFn: obtenerNotificaciones,
+});
+
+ const marcarLeidaMutation = useMutation({
+  mutationFn: async (id: number) => {
+    return await orpc.notificaciones.marcarLeida({ id });
+  },
+
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: ["notificaciones"],
+    });
+  },
+});
+
+const marcarComoLeida = (id: number) => {
+  marcarLeidaMutation.mutate(id);
+};
+
+  const marcarTodasMutation = useMutation({
+  mutationFn: async () => {
+    return await orpc.notificaciones.marcarTodasLeidas();
+  },
+
+  onSuccess: () => {
+    queryClient.invalidateQueries({
+      queryKey: ["notificaciones"],
+    });
+  },
+});
+
+const marcarTodasLeidas = () => {
+  marcarTodasMutation.mutate();
+};
 
   const eliminarNotificacion = async (id: number) => {
     Alert.alert(
@@ -78,10 +90,11 @@ const NotificacionesScreen = ({ navigation }: any) => {
           text: "Eliminar",
           onPress: async () => {
             try {
-              await orpc.notificaciones.eliminar({ id });
-              setNotificaciones((prev) =>
-                prev.filter((notif) => notif.id_notificacion !== id),
-              );
+             await orpc.notificaciones.eliminar({ id });
+
+queryClient.invalidateQueries({
+  queryKey: ["notificaciones"],
+});
             } catch (error) {
               Alert.alert("Error", "No se pudo eliminar la notificación");
             }
@@ -108,13 +121,10 @@ const NotificacionesScreen = ({ navigation }: any) => {
   };
 
   const onRefresh = () => {
-    setRefrescando(true);
-    cargarNotificaciones();
-  };
+  refetch();
+};
 
-  useEffect(() => {
-    cargarNotificaciones();
-  }, []);
+ 
 
   const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
@@ -202,7 +212,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
                 <TouchableOpacity
                   className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
                   onPress={async () => {
-                    if (!notif.leido) await marcarComoLeida(notif.id_notificacion);
+                    if (!notif.leido) marcarComoLeida(notif.id_notificacion);
                     navigation.navigate("RateTrip");
                   }}
                 >

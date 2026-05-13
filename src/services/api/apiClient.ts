@@ -34,7 +34,8 @@ const getLocalUrl = (): string => {
 }
 
 
-export const BASE_URL = __DEV__ ? getLocalUrl() : PROD_URL
+//export const BASE_URL = __DEV__ ? getLocalUrl() : PROD_URL
+export const BASE_URL = PROD_URL
 
 console.log('🌐 BASE_URL final:', BASE_URL)
 console.log('🛠️ Modo Desarrollo (__DEV__):', __DEV__)
