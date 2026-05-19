@@ -8,31 +8,32 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const CodeForgetPasswordScreen = ({ navigation, route }: any) => {
   const { email } = route.params;
   const [codigo, setCodigo] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const verifyMutation = useMutation({
+    mutationFn: () => orpc.auth.verifyCode({ correo_inst: email, codigo }),
+    onSuccess: () => {
+      navigation.navigate("ChangePassword", { email });
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Código incorrecto");
+    },
+  });
 
   useBackHandler(navigation, "normal");
 
-  const verificarCodigo = async () => {
+  const verificarCodigo = () => {
     if (!codigo || codigo.length !== 6) {
       Alert.alert("Error", "Ingresa el código de 6 dígitos");
       return;
     }
-
-    setLoading(true);
-    try {
-      await orpc.auth.verifyCode({ correo_inst: email, codigo });
-      navigation.navigate("ChangePassword", { email });
-    } catch (error: any) {
-      Alert.alert("Error", error?.message || "Código incorrecto");
-    } finally {
-      setLoading(false);
-    }
+    verifyMutation.mutate();
   };
 
   return (
@@ -56,12 +57,12 @@ const CodeForgetPasswordScreen = ({ navigation, route }: any) => {
       />
 
       <TouchableOpacity
-        className={`bg-blue-900 p-4 rounded-xl mt-8 ${loading ? "opacity-50" : ""}`}
-        onPress={verificarCodigo}
-        disabled={loading}
-      >
-        <Text className="text-white text-center font-bold text-lg">
-          {loading ? "Verificando..." : "Verificar código"}
+          className={`bg-blue-900 p-4 rounded-xl mt-8 ${verifyMutation.isPending ? "opacity-50" : ""}`}
+          onPress={verificarCodigo}
+          disabled={verifyMutation.isPending}
+        >
+          <Text className="text-white text-center font-bold text-lg">
+            {verifyMutation.isPending ? "Verificando..." : "Verificar código"}
         </Text>
       </TouchableOpacity>
 

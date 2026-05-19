@@ -11,6 +11,7 @@ import {
   ScrollView,
   StatusBar,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import { login } from "../../services/auth/authService";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
@@ -24,11 +25,25 @@ const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      const data = await login(email, password);
+      await connectSocket();
+      return data;
+    },
+    onSuccess: () => {
+      navigation.navigate("Home");
+    },
+    onError: (error: any) => {
+      const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";
+      alert(`Error: ${errorMessage}`);
+    },
+  });
 
   useBackHandler(navigation, "login");
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!email.trim()) {
@@ -48,21 +63,7 @@ const LoginScreen = ({ navigation }: any) => {
       return;
     }
 
-    try {
-      setLoading(true);
-      console.log("🔄 Intentando login con:", { email, password: "***" });
-      const data = await login(email, password);
-      console.log("✅ Login exitoso:", data);
-      // Conectar WebSocket después del login exitoso
-      await connectSocket();
-      navigation.navigate("Home");
-    } catch (error: any) {
-      console.error("❌ Error en login:", error);
-      const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
+    loginMutation.mutate();
   };
 
   return (
@@ -143,14 +144,14 @@ const LoginScreen = ({ navigation }: any) => {
 
             <TouchableOpacity
               className={`rounded-xl py-4 items-center mb-6 shadow-lg ${
-                loading ? 'bg-gray-400' : 'bg-blue-900'
+                loginMutation.isPending ? 'bg-gray-400' : 'bg-blue-900'
               }`}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loginMutation.isPending}
               activeOpacity={0.8}
             >
               <Text className="text-white text-base font-semibold">
-                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+                {loginMutation.isPending ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </Text>
             </TouchableOpacity>
 

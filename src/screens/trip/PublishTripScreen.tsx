@@ -12,6 +12,7 @@ import {
   Platform,
   Modal,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -62,7 +63,6 @@ const INITIAL_FORM: TripForm = {
 const PublishTripScreen = ({ navigation }: any) => {
   useBackHandler(navigation, "normal");
   const [form, setForm] = useState<TripForm>(INITIAL_FORM);
-  const [isLoading, setIsLoading] = useState(false);
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -237,6 +237,21 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
   };
 
+  const publishMutation = useMutation({
+    mutationFn: publicarViaje,
+    onSuccess: (data) => {
+      if (data.success) {
+        Alert.alert("¡Viaje publicado!", "Tu viaje ya está disponible para pasajeros.");
+        navigation.goBack();
+      } else {
+        Alert.alert("Error", "No se pudo publicar el viaje.");
+      }
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Ocurrió un problema. Intenta de nuevo.");
+    },
+  });
+
   const handlePublicar = async () => {
     if (!form.origen) {
       Alert.alert("Faltan datos", "Por favor ingresa el origen del viaje.");
@@ -278,38 +293,17 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const data = await publicarViaje({
-        origen_texto: form.origen!.texto,
-        destino_texto: form.destino!.texto,
-        latitud_origen: form.origen!.latitude,
-        longitud_origen: form.origen!.longitude,
-        latitud_destino: form.destino!.latitude,
-        longitud_destino: form.destino!.longitude,
-        fechaHoraISO: date.toISOString(),
-        asientos: form.asientos,
-        precio: parseFloat(form.precio),
-      });
-
-      if (data.success) {
-        Alert.alert(
-          "¡Viaje publicado!",
-          "Tu viaje ya está disponible para pasajeros.",
-        );
-        navigation.goBack();
-      } else {
-        Alert.alert("Error", "No se pudo publicar el viaje.");
-      }
-    } catch (error: any) {
-      console.log("Error al publicar viaje:", error);
-      Alert.alert(
-        "Error",
-        error?.message || "Ocurrió un problema. Intenta de nuevo.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    publishMutation.mutate({
+      origen_texto: form.origen!.texto,
+      destino_texto: form.destino!.texto,
+      latitud_origen: form.origen!.latitude,
+      longitud_origen: form.origen!.longitude,
+      latitud_destino: form.destino!.latitude,
+      longitud_destino: form.destino!.longitude,
+      fechaHoraISO: date.toISOString(),
+      asientos: form.asientos,
+      precio: parseFloat(form.precio),
+    });
   };
 
   return (
@@ -558,10 +552,10 @@ const PublishTripScreen = ({ navigation }: any) => {
           {/* Publicar */}
           <TouchableOpacity
             onPress={handlePublicar}
-            disabled={isLoading}
-            className={`rounded-2xl py-4 items-center mb-6 ${isLoading ? "bg-blue-300" : "bg-blue-600"}`}
+            disabled={publishMutation.isPending}
+            className={`rounded-2xl py-4 items-center mb-6 ${publishMutation.isPending ? "bg-blue-300" : "bg-blue-600"}`}
           >
-            {isLoading ? (
+            {publishMutation.isPending ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white text-base font-bold">

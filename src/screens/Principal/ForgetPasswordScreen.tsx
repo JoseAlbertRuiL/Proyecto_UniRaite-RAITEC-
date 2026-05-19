@@ -9,33 +9,33 @@ import {
   Alert,
   StatusBar,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 const ForgetPasswordScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const forgotMutation = useMutation({
+    mutationFn: () => orpc.auth.forgotPassword({ correo_inst: email }),
+    onSuccess: () => {
+      Alert.alert("Éxito", "Código enviado a tu correo");
+      navigation.navigate("Code", { email });
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Correo no registrado");
+    },
+  });
 
   useBackHandler(navigation, "normal");
 
-  const enviarCodigo = async () => {
+  const enviarCodigo = () => {
     if (!email) {
       Alert.alert("Error", "Ingresa tu correo institucional");
       return;
     }
-
-    setLoading(true);
-    try {
-      await orpc.auth.forgotPassword({ correo_inst: email });
-      Alert.alert("Éxito", "Código enviado a tu correo");
-      navigation.navigate("Code", { email });
-    } catch (error: any) {
-      console.log(error);
-      Alert.alert("Error", error?.message || "Correo no registrado");
-    } finally {
-      setLoading(false);
-    }
+    forgotMutation.mutate();
   };
 
   return (
@@ -59,12 +59,12 @@ const ForgetPasswordScreen = ({ navigation }: any) => {
         />
 
         <TouchableOpacity
-          className={`bg-blue-900 p-4 rounded-xl mt-8 ${loading ? "opacity-50" : ""}`}
+          className={`bg-blue-900 p-4 rounded-xl mt-8 ${forgotMutation.isPending ? "opacity-50" : ""}`}
           onPress={enviarCodigo}
-          disabled={loading}
+          disabled={forgotMutation.isPending}
         >
           <Text className="text-white text-center font-bold text-lg">
-            {loading ? "Enviando..." : "Enviar código"}
+            {forgotMutation.isPending ? "Enviando..." : "Enviar código"}
           </Text>
         </TouchableOpacity>
 

@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import { orpc } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
@@ -17,11 +18,22 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  const resetMutation = useMutation({
+    mutationFn: () => orpc.auth.resetPassword({ correo_inst: email, newPassword: password }),
+    onSuccess: () => {
+      Alert.alert("Éxito", "Contraseña actualizada correctamente", [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "No se pudo cambiar la contraseña");
+    },
+  });
 
   useBackHandler(navigation, "normal");
 
-  const cambiarPassword = async () => {
+  const cambiarPassword = () => {
     if (!password || password.length < 6) {
       Alert.alert("Error", "La contraseña debe tener al menos 6 caracteres");
       return;
@@ -30,24 +42,7 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
       Alert.alert("Error", "Las contraseñas no coinciden");
       return;
     }
-
-    setLoading(true);
-    try {
-      await orpc.auth.resetPassword({
-        correo_inst: email,
-        newPassword: password,
-      });
-      Alert.alert("Éxito", "Contraseña actualizada correctamente", [
-        { text: "OK", onPress: () => navigation.navigate("Login") },
-      ]);
-    } catch (error: any) {
-      Alert.alert(
-        "Error",
-        error?.message || "No se pudo cambiar la contraseña",
-      );
-    } finally {
-      setLoading(false);
-    }
+    resetMutation.mutate();
   };
 
   return (
@@ -96,12 +91,12 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
       </View>
 
       <TouchableOpacity
-        className={`bg-blue-900 p-4 rounded-xl mt-8 ${loading ? "opacity-50" : ""}`}
-        onPress={cambiarPassword}
-        disabled={loading}
-      >
-        <Text className="text-white text-center font-bold text-lg">
-          {loading ? "Actualizando..." : "Cambiar contraseña"}
+          className={`bg-blue-900 p-4 rounded-xl mt-8 ${resetMutation.isPending ? "opacity-50" : ""}`}
+          onPress={cambiarPassword}
+          disabled={resetMutation.isPending}
+        >
+          <Text className="text-white text-center font-bold text-lg">
+            {resetMutation.isPending ? "Actualizando..." : "Cambiar contraseña"}
         </Text>
       </TouchableOpacity>
 

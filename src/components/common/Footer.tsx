@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
 import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
+import { useEffect } from "react";
 
 interface FooterProps {
   navigation: any;
@@ -14,49 +16,34 @@ interface FooterProps {
 const homeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3l-10-9-10 9h3v8z"/></svg>`;
 const chatSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`;
 const carSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.08 3.11H5.77L6.85 7zM19 17H5v-5h14v5zM7.5 13h2v2h-2zM14.5 13h2v2h-2z"/></svg>`;
-const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 8.94 10h-2.02A7 7 0 1 1 13 5V3zm-1 5h2v6l5 3-1 1.73-6-3.73V8z"/></svg>`;
+const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 1 0 8.94 10h-2.02A7 7 0 1 1 13 5V3zm-1 3h2v6l5 3-1 1.73-6-3.73V8z"/></svg>`;
 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
-  const [modoConductorActivo, setModoConductorActivo] = useState(false);
+  const queryClient = useQueryClient();
 
-  const cargarMensajesNoLeidos = async () => {
-    try {
-      const data = await orpc.chat.contarMensajesNoLeidos();
-      console.log("📊 Respuesta del backend:", data);
-      if (data.success) {
-        setMensajesNoLeidos(data.total);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
+  const { data: mensajesData } = useQuery({
+    queryKey: ["mensajes-no-leidos"],
+    queryFn: () => orpc.chat.contarMensajesNoLeidos(),
+  });
 
-  const verificarModoConductor = async () => {
-    try {
-      const data = await orpc.usuarios.getPerfil();
-      const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
-      const esConductorActivo = data?.user?.es_conductor === true && modoGuardado === "true";
-      setModoConductorActivo(esConductorActivo);
-    } catch (error) {
-      console.error("Error al verificar modo conductor:", error);
-      setModoConductorActivo(false);
-    }
-  };
+  const { data: perfilData } = useQuery({
+    queryKey: ["perfil-footer"],
+    queryFn: () => orpc.usuarios.getPerfil(),
+  });
+
+  const mensajesNoLeidos = mensajesData?.total ?? 0;
+  const modoConductorActivo = perfilData?.user?.es_conductor === true;
 
   useEffect(() => {
-    cargarMensajesNoLeidos();
-    verificarModoConductor();
-
     const socket = getSocket();
     if (socket) {
       const handleNewMessage = () => {
-        cargarMensajesNoLeidos();
+        queryClient.invalidateQueries({ queryKey: ["mensajes-no-leidos"] });
       };
 
       const handleMensajesLeidos = () => {
-        cargarMensajesNoLeidos();
+        queryClient.invalidateQueries({ queryKey: ["mensajes-no-leidos"] });
       };
 
       onNewMessage(handleNewMessage);
@@ -67,7 +54,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         socket.off("mensajes_leidos", handleMensajesLeidos);
       };
     }
-  }, []);
+  }, [queryClient]);
 
   const verificarConductor = async () => {
     try {

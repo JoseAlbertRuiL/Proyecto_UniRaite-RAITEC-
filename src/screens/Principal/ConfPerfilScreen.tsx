@@ -27,7 +27,6 @@ import { disconnectSocket } from "../../services/socket";
 const ConfigPerfilScreen = ({ navigation }: any) => {
   const queryClient = useQueryClient();
 
-  const [user, setUser] = useState<any>(null);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
   const [modoConductor, setModoConductor] = useState(false);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
@@ -95,7 +94,6 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     if (perfilData?.user) {
-      setUser(perfilData.user);
       setNombre(perfilData.user?.nombre || "");
       setApellidoPaterno(perfilData.user?.apellido_paterno || "");
       setApellidoMaterno(perfilData.user?.apellido_materno || "");
@@ -107,15 +105,15 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   useEffect(() => {
     const cargarEstadoSwitch = async () => {
       const guardado = await AsyncStorage.getItem("modo_conductor_activo");
-      if (guardado === "true" && user?.es_conductor) {
+      if (guardado === "true" && perfilData?.user?.es_conductor) {
         setModoConductor(true);
       } else {
         setModoConductor(false);
       }
     };
 
-    if (user) cargarEstadoSwitch();
-  }, [user]);
+    if (perfilData?.user) cargarEstadoSwitch();
+  }, [perfilData]);
 
   const refrescarPerfil = () => {
     queryClient.invalidateQueries({ queryKey: ["perfil"] });
@@ -124,7 +122,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   const handleModoConductor = async (value: boolean) => {
     if (value) {
-      if (user?.es_conductor) {
+      if (perfilData?.user?.es_conductor) {
         setModoConductor(true);
         await AsyncStorage.setItem("modo_conductor_activo", "true");
         queryClient.invalidateQueries({ queryKey: ["vehiculo"] });
@@ -364,7 +362,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     }
   };
 
-  const fotoUrl = user?.foto_perfil ? user.foto_perfil : null;
+  const fotoUrl = perfilData?.user?.foto_perfil ? perfilData.user.foto_perfil : null;
 
   return (
     <ScreenWrapper hasFooter={false}>
@@ -396,17 +394,17 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           <Text className="text-xl font-bold text-gray-900 mt-3">
-            {user?.nombre} {user?.apellido_paterno?.charAt(0)}.
+            {perfilData?.user?.nombre} {perfilData?.user?.apellido_paterno?.charAt(0)}.
           </Text>
 
           <Text className="text-gray-500 text-sm mt-1">
-            {user?.carrera || "Carrera no especificada"}
+            {perfilData?.user?.carrera || "Carrera no especificada"}
           </Text>
 
           <View className="flex-row items-center mt-2">
             <Text className="text-yellow-500 text-lg mr-1">★</Text>
             <Text className="text-gray-700 font-semibold">
-              {user?.reputacion_promedio?.toFixed(1) || "Nuevo"}
+              {perfilData?.user?.reputacion_promedio?.toFixed(1) || "Nuevo"}
             </Text>
             <Text className="text-gray-400 ml-1">/ 5.0</Text>
           </View>

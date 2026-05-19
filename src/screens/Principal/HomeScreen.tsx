@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   View,
-  Text,
+  Text, 
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -36,9 +36,6 @@ import { getSocket } from "../../services/socket";
 const StartScreen = ({ navigation }: any) => {
   const [refrescando, setRefrescando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
-  const [cargandoPerfil, setCargandoPerfil] = useState(false);
-  const [esConductorActivo, setEsConductorActivo] = useState(false);
   const [puntoEncuentro, setPuntoEncuentro] = useState<{
     latitude: number;
     longitude: number;
@@ -51,92 +48,57 @@ const StartScreen = ({ navigation }: any) => {
   } | null>(null);
   const [geocodingLoad, setGeocodingLoad] = useState(false);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
+  const [usuarioIdModal, setUsuarioIdModal] = useState<string | null>(null);
   const mapEncuentroRef = useRef<MapView>(null);
-
-  const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
-    [key: number]: string;
-  }>({});
-
-  const [solicitudActiva, setSolicitudActiva] = useState<{
-    tieneSolicitud: boolean;
-    estado: string | null;
-    viajeId?: number;
-  }>({ tieneSolicitud: false, estado: null });
-
-  const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
-    latitude: number;
-    longitude: number;
-  } | null>(null);
 
   useBackHandler(navigation, "main");
 
-  const verificarSolicitudActiva = async () => {
-    try {
-      const result = await obtenerSolicitudesActivas();
+  const { data: perfilHome } = useQuery({
+    queryKey: ["perfil-home"],
+    queryFn: getPerfil,
+  });
 
-      if (result.success && result.solicitudes.length > 0) {
-        const solicitud = result.solicitudes[0];
+  const { data: perfilSeleccionado, isLoading: cargandoPerfil } = useQuery({
+    queryKey: ["perfil-publico-modal", usuarioIdModal],
+    queryFn: () => getUsuarioById(usuarioIdModal!),
+    enabled: !!usuarioIdModal,
+  });
 
-        if (solicitud.estado_solicitud === "rechazada") {
-          setSolicitudActiva({ tieneSolicitud: false, estado: null });
-          setCoordsRecogidaBD(null);
-          return;
-        }
+  const { data: solicitudActivaData } = useQuery({
+    queryKey: ["solicitudes-activas-home"],
+    queryFn: obtenerSolicitudesActivas,
+  });
 
-        setSolicitudActiva({
-          tieneSolicitud: true,
-          estado: solicitud.estado_solicitud,
-          viajeId: solicitud.id_viaje_pub,
-        });
+  const [esConductorActivo, setEsConductorActivo] = useState(false);
 
-        if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
-          setCoordsRecogidaBD({
-            latitude: solicitud.latitud_recogida,
-            longitude: solicitud.longitud_recogida,
-          });
-        }
-      } else {
-        setSolicitudActiva({ tieneSolicitud: false, estado: null });
-        setCoordsRecogidaBD(null);
-      }
-    } catch (error) {
-      console.log("Error al verificar solicitud activa:", error);
+  useEffect(() => {
+    const init = async () => {
+      const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
+      setEsConductorActivo(perfilHome?.user?.es_conductor === true && modoGuardado === "true");
+      const puntoGuardado = await AsyncStorage.getItem("punto_encuentro");
+      if (puntoGuardado) setPuntoEncuentro(JSON.parse(puntoGuardado));
+    };
+    if (perfilHome?.user) init();
+  }, [perfilHome]);
+
+  const solicitudActiva = React.useMemo(() => {
+    const s = solicitudActivaData?.solicitudes?.[0];
+    if (!s || s.estado_solicitud === "rechazada") {
+      return { tieneSolicitud: false, estado: null };
     }
-  };
+    return {
+      tieneSolicitud: true,
+      estado: s.estado_solicitud,
+      viajeId: s.id_viaje_pub,
+    };
+  }, [solicitudActivaData]);
 
-  const verificarModoCondutor = async (perfil: any) => {
-    const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
-    const activo = perfil?.es_conductor === true && modoGuardado === "true";
-
-    setEsConductorActivo(activo);
-
-    if (activo) {
-      await AsyncStorage.removeItem("punto_encuentro");
-      setPuntoEncuentro(null);
-    } else {
-      const guardado = await AsyncStorage.getItem("punto_encuentro");
-      if (guardado) setPuntoEncuentro(JSON.parse(guardado));
-    }
-
-    return activo;
-  };
-
-  const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
-    const nuevosEstados: { [key: number]: string } = {};
-
-    for (const viaje of viajesLista) {
-      try {
-        const estado = await obtenerEstadoSolicitud(viaje.id_viaje_pub);
-        if (estado) {
-          nuevosEstados[viaje.id_viaje_pub] = estado;
-        }
-      } catch {
-        // No hay solicitud para este viaje
-      }
-    }
-
-    setEstadosSolicitudes(nuevosEstados);
-  };
+  const coordsRecogidaBD = React.useMemo(() => {
+    const s = solicitudActivaData?.solicitudes?.[0];
+    return s?.latitud_recogida && s?.longitud_recogida
+      ? { latitude: s.latitud_recogida, longitude: s.longitud_recogida }
+      : null;
+  }, [solicitudActivaData]);
 
   const obtenerViajesHome = async (): Promise<any[]> => {
     const perfilData = await getPerfil();
@@ -146,81 +108,58 @@ const StartScreen = ({ navigation }: any) => {
       return [];
     }
 
-    const conductorActivo = await verificarModoCondutor(perfilData.user);
-    const usuarioActualId = perfilData.user?.id_usuario;
-    const viajesData = await listarViajes();
+    const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
+    const esConductorActivo = perfilData.user?.es_conductor === true && modoGuardado === "true";
 
-    if (!viajesData?.success) {
+    if (esConductorActivo) {
+      await AsyncStorage.removeItem("punto_encuentro");
+      setPuntoEncuentro(null);
       return [];
     }
 
+    const usuarioActualId = perfilData.user?.id_usuario;
+    const viajesData = await listarViajes();
+
+    if (!viajesData?.success) return [];
+
     let viajesFiltrados = viajesData.viajes.filter(
-      (viaje: any) =>
-        viaje.conductor?.usuario?.id_usuario !== usuarioActualId
+      (viaje: any) => viaje.conductor?.usuario?.id_usuario !== usuarioActualId
     );
 
-    if (!conductorActivo) {
-      const solicitudActivaData = await obtenerSolicitudesActivas();
-      const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
-      const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
-      const estadoSolicitudReciente =
-        solicitudReciente?.estado_solicitud ?? null;
+    const solicitudesRes = await obtenerSolicitudesActivas();
+    const solicitudReciente = solicitudesRes?.solicitudes?.[0] ?? null;
+    const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
+    const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
+    const tieneActivaPendienteOAceptada = estadoSolicitudReciente === "pendiente" || estadoSolicitudReciente === "aceptada";
+    let viajesConSolicitudActiva: any[] = [];
 
-      const tieneActivaPendienteOAceptada =
-        estadoSolicitudReciente === "pendiente" ||
-        estadoSolicitudReciente === "aceptada";
-
-      let viajesConSolicitudActiva: any[] = [];
-
-      if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
-        let viajeConSolicitud = viajesFiltrados.find(
-          (v: any) => v.id_viaje_pub === viajeIdConSolicitud
-        );
-
-        if (!viajeConSolicitud) {
-          try {
-            const resultado = await getViajePorId(viajeIdConSolicitud);
-            if (resultado.success) viajeConSolicitud = resultado.viaje;
-          } catch {
-            // No se pudo obtener el viaje por id
-          }
-        }
-
-        if (viajeConSolicitud) {
-          viajesConSolicitudActiva = [viajeConSolicitud];
-        }
+    if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
+      let viajeConSolicitud = viajesFiltrados.find(
+        (v: any) => v.id_viaje_pub === viajeIdConSolicitud
+      );
+      if (!viajeConSolicitud) {
+        try {
+          const resultado = await getViajePorId(viajeIdConSolicitud);
+          if (resultado.success) viajeConSolicitud = resultado.viaje;
+        } catch {}
       }
-
-      const viajesSinSolicitud =
-        tieneActivaPendienteOAceptada && viajeIdConSolicitud
-          ? viajesFiltrados.filter(
-              (v: any) => v.id_viaje_pub !== viajeIdConSolicitud
-            )
-          : viajesFiltrados;
-
-      const guardado = await AsyncStorage.getItem("punto_encuentro");
-      let viajesCercanos: any[] = [];
-
-      if (guardado && estadoSolicitudReciente !== "aceptada") {
-        const punto = JSON.parse(guardado);
-
-        viajesCercanos = filtrarViajesCercanos(
-          viajesSinSolicitud,
-          punto.latitude,
-          punto.longitude,
-          0.5
-        );
-      }
-
-      viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
-    } else {
-      viajesFiltrados = [];
+      if (viajeConSolicitud) viajesConSolicitudActiva = [viajeConSolicitud];
     }
 
-    await cargarEstadosSolicitudes(viajesFiltrados);
-    await verificarSolicitudActiva();
+    const viajesSinSolicitud =
+      tieneActivaPendienteOAceptada && viajeIdConSolicitud
+        ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
+        : viajesFiltrados;
 
-    return viajesFiltrados;
+    const guardado = await AsyncStorage.getItem("punto_encuentro");
+    let viajesCercanos: any[] = [];
+
+    if (guardado && estadoSolicitudReciente !== "aceptada") {
+      const punto = JSON.parse(guardado);
+      viajesCercanos = filtrarViajesCercanos(viajesSinSolicitud, punto.latitude, punto.longitude, 0.5);
+    }
+
+    return [...viajesConSolicitudActiva, ...viajesCercanos];
   };
 
   const {
@@ -232,22 +171,24 @@ const StartScreen = ({ navigation }: any) => {
     queryFn: obtenerViajesHome,
   });
 
-  const handleVerPerfil = async (usuarioId: string) => {
-    setCargandoPerfil(true);
-    setModalVisible(true);
-
-    try {
-      const data = await getUsuarioById(usuarioId);
-
-      if (data && data.success) {
-        setPerfilSeleccionado(data.user);
+  const { data: estadosSolicitudes = {} } = useQuery({
+    queryKey: ["estados-solicitudes", viajes.map((v: any) => v.id_viaje_pub)],
+    queryFn: async () => {
+      const estados: { [key: number]: string } = {};
+      for (const viaje of viajes) {
+        try {
+          const estado = await obtenerEstadoSolicitud(viaje.id_viaje_pub);
+          if (estado) estados[viaje.id_viaje_pub] = estado;
+        } catch {}
       }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "No se pudo cargar el perfil");
-    } finally {
-      setCargandoPerfil(false);
-    }
+      return estados;
+    },
+    enabled: viajes.length > 0,
+  });
+
+  const handleVerPerfil = (usuarioId: string) => {
+    setUsuarioIdModal(usuarioId);
+    setModalVisible(true);
   };
 
   const handleSolicitarViaje = async (viajeId: number) => {
@@ -281,17 +222,6 @@ const StartScreen = ({ navigation }: any) => {
       );
 
       if (result?.success) {
-        setEstadosSolicitudes((prev) => ({
-          ...prev,
-          [viajeId]: "pendiente",
-        }));
-
-        setSolicitudActiva({
-          tieneSolicitud: true,
-          estado: "pendiente",
-          viajeId,
-        });
-
         await refetch();
 
         Alert.alert(

@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import UserIcon from "../../icons/userIcon";
 import NotificationIcon from "../../icons/notificationIcon";
 import { orpc } from "../../services/api/apiClient";
 import { getSocket } from "../../services/socket";
+import { useEffect } from "react";
 
 interface HeaderProps {
   navigation: any;
@@ -14,32 +16,25 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
   const insets = useSafeAreaInsets();
-  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
+  const queryClient = useQueryClient();
 
-  const cargarNotificacionesNoLeidas = async () => {
-    try {
+  const { data: notifData } = useQuery({
+    queryKey: ["notificaciones-header"],
+    queryFn: async () => {
       const token = await AsyncStorage.getItem("token");
-      if (!token) return;
-
+      if (!token) return { notificaciones: [] };
       const data = await orpc.notificaciones.obtenerTodas();
-      if (data.success && data.notificaciones) {
-        const noLeidas = data.notificaciones.filter(
-          (n: any) => !n.leido,
-        ).length;
-        setNotificacionesNoLeidas(noLeidas);
-      }
-    } catch (error) {
-      console.error("Error al cargar notificaciones:", error);
-    }
-  };
+      return data;
+    },
+  });
+
+  const notificacionesNoLeidas = notifData?.notificaciones?.filter((n: any) => !n.leido).length ?? 0;
 
   useEffect(() => {
-    cargarNotificacionesNoLeidas();
-
     const socket = getSocket();
     if (socket) {
-      const onNuevaNotificacion = (data: any) => {
-        cargarNotificacionesNoLeidas();
+      const onNuevaNotificacion = () => {
+        queryClient.invalidateQueries({ queryKey: ["notificaciones-header"] });
       };
 
       socket.on("nueva_notificacion", onNuevaNotificacion);
@@ -48,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
         socket.off("nueva_notificacion", onNuevaNotificacion);
       };
     }
-  }, []);
+  }, [queryClient]);
 
   return (
     <View

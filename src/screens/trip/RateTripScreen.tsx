@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,18 +10,41 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { orpc, BASE_URL } from "../../services/api/apiClient";
+import { orpc } from "../../services/api/apiClient";
+import { getViajePorId } from "../../services/trip/tripService";
 
 export default function RateTripScreen({ navigation, route }: any) {
   useBackHandler(navigation, "normal");
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState("");
-  const [driver, setDriver] = useState<any>(route?.params?.driver || null);
-  const [trip, setTrip] = useState<any>(route?.params?.viaje || null);
-  const [loading, setLoading] = useState(!route?.params?.driver && !route?.params?.viaje);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  const hasData = !!route?.params?.driver || !!route?.params?.viaje;
+
+  const { data: viajeData, isLoading: loading, error: fetchError } = useQuery({
+    queryKey: ["rate-trip", route?.params?.viajeId],
+    queryFn: async () => {
+      const viajeId = route?.params?.viajeId;
+      if (viajeId) {
+        const response = await getViajePorId(viajeId);
+        if (response.success && response.viaje) return response.viaje;
+      }
+      const solicitudesResponse = await orpc.solicitudes.misSolicitudes();
+      if (solicitudesResponse.success && Array.isArray(solicitudesResponse.solicitudes)) {
+        const accepted = solicitudesResponse.solicitudes
+          .filter((s: any) => s.estado_solicitud === "aceptada" && s.viaje?.conductor?.usuario)
+          .sort((a: any, b: any) => new Date(b.viaje?.fecha_hora_salida).getTime() - new Date(a.viaje?.fecha_hora_salida).getTime());
+        if (accepted.length > 0) return accepted[0].viaje;
+      }
+      throw new Error("No se encontraron datos de conductor o viaje.");
+    },
+    enabled: !hasData,
+  });
+
+  const error = fetchError ? (fetchError as Error).message : null;
+  const trip = hasData ? route?.params?.viaje : viajeData;
+  const driver = hasData ? route?.params?.driver : (trip?.conductor?.usuario || trip?.conductor);
 
   const driverUser = driver?.usuario || driver;
   const driverName =
@@ -40,98 +63,36 @@ export default function RateTripScreen({ navigation, route }: any) {
       ? `⭐ ${driverUser?.reputacion_promedio ?? route?.params?.driverRating}`
       : "⭐ 4.9";
 
-  const fetchDriverData = async () => {
-    if (route?.params?.driver || route?.params?.viaje) {
-      setLoading(false);
-      return;
-    }
+  const submitMutation = useMutation({
+    mutationFn: (params: { viajeId: number; estrellas: number; comentario?: string }) =>
+      orpc.calificaciones.guardar(params),
+    onSuccess: (_data, variables) => {
+      Alert.alert(
+        "¡Gracias!",
+        `Tu calificación de ${variables.estrellas} ⭐ ha sido guardada exitosamente.`,
+        [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+      );
+    },
+    onError: (err: any) => {
+      const errorMsg = err?.message || "Error al guardar la calificación";
+      Alert.alert("Error", errorMsg);
+    },
+  });
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const viajeId = route?.params?.viajeId;
-
-      if (viajeId) {
-        const response = await orpc.viajes.porId({ viajeId });
-        if (response.success && response.viaje) {
-          setTrip(response.viaje);
-          setDriver(response.viaje.conductor?.usuario || response.viaje.conductor || null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const solicitudesResponse = await orpc.solicitudes.misSolicitudes();
-      if (solicitudesResponse.success && Array.isArray(solicitudesResponse.solicitudes)) {
-        const accepted = solicitudesResponse.solicitudes
-          .filter((s: any) => s.estado_solicitud === "aceptada" && s.viaje?.conductor?.usuario)
-          .sort(
-            (a: any, b: any) =>
-              new Date(b.viaje?.fecha_hora_salida).getTime() -
-              new Date(a.viaje?.fecha_hora_salida).getTime()
-          );
-
-        if (accepted.length > 0) {
-          const latest = accepted[0];
-          setTrip(latest.viaje);
-          setDriver(latest.viaje.conductor.usuario);
-          setLoading(false);
-          return;
-        }
-      }
-
-      setError("No se encontraron datos de conductor o viaje.");
-    } catch (fetchError) {
-      console.error("Error cargando conductor para calificación:", fetchError);
-      setError("Error al obtener datos del conductor.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDriverData();
-  }, []);
-
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (rating === 0) {
       Alert.alert("Atención", "Por favor selecciona una calificación antes de enviar.");
       return;
     }
-
     if (!trip?.id_viaje_pub) {
       Alert.alert("Error", "No se encontró el ID del viaje.");
       return;
     }
-
-    setSubmitting(true);
-    try {
-      const response = await orpc.calificaciones.guardar({
-        viajeId: trip.id_viaje_pub,
-        estrellas: rating,
-        comentario: comment || undefined,
-      });
-
-      if (response.success) {
-        Alert.alert(
-          "¡Gracias!",
-          `Tu calificación de ${rating} ⭐ ha sido guardada exitosamente.`,
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("Home"),
-            },
-          ]
-        );
-      }
-    } catch (err: any) {
-      console.error("Error guardando calificación:", err);
-      const errorMsg = err?.message || "Error al guardar la calificación";
-      Alert.alert("Error", errorMsg);
-    } finally {
-      setSubmitting(false);
-    }
+    submitMutation.mutate({
+      viajeId: trip.id_viaje_pub,
+      estrellas: rating,
+      comentario: comment || undefined,
+    });
   };
 
   return (
@@ -222,12 +183,12 @@ export default function RateTripScreen({ navigation, route }: any) {
             <View className="mt-8 px-5">
               <TouchableOpacity
                 onPress={handleSubmit}
-                disabled={submitting}
+                disabled={submitMutation.isPending}
                 className={`w-full py-4 rounded-2xl items-center ${
-                  submitting ? "bg-slate-400" : "bg-[#047857]"
+                  submitMutation.isPending ? "bg-slate-400" : "bg-[#047857]"
                 }`}
               >
-                {submitting ? (
+                {submitMutation.isPending ? (
                   <View className="flex-row items-center gap-2">
                     <ActivityIndicator color="white" size="small" />
                     <Text className="text-white text-lg font-bold">

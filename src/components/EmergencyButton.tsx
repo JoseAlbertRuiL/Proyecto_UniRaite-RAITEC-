@@ -1,35 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { PanResponder, Animated } from "react-native";
-import { orpc } from "../services/api/apiClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { getPerfil } from "../services/auth/authService";
+import { BASE_URL } from "../services/api/apiClient";
 
 
 const EmergencyButton = () => {
   const [visible, setVisible] = useState(false);
-  const [contactoEmergencia, setContactoEmergencia] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchPerfil = async () => {
-      console.log("🔍 EmergencyButton: Iniciando fetchPerfil");
-      try {
-        const response = await orpc.usuarios.getPerfil();
-        console.log("✅ EmergencyButton: Respuesta de getPerfil:", response);
-        if (response.success && response.user) {
-          console.log("📞 EmergencyButton: Contacto de emergencia encontrado:", response.user.contacto_emergencia);
-          setContactoEmergencia(response.user.contacto_emergencia);
-        } else {
-          console.log("❌ EmergencyButton: Respuesta no exitosa o sin usuario");
-        }
-      } catch (error) {
-        console.error("❌ EmergencyButton: Error al obtener perfil:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPerfil();
-  }, []);
+  const { data: perfil, isLoading: loading } = useQuery({
+    queryKey: ["perfil-emergencia"],
+    queryFn: getPerfil,
+  });
+
+  const contactoEmergencia = perfil?.user?.contacto_emergencia ?? null;
+
+  const incidenteMutation = useMutation({
+    mutationFn: async (tipo: string) => {
+      const res = await fetch(`${BASE_URL}/rpc/incidentes/registrar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo }),
+      });
+      return res.json();
+    },
+  });
 
   const callNumber = (number: string) => {
     Linking.openURL(`tel:${number}`);
@@ -38,26 +35,6 @@ const EmergencyButton = () => {
   const openWhatsApp = (number: string) => {
     Linking.openURL(`whatsapp://send?phone=${number}`);
   };
-
- const registrarIncidente = async (tipo) => {
-  try {
-    const res = await fetch("http://192.168.1.15:3000/rpc/incidentes/registrar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        tipo: tipo, // 🔥 SIN input
-      }),
-    });
-
-    const data = await res.json();
-    console.log("RESPUESTA:", data);
-
-  } catch (error) {
-    console.log("Error registrando incidente:", error);
-  }
-};
 
   return (
   <>
@@ -72,7 +49,7 @@ const EmergencyButton = () => {
 
 <TouchableOpacity
   onPress={() => {
-    registrarIncidente("accidente");
+    incidenteMutation.mutate("accidente");
     callNumber("911");
   }}
 >
@@ -81,7 +58,7 @@ const EmergencyButton = () => {
 
 <TouchableOpacity
   onPress={() => {
-    registrarIncidente("acoso");
+    incidenteMutation.mutate("acoso");
     callNumber("4430000000");
   }}
 >
@@ -90,7 +67,7 @@ const EmergencyButton = () => {
 
 <TouchableOpacity
   onPress={() => {
-    registrarIncidente("otro");
+    incidenteMutation.mutate("otro");
     openWhatsApp("524430000000");
   }}
 >

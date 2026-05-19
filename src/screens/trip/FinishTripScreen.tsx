@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -8,8 +8,10 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { getViajePorId } from "../../services/trip/tripService";
 import { orpc } from "../../services/api/apiClient";
 
 const MAX_PASAJEROS = 4;
@@ -17,71 +19,34 @@ const MAX_PASAJEROS = 4;
 const FinishTripScreen = ({ navigation, route }: any) => {
   const viajeParam = route?.params?.viaje;
   const viajeIdParam = route?.params?.viajeId;
-
-  const [viaje, setViaje] = useState<any>(viajeParam || null);
-  const [loading, setLoading] = useState(!viajeParam);
-  const [finalizando, setFinalizando] = useState(false);
+  const viajeId = viajeIdParam || viajeParam?.id_viaje_pub;
 
   useBackHandler(navigation, "main");
 
-  const fetchViaje = async () => {
-  try {
-    setLoading(true);
+  const { data: viaje, isLoading: loading } = useQuery({
+    queryKey: ["viaje-finish", viajeId],
+    queryFn: () => getViajePorId(viajeId),
+    enabled: !!viajeId && !viajeParam,
+    initialData: viajeParam || undefined,
+  });
 
-    const viajeId = viajeIdParam || viajeParam?.id_viaje_pub;
-
-    if (!viajeId) {
-      console.log("No hay viajeId");
-      return;
-    }
-
-    const response = await orpc.viajes.porId({ viajeId });
-
-    if (response.success) {
-      setViaje(response.viaje);
-    } else {
-      setViaje(null);
-    }
-  } catch (error) {
-    console.error("Error al cargar viaje:", error);
-    setViaje(null);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  useEffect(() => {
-  console.log("PARAMS:", route?.params);
-
-  if (!viajeParam && viajeIdParam) {
-    fetchViaje();
-  }
-}, [viajeParam, viajeIdParam]);
-
-  const handleFinalizarViaje = async () => {
-    const viajeId = viajeIdParam || viaje?.id_viaje_pub;
-
-    if (!viajeId) {
-      console.log("No hay viajeId");
-      setLoading(false); //  importante
-      return;
-    }
-
-    try {
-      setFinalizando(true);
-      const response = await orpc.viajes.finalizarViaje({ viajeId });
-      if (response.success) {
-        Alert.alert("¡Listo!", "Viaje finalizado y guardado en historial");
-        navigation.navigate("Home");
-      } else {
-        Alert.alert("Error", "Error al finalizar viaje");
-      }
-    } catch (error) {
-      console.error("Error al finalizar viaje:", error);
+  const finalizarMutation = useMutation({
+    mutationFn: (id: number) => orpc.viajes.finalizarViaje({ viajeId: id }),
+    onSuccess: () => {
+      Alert.alert("¡Listo!", "Viaje finalizado y guardado en historial");
+      navigation.navigate("Home");
+    },
+    onError: () => {
       Alert.alert("Error", "Error al finalizar viaje");
-    } finally {
-      setFinalizando(false);
+    },
+  });
+
+  const handleFinalizarViaje = () => {
+    if (!viajeId) {
+      console.log("No hay viajeId");
+      return;
     }
+    finalizarMutation.mutate(viajeId);
   };
 
   // const [driverRating, setDriverRating] = useState<number>(0);
@@ -277,11 +242,11 @@ const FinishTripScreen = ({ navigation, route }: any) => {
               <View className="mb-6">
                 <TouchableOpacity
                   onPress={handleFinalizarViaje}
-                  disabled={finalizando}
+                  disabled={finalizarMutation.isPending}
                   className="bg-blue-500 rounded-2xl px-6 py-4 shadow-lg mb-3"
                 >
                   <Text className="text-white font-bold text-center text-lg">
-                    {finalizando ? "Finalizando..." : "Finalizar Viaje"}
+                    {finalizarMutation.isPending ? "Finalizando..." : "Finalizar Viaje"}
                   </Text>
                 </TouchableOpacity>
               </View>

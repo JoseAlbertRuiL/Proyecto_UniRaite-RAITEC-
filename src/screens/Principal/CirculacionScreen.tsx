@@ -10,6 +10,7 @@ import {
   Image,
   StatusBar,
 } from "react-native";
+import { useMutation } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,7 +33,6 @@ const CirculacionScreen = ({ navigation, route }: any) => {
   const [color, setColor] = useState("");
   const [placas, setPlacas] = useState("");
   const [capacidadPasajeros, setCapacidadPasajeros] = useState("");
-  const [cargando, setCargando] = useState(false);
 
   const seleccionarFoto = () => {
     Alert.alert(
@@ -107,11 +107,8 @@ const CirculacionScreen = ({ navigation, route }: any) => {
     return true;
   };
 
-  const handleRegistrar = async () => {
-    if (!validarCampos()) return;
-    setCargando(true);
-
-    try {
+  const registroMutation = useMutation({
+    mutationFn: async () => {
       if (modoEdicion) {
         await actualizarVehiculo({
           modelo: modelo.trim(),
@@ -130,7 +127,6 @@ const CirculacionScreen = ({ navigation, route }: any) => {
           foto_circulacion_uri: fotoCirculacion!,
         });
 
-        // Actualizar caché local de usuario
         const userStr = await AsyncStorage.getItem("user");
         if (userStr) {
           const userCacheado = JSON.parse(userStr);
@@ -138,7 +134,8 @@ const CirculacionScreen = ({ navigation, route }: any) => {
           await AsyncStorage.setItem("user", JSON.stringify(userCacheado));
         }
       }
-
+    },
+    onSuccess: () => {
       Alert.alert(
         "¡LISTO!",
         modoEdicion
@@ -146,12 +143,15 @@ const CirculacionScreen = ({ navigation, route }: any) => {
           : "Tus documentos fueron validados. Ya eres conductor en UNIRAITE.",
         [{ text: "OK", onPress: () => navigation.navigate("ConfigP") }],
       );
-    } catch (error: any) {
-      console.error("Error:", error);
+    },
+    onError: (error: any) => {
       Alert.alert("Error", error?.message || "Ocurrió un error.");
-    } finally {
-      setCargando(false);
-    }
+    },
+  });
+
+  const handleRegistrar = () => {
+    if (!validarCampos()) return;
+    registroMutation.mutate();
   };
 
   const handleCancelar = () => {
@@ -299,13 +299,13 @@ const CirculacionScreen = ({ navigation, route }: any) => {
         </View>
 
         <TouchableOpacity
-          className={`rounded-xl py-4 items-center mb-3 shadow-lg ${cargando ? "bg-blue-400" : "bg-blue-900"}`}
+          className={`rounded-xl py-4 items-center mb-3 shadow-lg ${registroMutation.isPending ? "bg-blue-400" : "bg-blue-900"}`}
           onPress={handleRegistrar}
-          disabled={cargando}
+          disabled={registroMutation.isPending}
           activeOpacity={0.8}
         >
           <Text className="text-white text-base font-semibold">
-            {cargando
+            {registroMutation.isPending
               ? "Verificando..."
               : modoEdicion
                 ? "Actualizar información"
@@ -316,7 +316,7 @@ const CirculacionScreen = ({ navigation, route }: any) => {
         <TouchableOpacity
           className="bg-gray-200 rounded-xl py-4 items-center mb-12"
           onPress={handleCancelar}
-          disabled={cargando}
+          disabled={registroMutation.isPending}
           activeOpacity={0.8}
         >
           <Text className="text-gray-600 text-base font-semibold">
