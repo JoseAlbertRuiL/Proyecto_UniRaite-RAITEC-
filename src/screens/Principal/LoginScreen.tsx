@@ -33,7 +33,7 @@ const LoginScreen = ({ navigation }: any) => {
       return data;
     },
     onSuccess: () => {
-      navigation.navigate("Home");
+      navigation.replace("Home");
     },
     onError: (error: any) => {
       const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";

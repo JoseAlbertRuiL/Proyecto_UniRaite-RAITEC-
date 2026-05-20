@@ -1,3 +1,5 @@
+import "react-native-reanimated";
+import "react-native-quick-base64";
 import "../global.css";
 import React from "react";
 import { Stack } from "expo-router";
@@ -10,8 +12,18 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "slide_from_right",
+            gestureEnabled: true,
+            gestureDirection: "horizontal",
+          }}
+        >
+          <Stack.Screen
+            name="index"
+            options={{ animation: "none" }}
+          />
           <Stack.Screen name="(principal)" />
           <Stack.Screen name="(trip)" />
         </Stack>

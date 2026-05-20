@@ -70,7 +70,7 @@ export default function RateTripScreen({ navigation, route }: any) {
       Alert.alert(
         "¡Gracias!",
         `Tu calificación de ${variables.estrellas} ⭐ ha sido guardada exitosamente.`,
-        [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+        [{ text: "OK", onPress: () => navigation.replace("Home") }]
       );
     },
     onError: (err: any) => {
@@ -102,7 +102,7 @@ export default function RateTripScreen({ navigation, route }: any) {
         <View className="flex-row items-center justify-center p-4 relative">
           <TouchableOpacity
             className="absolute left-4 p-2"
-            onPress={() => navigation?.navigate("Home")}
+            onPress={() => navigation?.replace("Home")}
           >
             <Text className="text-slate-600 text-lg font-bold">✕</Text>
           </TouchableOpacity>

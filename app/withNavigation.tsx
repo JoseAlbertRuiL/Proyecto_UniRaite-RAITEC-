@@ -44,7 +44,23 @@ export function withNavigation(WrappedComponent: any) {
         } else {
           router.replace('/(principal)/Home');
         }
-      }
+      },
+      replace: (name: string, navigateParams?: any) => {
+        const path = routeMapping[name] || name;
+        if (navigateParams) {
+          router.replace({ pathname: path, params: navigateParams });
+        } else {
+          router.replace(path);
+        }
+      },
+      reset: (name: string) => {
+        const path = routeMapping[name] || name;
+        while (router.canGoBack()) {
+          router.back();
+        }
+        router.replace(path);
+      },
+      canGoBack: () => router.canGoBack(),
     };
 
     const route = {

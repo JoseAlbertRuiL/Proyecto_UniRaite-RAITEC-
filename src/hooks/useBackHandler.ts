@@ -21,8 +21,8 @@ export const useBackHandler = (navigation: any, type: 'main' | 'login' | 'normal
         }
         return true;
       } else {
-        navigation.goBack();
-        return true;
+        // Let the native Stack Navigator handle back navigation
+        return false;
       }
     };
 

@@ -151,7 +151,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             "token",
           ]);
 
-          navigation.navigate("Login");
+          navigation.reset("Login");
         },
         style: "destructive",
       },

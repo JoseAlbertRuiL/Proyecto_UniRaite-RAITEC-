@@ -60,7 +60,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
     try {
       const data = await orpc.usuarios.getPerfil();
       if (data && data.user && data.user.es_conductor) {
-        navigation.navigate("Conducir");
+        navigation.replace("Conducir");
       } else {
         Alert.alert(
           "Necesitas registrarte como conductor",
@@ -96,7 +96,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
     >
       <TouchableOpacity
         className="items-center"
-        onPress={() => navigation.navigate("Home")}
+        onPress={() => navigation.replace("Home")}
       >
         <SvgXml xml={homeSvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Inicio</Text>
@@ -104,7 +104,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
 
       <TouchableOpacity
         className="items-center relative"
-        onPress={() => navigation.navigate("ChatHistory")}
+        onPress={() => navigation.replace("ChatHistory")}
       >
         <View>
           <SvgXml xml={chatSvg} width={24} height={24} fill="#6B7280" />
@@ -128,7 +128,7 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
 
       <TouchableOpacity
         className="items-center"
-        onPress={() => navigation.navigate("History")}
+        onPress={() => navigation.replace("History")}
       >
         <SvgXml xml={historySvg} width={24} height={24} fill="#6B7280" />
         <Text className="text-xs text-gray-600">Historial</Text>

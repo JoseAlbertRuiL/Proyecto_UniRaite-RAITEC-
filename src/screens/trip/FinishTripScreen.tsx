@@ -34,7 +34,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
     mutationFn: (id: number) => orpc.viajes.finalizarViaje({ viajeId: id }),
     onSuccess: () => {
       Alert.alert("¡Listo!", "Viaje finalizado y guardado en historial");
-      navigation.navigate("Home");
+      navigation.replace("Home");
     },
     onError: () => {
       Alert.alert("Error", "Error al finalizar viaje");

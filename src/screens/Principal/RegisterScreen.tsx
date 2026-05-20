@@ -172,7 +172,7 @@ const RegisterScreen = ({ navigation }: any) => {
       });
 
       Alert.alert("Listo!", "Te registraste correctamente", [
-        { text: "OK", onPress: () => navigation.navigate("Login") },
+        { text: "OK", onPress: () => navigation.replace("Login") },
       ]);
     } catch (error: any) {
       console.log(error);

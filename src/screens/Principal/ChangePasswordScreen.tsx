@@ -23,7 +23,7 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
     mutationFn: () => orpc.auth.resetPassword({ correo_inst: email, newPassword: password }),
     onSuccess: () => {
       Alert.alert("Éxito", "Contraseña actualizada correctamente", [
-        { text: "OK", onPress: () => navigation.navigate("Login") },
+        { text: "OK", onPress: () => navigation.replace("Login") },
       ]);
     },
     onError: (error: any) => {
@@ -102,7 +102,7 @@ const ChangePasswordScreen = ({ navigation, route }: any) => {
 
       <TouchableOpacity
         className="mt-4 p-4"
-        onPress={() => navigation.navigate("Login")}
+        onPress={() => navigation.replace("Login")}
       >
         <Text className="text-gray-500 text-center">Volver al login</Text>
       </TouchableOpacity>

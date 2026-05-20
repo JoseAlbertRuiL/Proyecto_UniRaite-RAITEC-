@@ -104,7 +104,7 @@ const StartScreen = ({ navigation }: any) => {
     const perfilData = await getPerfil();
 
     if (!perfilData || !perfilData.user) {
-      navigation.navigate("Login");
+      navigation.replace("Login");
       return [];
     }
 
