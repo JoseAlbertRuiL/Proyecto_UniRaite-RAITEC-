@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { orpc } from "../../services/api/apiClient";
 import { getSocket, onNewMessage, offNewMessage } from "../../services/socket";
-import { useEffect } from "react";
 
 interface FooterProps {
   navigation: any;
@@ -21,6 +20,7 @@ const historySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
 const Footer: React.FC<FooterProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const [modoConductorActivo, setModoConductorActivo] = useState(false);
 
   const { data: mensajesData } = useQuery({
     queryKey: ["mensajes-no-leidos"],
@@ -33,7 +33,18 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
   });
 
   const mensajesNoLeidos = mensajesData?.total ?? 0;
-  const modoConductorActivo = perfilData?.user?.es_conductor === true;
+
+  useEffect(() => {
+    const checkConductorMode = async () => {
+      const saved = await AsyncStorage.getItem("modo_conductor_activo");
+      setModoConductorActivo(
+        saved === "true" && perfilData?.user?.es_conductor === true,
+      );
+    };
+    if (perfilData?.user) {
+      checkConductorMode();
+    }
+  }, [perfilData]);
 
   useEffect(() => {
     const socket = getSocket();

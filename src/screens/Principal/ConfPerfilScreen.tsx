@@ -136,27 +136,27 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   };
 
   const cerrarSesion = () => {
-    Alert.alert("Cerrar sesión", "¿Estás seguro de que deseas cerrar sesión?", [
-      { text: "Quedarme", style: "cancel" },
-      {
-        text: "Cerrar sesión",
-        onPress: async () => {
-          await logout();
-          await disconnectSocket();
+  Alert.alert("Cerrar sesión", "¿Estás seguro de que deseas cerrar sesión?", [
+    { text: "Quedarme", style: "cancel" },
+    {
+      text: "Cerrar sesión",
+      onPress: async () => {
+        await logout();
+        await disconnectSocket();
 
-          await AsyncStorage.multiRemove([
-            "punto_encuentro",
-            "modo_conductor_activo",
-            "user",
-            "token",
-          ]);
+        await AsyncStorage.multiRemove([
+          "punto_encuentro",
+          "modo_conductor_activo",
+          "user",
+          "token",
+        ]);
 
-          navigation.reset("Login");
-        },
-        style: "destructive",
+        navigation.reset("Login");
       },
-    ]);
-  };
+      style: "destructive",
+    },
+  ]);
+};
 
   const cambiarNombre = async () => {
     if (!nombre || !apellidoPaterno) {
