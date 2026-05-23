@@ -195,6 +195,8 @@ const orpcHandler = new RPCHandler(router, {
   ],
 })
 
+// ─── oRPC Handler principal ───────────────────────────────────────────────────
+
 app.use('/rpc', async (req, res, next) => {
   console.log('📡 Petición recibida en /rpc:', req.method, req.url)
   const { matched } = await orpcHandler.handle(req, res, {

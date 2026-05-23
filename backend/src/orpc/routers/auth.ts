@@ -8,6 +8,7 @@ import fs from 'fs'
 import { baseProcedure } from '../middleware'
 import { prisma } from '../context'
 import cloudinary from '../../services/cloudinaryService'
+import { registrarIntentoFallido, resetearIntentos } from '../../middleware/emailrateLimiter'
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -47,13 +48,20 @@ export const login = baseProcedure
     })
 
     if (!usuario) {
+      // Registrar intento fallido por email no encontrado
+      await registrarIntentoFallido(input.correo_inst);
       throw new ORPCError('UNAUTHORIZED', { message: 'Credenciales incorrectas' })
     }
 
     const valido = await bcrypt.compare(input.password, usuario.password_hash)
     if (!valido) {
+      // Registrar intento fallido por contraseña incorrecta
+      await registrarIntentoFallido(input.correo_inst);
       throw new ORPCError('UNAUTHORIZED', { message: 'Credenciales incorrectas' })
     }
+
+    // Login exitoso - resetear intentos fallidos
+    await resetearIntentos(input.correo_inst);
 
     const token = jwt.sign({ id: usuario.id_usuario }, process.env.JWT_SECRET!, {
       expiresIn: '7d',
@@ -85,7 +93,8 @@ export const forgotPassword = baseProcedure
     })
 
     if (!usuario) {
-      throw new ORPCError('NOT_FOUND', { message: 'El correo no está registrado' })
+      // No revelamos si el correo existe o no por seguridad
+      return { success: true, message: 'Si el correo está registrado, recibirás un código' }
     }
 
     const codigo = Math.floor(100000 + Math.random() * 900000).toString()
@@ -122,13 +131,12 @@ export const forgotPassword = baseProcedure
       console.log('✅ Email enviado correctamente')
     } catch (emailError) {
       console.error('❌ Error al enviar email:', emailError)
-      // No lanzamos error, el código igual se guardó
     }
 
-    return { success: true, message: 'Código enviado a tu correo' }
+    return { success: true, message: 'Si el correo está registrado, recibirás un código' }
   })
 
-  // POST /api/verify-code
+// POST /api/verify-code
 export const verifyCode = baseProcedure
   .input(z.object({
     correo_inst: z.string().email(),
@@ -186,7 +194,6 @@ export const register = baseProcedure
       correo_inst: z.string().email(),
       password: z.string().min(6, { message: 'La contraseña debe tener mínimo 6 caracteres' }),
       carrera: z.string().optional(),
-      // URLs de Cloudinary devueltas por el endpoint de upload
       foto_credencial: z.string().optional(),
       foto_perfil: z.string().optional(),
     })
@@ -220,7 +227,7 @@ export const register = baseProcedure
       if (fs.existsSync(rutaPerfil)) {
         console.log('Subiendo foto de perfil a Cloudinary...');
         urlFotoPerfil = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
-        fs.unlinkSync(rutaPerfil); // Borramos el archivo local
+        fs.unlinkSync(rutaPerfil);
       }
     }
 
@@ -230,7 +237,7 @@ export const register = baseProcedure
       if (fs.existsSync(rutaCredencial)) {
         console.log('Subiendo credencial a Cloudinary...');
         urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
-        fs.unlinkSync(rutaCredencial); // Borramos el archivo local
+        fs.unlinkSync(rutaCredencial);
       }
     }
 

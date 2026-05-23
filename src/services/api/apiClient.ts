@@ -9,6 +9,7 @@ console.log('🔥 apiClient cargado')
 
 const PROD_URL = 'https://proyecto-uniraite-raitec.onrender.com'
 
+
 const getLocalUrl = (): string => {
   let expoIp: string | null = null
 

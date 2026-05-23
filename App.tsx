@@ -1,6 +1,7 @@
 import "./global.css";
 import React, { useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -43,6 +44,9 @@ type ScreenName =
   | "RateTrip"
   | "History";
 
+// Crear el cliente de React Query
+const queryClient = new QueryClient();
+
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({});
@@ -72,39 +76,70 @@ export default function App() {
       if (name === "Start") setScreen("Home");
     },
     goBack: () => setScreen("Home"),
+    replace: (name: string, params?: any) => {
+      // ← AGREGAR ESTO
+      if (params) setRoute({ params });
+      if (name === "Home") setScreen("Home");
+      if (name === "Login") setScreen("Login");
+      if (name === "Conducir") setScreen("Conducir");
+      // Agrega aquí las pantallas que necesites para replace
+    },
   } as any;
 
   // Función que decide qué pantalla dibujar
   const renderScreen = () => {
     switch (screen) {
-      case "Login": return <LoginScreen navigation={navigation} />;
-      case "Home": return <HomeScreen navigation={navigation} />;
-      case "Register": return <RegisterScreen navigation={navigation} />;
-      case "Forget": return <ForgetPasswordScreen navigation={navigation} />;
-      case "Code": return <CodeForgetPasswordScreen navigation={navigation} route={route} />;
-      case "ConfigP": return <ConfPerfilScreen navigation={navigation} />;
-      case "ChangePassword": return <ChangePasswordScreen navigation={navigation} route={route} />;
-      case "Map": return <Map navigation={navigation} />;
-      case "Chat": return <ChatScreen navigation={navigation} route={route} />;
-      case "Licencia": return <LicenciaScreen navigation={navigation} />;
-      case "Circulacion": return <CirculacionScreen navigation={navigation} route={route} />;
-      case "PublicarViaje": return <PublishTripScreen navigation={navigation} />;
-      case "Conducir": return <ConducirScreen navigation={navigation} />;
-      case "PerfilPublico": return <PerfilPublicoScreen navigation={navigation} route={route} />;
-      case "ChatHistory": return <ChatHistory navigation={navigation} />;
-      case "Notificaciones": return <NotificacionesScreen navigation={navigation} />;
-      case "FinishTrip": return <FinishTripScreen navigation={navigation} route={route} />;
-      case "RateTrip": return <RateTripScreen navigation={navigation} route={route} />;
-      case "History": return <HistoryScreen navigation={navigation} />;
-      case "Start": return <HomeScreen navigation={navigation} />;
-      default: return <LoginScreen navigation={navigation} />;
+      case "Login":
+        return <LoginScreen navigation={navigation} />;
+      case "Home":
+        return <HomeScreen navigation={navigation} />;
+      case "Register":
+        return <RegisterScreen navigation={navigation} />;
+      case "Forget":
+        return <ForgetPasswordScreen navigation={navigation} />;
+      case "Code":
+        return (
+          <CodeForgetPasswordScreen navigation={navigation} route={route} />
+        );
+      case "ConfigP":
+        return <ConfPerfilScreen navigation={navigation} />;
+      case "ChangePassword":
+        return <ChangePasswordScreen navigation={navigation} route={route} />;
+      case "Map":
+        return <Map navigation={navigation} />;
+      case "Chat":
+        return <ChatScreen navigation={navigation} route={route} />;
+      case "Licencia":
+        return <LicenciaScreen navigation={navigation} />;
+      case "Circulacion":
+        return <CirculacionScreen navigation={navigation} route={route} />;
+      case "PublicarViaje":
+        return <PublishTripScreen navigation={navigation} />;
+      case "Conducir":
+        return <ConducirScreen navigation={navigation} />;
+      case "PerfilPublico":
+        return <PerfilPublicoScreen navigation={navigation} route={route} />;
+      case "ChatHistory":
+        return <ChatHistory navigation={navigation} />;
+      case "Notificaciones":
+        return <NotificacionesScreen navigation={navigation} />;
+      case "FinishTrip":
+        return <FinishTripScreen navigation={navigation} route={route} />;
+      case "RateTrip":
+        return <RateTripScreen navigation={navigation} route={route} />;
+      case "History":
+        return <HistoryScreen navigation={navigation} />;
+      case "Start":
+        return <HomeScreen navigation={navigation} />;
+      default:
+        return <LoginScreen navigation={navigation} />;
     }
   };
 
-  // Un return limpio y seguro
+  // Envolver todo con QueryClientProvider
   return (
-    <SafeAreaProvider>
-      {renderScreen()}
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>{renderScreen()}</SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
