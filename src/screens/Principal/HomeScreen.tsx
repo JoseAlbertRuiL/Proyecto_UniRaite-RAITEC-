@@ -79,9 +79,12 @@ const StartScreen = ({ navigation }: any) => {
           return;
         }
 
+        const viajesActivos = solicitud.viaje?.viajes_activos;
+        const tieneViajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0;
+
         setSolicitudActiva({
           tieneSolicitud: true,
-          estado: solicitud.estado_solicitud,
+          estado: tieneViajeActivo ? 'en_curso' : solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
         });
 
@@ -369,10 +372,16 @@ const StartScreen = ({ navigation }: any) => {
         cargarViajes();
       };
 
+      const onViajeIniciado = (data: any) => {
+        console.log("📢 Viaje iniciado:", data);
+        cargarViajes();
+      };
+
       socket.on("solicitud_actualizada", onSolicitudActualizada);
       socket.on("nueva_solicitud", onNuevaSolicitud);
       socket.on("nuevo_viaje", onNuevoViaje);
       socket.on("viaje_cancelado", onViajeCancelado);
+      socket.on("viaje_iniciado", onViajeIniciado);
 
       return () => {
         clearInterval(interval);
@@ -380,6 +389,7 @@ const StartScreen = ({ navigation }: any) => {
         socket.off("nueva_solicitud", onNuevaSolicitud);
         socket.off("nuevo_viaje", onNuevoViaje);
         socket.off("viaje_cancelado", onViajeCancelado);
+        socket.off("viaje_iniciado", onViajeIniciado);
       };
     }
 
@@ -393,7 +403,7 @@ const StartScreen = ({ navigation }: any) => {
     const joinRoom = () => {
       if (
         solicitudActiva.tieneSolicitud &&
-        solicitudActiva.estado === 'aceptada' &&
+        (solicitudActiva.estado === 'aceptada' || solicitudActiva.estado === 'en_curso') &&
         solicitudActiva.viajeId
       ) {
         socket.emit('join_viaje', solicitudActiva.viajeId);
@@ -490,12 +500,14 @@ const StartScreen = ({ navigation }: any) => {
               ))
             )}
             {/* Botón para abrir mapa en vivo — solo si hay viaje aceptado */}
-            {solicitudActiva.estado === 'aceptada' && (
+            {(solicitudActiva.estado === 'aceptada' || solicitudActiva.estado === 'en_curso') && (
               <TouchableOpacity
                 className="bg-blue-900 rounded-xl py-3 px-6 mb-4 flex-row items-center justify-center"
                 onPress={() => setLiveMapVisible(true)}
               >
-                <Text className="text-white font-bold text-base">🗺️ Ver mapa</Text>
+                <Text className="text-white font-bold text-base">
+                  {solicitudActiva.estado === 'en_curso' ? '🚗 Ver viaje en vivo' : '🗺️ Ver mapa'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>

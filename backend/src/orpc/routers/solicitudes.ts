@@ -252,9 +252,29 @@ export const obtenerEstadoPorViaje = protectedProcedure
         id_viaje_pub: input.viajeId,
         id_pasajero: context.user.id,
       },
+      include: {
+        viaje: {
+          select: {
+            viajes_activos: {
+              where: { estado_trayecto: 'en_curso' },
+              select: { id_viaje_activo: true },
+              take: 1,
+            },
+          },
+        },
+      },
     });
     console.log(`📋 Solicitud encontrada:`, solicitud);
-    return { estado: solicitud?.estado_solicitud || null };
+
+    let estado = solicitud?.estado_solicitud || null;
+
+    // Si la solicitud está aceptada y el viaje ya tiene un viaje_activo en curso,
+    // devolvemos "en_curso" para que el pasajero sepa que el viaje inició
+    if (estado === 'aceptada' && (solicitud?.viaje?.viajes_activos?.length ?? 0) > 0) {
+      estado = 'en_curso';
+    }
+
+    return { estado };
   });
 
 // Obtener todas las solicitudes del pasajero
@@ -296,6 +316,11 @@ export const obtenerSolicitudesActivas = protectedProcedure
             longitud_destino: true,
             fecha_hora_salida: true,
             costo_estimado: true,
+            viajes_activos: {
+              where: { estado_trayecto: 'en_curso' },
+              select: { id_viaje_activo: true },
+              take: 1,
+            },
           },
         },
       },

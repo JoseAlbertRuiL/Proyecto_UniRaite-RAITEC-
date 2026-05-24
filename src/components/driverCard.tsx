@@ -55,6 +55,7 @@ const DriverCard = ({
   const getBotonTexto = () => {
     if (estadoSolicitud === "pendiente") return "Pendiente ⏳";
     if (estadoSolicitud === "aceptada") return "Aceptado ✅";
+    if (estadoSolicitud === "en_curso") return "En curso 🚗";
     if (estadoSolicitud === "rechazada") return "Rechazado ❌";
     if (estadoSolicitud === "cancelado") return "Cancelado 🚫";
     if (estadoSolicitud === "completado") return "Finalizado 🏁";
@@ -64,6 +65,7 @@ const DriverCard = ({
   const getBotonEstilo = () => {
     if (estadoSolicitud === "pendiente") return "bg-yellow-500";
     if (estadoSolicitud === "aceptada") return "bg-green-500";
+    if (estadoSolicitud === "en_curso") return "bg-blue-600";
     if (estadoSolicitud === "rechazada") return "bg-red-500";
     if (estadoSolicitud === "cancelado") return "bg-gray-500";
     if (estadoSolicitud === "completado") return "bg-gray-600";
