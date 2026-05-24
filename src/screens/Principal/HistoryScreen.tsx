@@ -124,8 +124,8 @@ const HistoryScreen = ({ navigation }: any) => {
             </View>
           }
           renderItem={({ item }) => {
-            const capacidadTotal = item.conductor?.capacidad_pasajeros ?? 4;
-            // Usar pasajeros_confirmados si existe, si no calcular desde asientos_disponibles
+            const capacidadTotal = item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4;
+            
             const pasajerosOcupados = typeof (item as any).pasajeros_confirmados === "number"
               ? (item as any).pasajeros_confirmados
               : (typeof item.asientos_disponibles === "number"
@@ -146,6 +146,11 @@ const HistoryScreen = ({ navigation }: any) => {
                     asientos_ocupados: pasajerosOcupados,
                     conductor: {
                       ...item.conductor,
+                      modelo: item.vehiculo_modelo ?? item.conductor?.modelo,
+                      color: item.vehiculo_color ?? item.conductor?.color,
+                      placas: item.vehiculo_placas ?? item.conductor?.placas,
+                      capacidad_pasajeros: capacidadTotal,
+                      
                       usuario: {
                         ...item.conductor.usuario,
                         total_viajes: item.conductor.usuario.viajes_completados || 0,

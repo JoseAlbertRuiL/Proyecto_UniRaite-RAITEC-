@@ -183,6 +183,12 @@ export const publicarViaje = protectedProcedure
         asientos_disponibles: input.asientos,
         costo_estimado: input.precio,
         es_recurrente: false,
+
+        // SNAPSHOT: Guardar datos del vehículo al momento de publicar
+        vehiculo_modelo: conductor.modelo,
+        vehiculo_color: conductor.color,
+        vehiculo_placas: conductor.placas,
+        capacidad_pasajeros: conductor.capacidad_pasajeros,
       },
     })
 

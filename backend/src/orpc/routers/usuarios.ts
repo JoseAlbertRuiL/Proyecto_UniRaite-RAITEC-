@@ -131,11 +131,19 @@ export const actualizarPerfil = protectedProcedure
     nombre: z.string().min(1),
     apellido_paterno: z.string().min(1),
     apellido_materno: z.string().optional(),
-    // Añadimos el string del nombre del archivo de la nueva credencial
     foto_credencial: z.string().min(1, { message: 'Se requiere una nueva foto de credencial para validar el cambio de nombre' })
   }))
   .handler(async ({ input, context }) => {
     
+    // Obtener el estado actual del usuario antes de modificarlo para la auditoría
+    const usuarioActual = await prisma.usuarios.findUnique({
+      where: { id_usuario: context.user.id }
+    });
+
+    if (!usuarioActual) {
+      throw new ORPCError('NOT_FOUND', { message: 'Usuario no encontrado en el sistema.' });
+    }
+
     const rutaCredencial = path.join(process.cwd(), 'uploads', 'credentials', input.foto_credencial);
 
     if (!fs.existsSync(rutaCredencial)) {
@@ -145,13 +153,13 @@ export const actualizarPerfil = protectedProcedure
     console.log('Validando nueva credencial con IA para cambio de nombre...');
     const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
-    // Validar estructura
+    // Validar estructura básica de la credencial
     if (!txtCredencial.includes('TECNOLOGICONACIONALDEMEXICO') && !txtCredencial.includes('INSTITUTOTECNOLOGICODEMORELIA')) {
       fs.unlinkSync(rutaCredencial);
       throw new ORPCError('BAD_REQUEST', { message: 'El documento no parece ser una credencial oficial del ITM.' });
     }
 
-    // Validar que el nuevo nombre coincida
+    // Validar que el nuevo nombre coincida con el texto extraído
     const nombreNorm = normalizarTexto(input.nombre);
     const paternoNorm = normalizarTexto(input.apellido_paterno);
     const maternoNorm = input.apellido_materno ? normalizarTexto(input.apellido_materno) : '';
@@ -167,22 +175,77 @@ export const actualizarPerfil = protectedProcedure
       urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
       fs.unlinkSync(rutaCredencial);
     } catch (error) {
-      fs.unlinkSync(rutaCredencial);
+      if (fs.existsSync(rutaCredencial)) fs.unlinkSync(rutaCredencial);
       throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Error al subir la imagen a la nube' });
     }
 
-    // Actualizamos la base de datos con los nuevos datos y el link de la nueva credencial
-    await prisma.usuarios.update({
-      where: { id_usuario: context.user.id },
-      data: {
-        nombre: input.nombre,
-        apellido_paterno: input.apellido_paterno,
-        apellido_materno: input.apellido_materno || null,
-        foto_credencial: urlSeguraNube
-      },
-    })
+    // Comparar campos de identidad para construir el historial inmutable granular
+    const operacionesLog: any[] = [];
+
+    if (usuarioActual.nombre !== input.nombre) {
+      operacionesLog.push(
+        prisma.historial_cambios_perfil.create({
+          data: {
+            id_usuario: context.user.id,
+            campo_modificado: 'nombre',
+            valor_anterior: usuarioActual.nombre,
+            valor_nuevo: input.nombre,
+            foto_evidencia: urlSeguraNube,
+          },
+        })
+      );
+    }
+
+    if (usuarioActual.apellido_paterno !== input.apellido_paterno) {
+      operacionesLog.push(
+        prisma.historial_cambios_perfil.create({
+          data: {
+            id_usuario: context.user.id,
+            campo_modificado: 'apellido_paterno',
+            valor_anterior: usuarioActual.apellido_paterno,
+            valor_nuevo: input.apellido_paterno,
+            foto_evidencia: urlSeguraNube,
+          },
+        })
+      );
+    }
+
+    const maternoActual = usuarioActual.apellido_materno || '';
+    const maternoNuevo = input.apellido_materno || '';
+    if (maternoActual !== maternoNuevo) {
+      operacionesLog.push(
+        prisma.historial_cambios_perfil.create({
+          data: {
+            id_usuario: context.user.id,
+            campo_modificado: 'apellido_materno',
+            valor_anterior: usuarioActual.apellido_materno || 'N/A',
+            valor_nuevo: input.apellido_materno || 'N/A',
+            foto_evidencia: urlSeguraNube,
+          },
+        })
+      );
+    }
+
+    // 🔒 3. Ejecutar actualización del perfil y logs de auditoría en una transacción segura
+    try {
+      await prisma.$transaction([
+        ...operacionesLog,
+        prisma.usuarios.update({
+          where: { id_usuario: context.user.id },
+          data: {
+            nombre: input.nombre,
+            apellido_paterno: input.apellido_paterno,
+            apellido_materno: input.apellido_materno || null,
+            foto_credencial: urlSeguraNube
+          },
+        }),
+      ]);
+    } catch (error) {
+      console.error('Error en la transacción de actualización:', error);
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de perfil de manera segura.' });
+    }
     
-    return { success: true, message: 'Perfil y credencial actualizados exitosamente' }
+    return { success: true, message: 'Perfil actualizado exitosamente y cambio registrado en la auditoría' }
   })
 
 // PUT /api/usuarios/actualizar-carrera

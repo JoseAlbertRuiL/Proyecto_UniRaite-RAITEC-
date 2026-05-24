@@ -266,7 +266,7 @@ export const obtenerEstadoPorViaje = protectedProcedure
     });
     console.log(`📋 Solicitud encontrada:`, solicitud);
 
-    let estado = solicitud?.estado_solicitud || null;
+    let estado: string | null = solicitud?.estado_solicitud || null;
 
     // Si la solicitud está aceptada y el viaje ya tiene un viaje_activo en curso,
     // devolvemos "en_curso" para que el pasajero sepa que el viaje inició
