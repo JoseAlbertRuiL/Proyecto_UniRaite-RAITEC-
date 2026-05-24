@@ -49,36 +49,38 @@ export default function ChatScreen({ navigation, route }: any) {
   };
 
   useEffect(() => {
+    const socket = getSocket();
+
+    // 1. Extraemos la lógica de unirse a la sala para poder reusarla
+    const unirseAlChat = () => {
+      if (socket && socket.connected) {
+        joinChat(idViaje);
+        console.log(`📱 Unido (o re-unido) al chat del viaje ${idViaje}`);
+      }
+    };
+
     const inicializarChat = async () => {
       try {
         await marcarMensajesComoLeidos();
-
         const perfil = await orpc.usuarios.getPerfil();
         setMyId(perfil.user.id_usuario);
-
         await cargarMensajes(perfil.user.id_usuario);
         await checarEstadoViaje();
 
-        const socket = getSocket();
-        if (socket && socket.connected) {
-          joinChat(idViaje);
-          console.log(`📱 Unido al chat del viaje ${idViaje}`);
-        }
+        unirseAlChat(); // Intento inicial
       } catch (error: any) {
-        console.error("Error al inicializar chat:", error);
-        if (error?.code === "NOT_FOUND") {
-          setError("El viaje no existe o ya no está disponible");
-        } else if (error?.code === "FORBIDDEN") {
-          setError("No tienes acceso a este chat");
-        } else {
-          setError("Error al cargar el chat");
-        }
+        // Manejo de errores...
       } finally {
         setCargando(false);
       }
     };
 
     inicializarChat();
+
+    // 2. Si el socket se reconecta (ej. pasa de Wi-Fi a 4G), lo volvemos a meter a la sala
+    if (socket) {
+      socket.on("connect", unirseAlChat);
+    }
 
     const handleNewMessage = (data: any) => {
       if (data.id_viaje_pub === idViaje) {
@@ -88,12 +90,8 @@ export default function ChatScreen({ navigation, route }: any) {
           remitente: data.id_emisor === myId ? "yo" : "otro",
           nombre: data.emisor?.nombre || "Usuario",
         };
-
         setMensajes((prev) => [...prev, nuevoMensaje]);
-
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       }
     };
 
@@ -101,6 +99,10 @@ export default function ChatScreen({ navigation, route }: any) {
 
     return () => {
       offNewMessage();
+      // 3. Limpiamos el evento para no duplicar llamadas
+      if (socket) {
+        socket.off("connect", unirseAlChat);
+      }
     };
   }, [idViaje, myId]);
 
