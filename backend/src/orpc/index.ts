@@ -36,7 +36,8 @@ import {
   obtenerSolicitudesRecibidas,
   obtenerEstadoPorViaje,
   misSolicitudes,
-  obtenerSolicitudesActivas
+  obtenerSolicitudesActivas,
+  cancelarSolicitud
 } from './routers/solicitudes'
 import { 
   getMensajes,
@@ -100,6 +101,7 @@ export const router = {
   solicitudes: {
     solicitar: solicitarViaje,
     responder: responderSolicitud,
+    cancelar: cancelarSolicitud,
     recibidas: obtenerSolicitudesRecibidas,
     obtenerEstadoPorViaje,
     misSolicitudes,

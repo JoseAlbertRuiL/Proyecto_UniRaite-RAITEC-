@@ -30,6 +30,7 @@ import {
   obtenerEstadoSolicitud,
   obtenerSolicitudesActivas,
   getViajePorId,
+  cancelarSolicitud,
 } from "../../services/trip/tripService";
 import { BASE_URL } from "../../services/api/apiClient";
 import { useBackHandler } from "../../hooks/useBackHandler";
@@ -56,6 +57,7 @@ const StartScreen = ({ navigation }: any) => {
     tieneSolicitud: boolean;
     estado: string | null;
     viajeId?: number;
+    solicitudId?: number;
   }>({ tieneSolicitud: false, estado: null });
 
   const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
@@ -86,6 +88,7 @@ const StartScreen = ({ navigation }: any) => {
           tieneSolicitud: true,
           estado: tieneViajeActivo ? 'en_curso' : solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
+          solicitudId: solicitud.id_solicitud,
         });
 
         if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
@@ -279,6 +282,52 @@ const StartScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleCancelarSolicitud = async (viajeId: number) => {
+    if (!solicitudActiva.solicitudId) {
+      Alert.alert("Error", "No se encontró la solicitud a cancelar");
+      return;
+    }
+
+    Alert.alert(
+      "Cancelar solicitud",
+      "¿Estás seguro de que deseas cancelar tu solicitud? El conductor será notificado.",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Sí, cancelar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await cancelarSolicitud(solicitudActiva.solicitudId!);
+              setEstadosSolicitudes((prev) => {
+                const updated = { ...prev };
+                delete updated[viajeId];
+                return updated;
+              });
+              setSolicitudActiva({
+                tieneSolicitud: false,
+                estado: null,
+                viajeId: undefined,
+                solicitudId: undefined,
+              });
+              setCoordsRecogidaBD(null);
+              await cargarViajes();
+              Alert.alert(
+                "Solicitud cancelada",
+                "Tu solicitud ha sido cancelada exitosamente"
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Error",
+                error?.message || "No se pudo cancelar la solicitud"
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const abrirMapaEncuentro = () => {
     setMarkerTemp(
       puntoEncuentro
@@ -377,11 +426,17 @@ const StartScreen = ({ navigation }: any) => {
         cargarViajes();
       };
 
+      const onSolicitudCancelada = (data: any) => {
+        console.log("📢 Solicitud cancelada:", data);
+        cargarViajes();
+      };
+
       socket.on("solicitud_actualizada", onSolicitudActualizada);
       socket.on("nueva_solicitud", onNuevaSolicitud);
       socket.on("nuevo_viaje", onNuevoViaje);
       socket.on("viaje_cancelado", onViajeCancelado);
       socket.on("viaje_iniciado", onViajeIniciado);
+      socket.on("solicitud_cancelada", onSolicitudCancelada);
 
       return () => {
         clearInterval(interval);
@@ -390,6 +445,7 @@ const StartScreen = ({ navigation }: any) => {
         socket.off("nuevo_viaje", onNuevoViaje);
         socket.off("viaje_cancelado", onViajeCancelado);
         socket.off("viaje_iniciado", onViajeIniciado);
+        socket.off("solicitud_cancelada", onSolicitudCancelada);
       };
     }
 
@@ -493,6 +549,7 @@ const StartScreen = ({ navigation }: any) => {
                   viaje={viaje}
                   onPress={handleSolicitarViaje}
                   onVerPerfil={handleVerPerfil}
+                  onCancelar={handleCancelarSolicitud}
                   estadoSolicitud={
                     estadosSolicitudes[viaje.id_viaje_pub] || null
                   }
