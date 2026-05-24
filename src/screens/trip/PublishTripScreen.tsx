@@ -12,7 +12,11 @@ import {
   Platform,
   Modal,
 } from "react-native";
-import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, {
+  Marker,
+  MapPressEvent,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Header from "../../components/common/HeaderBack";
@@ -23,20 +27,20 @@ import { orpc } from "../../services/api/apiClient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const REGION_MORELIA = {
-  latitude:      19.7069,
-  longitude:    -101.1945,
-  latitudeDelta:  0.001,
+  latitude: 19.7069,
+  longitude: -101.1945,
+  latitudeDelta: 0.001,
   longitudeDelta: 0.001,
 };
 
 const ITM_COORDS = { latitude: 19.720909, longitude: -101.186786 };
 const ITM_COORDS_ALT = { latitude: 19.723697, longitude: -101.184259 };
-const ITM_TEXTO  = "Avenida Tecnológico, 1500, Morelia";
+const ITM_TEXTO = "Avenida Tecnológico, 1500, Morelia";
 
 interface Coordenada {
-  latitude:  number;
+  latitude: number;
   longitude: number;
-  texto:     string;
+  texto: string;
 }
 
 interface TripForm {
@@ -68,11 +72,17 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [capacidadMaxima, setCapacidadMaxima] = useState(4);
 
-  const [mapVisible,    setMapVisible]    = useState(false);
-  const [mapTipo,       setMapTipo]       = useState<"origen" | "destino">("origen");
-  const [markerTemp,    setMarkerTemp]    = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapVisible, setMapVisible] = useState(false);
+  const [mapTipo, setMapTipo] = useState<"origen" | "destino">("origen");
+  const [markerTemp, setMarkerTemp] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [geocodingLoad, setGeocodingLoad] = useState(false);
   const mapRef = useRef<MapView>(null);
+
+  // 🔒 DEBOUNCE: Ref para evitar múltiples publicaciones
+  const isPublishingRef = useRef(false);
 
   const updateField = <K extends keyof TripForm>(
     field: K,
@@ -139,7 +149,11 @@ const PublishTripScreen = ({ navigation }: any) => {
     setShowDatePicker(false);
     if (selectedDate) {
       const merged = new Date(date);
-      merged.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+      merged.setFullYear(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+      );
       setDate(merged);
       setForm((p) => ({ ...p, fecha: formatFecha(selectedDate) }));
     }
@@ -156,7 +170,8 @@ const PublishTripScreen = ({ navigation }: any) => {
   };
 
   const incrementarAsientos = () => {
-    if (form.asientos < capacidadMaxima) setForm((p) => ({ ...p, asientos: p.asientos + 1 }));
+    if (form.asientos < capacidadMaxima)
+      setForm((p) => ({ ...p, asientos: p.asientos + 1 }));
   };
   const decrementarAsientos = () => {
     if (form.asientos > 1) setForm((p) => ({ ...p, asientos: p.asientos - 1 }));
@@ -167,7 +182,10 @@ const PublishTripScreen = ({ navigation }: any) => {
     // Si ya hay un punto seleccionado, centrar en él; si no, pedir ubicación actual
     const puntoExistente = tipo === "origen" ? form.origen : form.destino;
     if (puntoExistente) {
-      setMarkerTemp({ latitude: puntoExistente.latitude, longitude: puntoExistente.longitude });
+      setMarkerTemp({
+        latitude: puntoExistente.latitude,
+        longitude: puntoExistente.longitude,
+      });
     } else {
       setMarkerTemp(null);
     }
@@ -179,9 +197,15 @@ const PublishTripScreen = ({ navigation }: any) => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
       const loc = await Location.getCurrentPositionAsync({});
-      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
       setMarkerTemp(coords);
-      mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+      mapRef.current?.animateToRegion(
+        { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        800,
+      );
     } catch (e) {
       Alert.alert("Error", "No se pudo obtener tu ubicación.");
     }
@@ -193,20 +217,28 @@ const PublishTripScreen = ({ navigation }: any) => {
 
   const confirmarPunto = async () => {
     if (!markerTemp) {
-      Alert.alert("Selecciona un punto", "Toca el mapa para elegir la ubicación.");
+      Alert.alert(
+        "Selecciona un punto",
+        "Toca el mapa para elegir la ubicación.",
+      );
       return;
     }
     setGeocodingLoad(true);
     try {
       const resultados = await Location.reverseGeocodeAsync(markerTemp);
-      const r    = resultados[0];
+      const r = resultados[0];
       // Construir texto: "Calle número, Colonia, Ciudad"
-      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
-      const texto  = partes.length > 0 ? partes.join(", ") : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(
+        Boolean,
+      );
+      const texto =
+        partes.length > 0
+          ? partes.join(", ")
+          : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
 
       const coordenada: Coordenada = { ...markerTemp, texto };
       setForm((prev) => {
-        const nuevo = {...prev, [mapTipo]: coordenada};
+        const nuevo = { ...prev, [mapTipo]: coordenada };
 
         if (mapTipo === "origen" && texto !== ITM_TEXTO) {
           nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
@@ -237,7 +269,14 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
   };
 
+  // 🔒 DEBOUNCE: Función modificada para evitar múltiples publicaciones
   const handlePublicar = async () => {
+    // Evitar múltiples clics
+    if (isPublishingRef.current) {
+      console.log("🔒 Publicación en curso, ignorando clic");
+      return;
+    }
+
     if (!form.origen) {
       Alert.alert("Faltan datos", "Por favor ingresa el origen del viaje.");
       return;
@@ -247,14 +286,18 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
     if (form.origen.texto === form.destino.texto) {
-      Alert.alert("Ruta inválida", "El origen y el destino no pueden ser el mismo punto.");
+      Alert.alert(
+        "Ruta inválida",
+        "El origen y el destino no pueden ser el mismo punto.",
+      );
       return;
     }
-    const pasaPorITM = form.origen.texto === ITM_TEXTO || form.destino.texto === ITM_TEXTO;
+    const pasaPorITM =
+      form.origen.texto === ITM_TEXTO || form.destino.texto === ITM_TEXTO;
     if (!pasaPorITM) {
       Alert.alert(
         "Ruta inválida",
-        "Al menos el origen o el destino debe ser el Tecnológico de Morelia (Av. Tecnológico 1500)."
+        "Al menos el origen o el destino debe ser el Tecnológico de Morelia (Av. Tecnológico 1500).",
       );
       return;
     }
@@ -274,11 +317,17 @@ const PublishTripScreen = ({ navigation }: any) => {
     // Validación de tiempo mínimo (usa `date` directamente)
     const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
     if (date <= limiteFuturo) {
-      Alert.alert("Horario inválido", "El viaje debe programarse con al menos 10 minutos de anticipación.");
+      Alert.alert(
+        "Horario inválido",
+        "El viaje debe programarse con al menos 10 minutos de anticipación.",
+      );
       return;
     }
 
+    // 🔒 DEBOUNCE: Marcar como publicando
+    isPublishingRef.current = true;
     setIsLoading(true);
+
     try {
       const data = await publicarViaje({
         origen_texto: form.origen!.texto,
@@ -308,6 +357,10 @@ const PublishTripScreen = ({ navigation }: any) => {
         error?.message || "Ocurrió un problema. Intenta de nuevo.",
       );
     } finally {
+      // 🔒 DEBOUNCE: Liberar el bloqueo después de 1 segundo
+      setTimeout(() => {
+        isPublishingRef.current = false;
+      }, 1000);
       setIsLoading(false);
     }
   };
@@ -335,53 +388,91 @@ const PublishTripScreen = ({ navigation }: any) => {
           {/* Instrucción flotante */}
           <View
             style={{
-              position: "absolute", top: 16, left: 16, right: 16,
-              backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 12, padding: 12,
+              position: "absolute",
+              top: 16,
+              left: 16,
+              right: 16,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              borderRadius: 12,
+              padding: 12,
             }}
           >
-            <Text style={{ color: "white", textAlign: "center", fontWeight: "600" }}>
-              {mapTipo === "origen" ? "📍 Toca para elegir el punto de origen" : "🏁 Toca para elegir el destino"}
+            <Text
+              style={{ color: "white", textAlign: "center", fontWeight: "600" }}
+            >
+              {mapTipo === "origen"
+                ? "📍 Toca para elegir el punto de origen"
+                : "🏁 Toca para elegir el destino"}
             </Text>
           </View>
 
           {/* Botones inferiores */}
-          <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
-            {mapTipo  === "origen" && (
+          <View
+            style={{
+              position: "absolute",
+              bottom: 32,
+              left: 16,
+              right: 16,
+              gap: 10,
+            }}
+          >
+            {mapTipo === "origen" && (
               <TouchableOpacity
                 onPress={centrarEnUbicacion}
-                style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
+                style={{
+                  backgroundColor: "#1e3a8a",
+                  borderRadius: 14,
+                  padding: 14,
+                  alignItems: "center",
+                }}
               >
-                <Text style={{ color: "white", fontWeight: "600" }}>📍 Usar mi ubicación actual</Text>
+                <Text style={{ color: "white", fontWeight: "600" }}>
+                  📍 Usar mi ubicación actual
+                </Text>
               </TouchableOpacity>
             )}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <TouchableOpacity
                 onPress={() => setMapVisible(false)}
-                style={{ flex: 1, backgroundColor: "#e5e7eb", borderRadius: 14, padding: 14, alignItems: "center" }}
+                style={{
+                  flex: 1,
+                  backgroundColor: "#e5e7eb",
+                  borderRadius: 14,
+                  padding: 14,
+                  alignItems: "center",
+                }}
               >
-                <Text style={{ color: "#374151", fontWeight: "600" }}>Cancelar</Text>
+                <Text style={{ color: "#374151", fontWeight: "600" }}>
+                  Cancelar
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmarPunto}
                 disabled={geocodingLoad || !markerTemp}
                 style={{
-                  flex: 2, borderRadius: 14, padding: 14, alignItems: "center",
+                  flex: 2,
+                  borderRadius: 14,
+                  padding: 14,
+                  alignItems: "center",
                   backgroundColor: markerTemp ? "#2563eb" : "#93c5fd",
                 }}
               >
-                {geocodingLoad
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={{ color: "white", fontWeight: "700" }}>Confirmar punto</Text>
-                }
+                {geocodingLoad ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "white", fontWeight: "700" }}>
+                    Confirmar punto
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      <KeyboardAwareScrollView 
-        className="flex-1" 
+      <KeyboardAwareScrollView
+        className="flex-1"
         showsVerticalScrollIndicator={false}
         enableOnAndroid={true}
         extraScrollHeight={100}
@@ -393,25 +484,40 @@ const PublishTripScreen = ({ navigation }: any) => {
             <View className="flex-row items-stretch gap-3">
               <View className="items-center mt-1">
                 <View className="w-3 h-3 rounded-full bg-blue-600" />
-                <View className="w-0.5 flex-1 bg-gray-300 my-1" style={{ minHeight: 36 }}/>
+                <View
+                  className="w-0.5 flex-1 bg-gray-300 my-1"
+                  style={{ minHeight: 36 }}
+                />
                 <View className="w-3 h-3 rounded-full border-2 border-blue-600 bg-white" />
               </View>
               <View className="flex-1 gap-3">
                 {/* Origen */}
                 <View>
-                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Origen</Text>
+                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    Origen
+                  </Text>
                   <TouchableOpacity onPress={() => abrirMapa("origen")}>
-                    <Text className={`text-base font-semibold pb-2 border-b border-gray-200 ${form.origen ? "text-gray-900" : "text-gray-400"}`}>
-                      {form.origen ? form.origen.texto : "Toca para seleccionar en el mapa"}
+                    <Text
+                      className={`text-base font-semibold pb-2 border-b border-gray-200 ${form.origen ? "text-gray-900" : "text-gray-400"}`}
+                    >
+                      {form.origen
+                        ? form.origen.texto
+                        : "Toca para seleccionar en el mapa"}
                     </Text>
                   </TouchableOpacity>
                 </View>
                 {/* Destino */}
                 <View>
-                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">Destino</Text>
+                  <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    Destino
+                  </Text>
                   <TouchableOpacity onPress={() => abrirMapa("destino")}>
-                    <Text className={`text-base ${form.destino ? "text-gray-900" : "text-gray-400"}`}>
-                      {form.destino ? form.destino.texto : "Toca para seleccionar en el mapa"}
+                    <Text
+                      className={`text-base ${form.destino ? "text-gray-900" : "text-gray-400"}`}
+                    >
+                      {form.destino
+                        ? form.destino.texto
+                        : "Toca para seleccionar en el mapa"}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -502,18 +608,20 @@ const PublishTripScreen = ({ navigation }: any) => {
               </View>
             </View>
             <View className="flex-row gap-2 mt-2">
-              {Array.from({ length: capacidadMaxima }, (_, i) => i + 1).map((i) => (
-                <View
-                  key={i}
-                  className={`w-8 h-8 rounded-full border items-center justify-center ${i <= form.asientos ? "bg-blue-50 border-blue-600" : "bg-white border-gray-200"}`}
-                >
-                  <Text
-                    className={`text-xs ${i <= form.asientos ? "text-blue-600" : "text-gray-300"}`}
+              {Array.from({ length: capacidadMaxima }, (_, i) => i + 1).map(
+                (i) => (
+                  <View
+                    key={i}
+                    className={`w-8 h-8 rounded-full border items-center justify-center ${i <= form.asientos ? "bg-blue-50 border-blue-600" : "bg-white border-gray-200"}`}
                   >
-                    👤
-                  </Text>
-                </View>
-              ))}
+                    <Text
+                      className={`text-xs ${i <= form.asientos ? "text-blue-600" : "text-gray-300"}`}
+                    >
+                      👤
+                    </Text>
+                  </View>
+                ),
+              )}
             </View>
           </View>
 
@@ -528,7 +636,9 @@ const PublishTripScreen = ({ navigation }: any) => {
               </View>
               <TextInput
                 value={form.precio}
-                onChangeText={(text) => setForm((p) => ({ ...p, precio: text }))}
+                onChangeText={(text) =>
+                  setForm((p) => ({ ...p, precio: text }))
+                }
                 keyboardType="numeric"
                 className="flex-1 text-2xl font-bold text-gray-900"
                 placeholder="0.00"
@@ -555,17 +665,17 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/* Publicar */}
+          {/* 🔒 DEBOUNCE: Botón con estilo mejorado */}
           <TouchableOpacity
             onPress={handlePublicar}
             disabled={isLoading}
-            className={`rounded-2xl py-4 items-center mb-6 ${isLoading ? "bg-blue-300" : "bg-blue-600"}`}
+            className={`rounded-2xl py-4 items-center mb-6 ${isLoading || isPublishingRef.current ? "bg-blue-300" : "bg-blue-600"}`}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="text-white text-base font-bold">
-                Publicar viaje
+                {isPublishingRef.current ? "Publicando..." : "Publicar viaje"}
               </Text>
             )}
           </TouchableOpacity>
