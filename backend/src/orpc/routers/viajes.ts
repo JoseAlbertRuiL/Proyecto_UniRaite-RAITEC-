@@ -30,47 +30,6 @@ const crearNotificacion = async (
   }
 };
 
-function parseFechaHora(fecha: string, hora: string): Date {
-  const meses: Record<string, number> = {
-    ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
-    jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
-  }
-
-  const ahora = new Date()
-  let dia = ahora.getDate()
-  let mes = ahora.getMonth()
-  let año = ahora.getFullYear()
-
-  if (fecha.includes('Hoy')) {
-    // valores ya asignados arriba
-  } else if (fecha.includes('Mañana')) {
-    const manana = new Date()
-    manana.setDate(ahora.getDate() + 1)
-    dia = manana.getDate()
-    mes = manana.getMonth()
-    año = manana.getFullYear()
-  } else {
-    const partes = fecha.trim().split(' ')
-    if (partes.length >= 2) {
-      dia = parseInt(partes[0])
-      const nombreMes = partes[1].toLowerCase()
-      if (meses[nombreMes] !== undefined) mes = meses[nombreMes]
-    }
-  }
-
-  let horas = 0
-  let minutos = 0
-  const horaMatch = hora.match(/(\d+):(\d+)\s*(AM|PM)/i)
-  if (horaMatch) {
-    horas = parseInt(horaMatch[1])
-    minutos = parseInt(horaMatch[2])
-    const ampm = horaMatch[3].toUpperCase()
-    if (ampm === 'PM' && horas !== 12) horas += 12
-    if (ampm === 'AM' && horas === 12) horas = 0
-  }
-
-  return new Date(año, mes, dia, horas, minutos)
-}
 
 export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
@@ -122,25 +81,27 @@ export const publicarViaje = protectedProcedure
       longitud_origen: z.number(),
       latitud_destino: z.number(),
       longitud_destino: z.number(),
-      
-      fechaHoraISO: z.string().min(1),
+
+      // ISO 8601 con zona horaria (ej. 2026-05-24T20:00:00.000Z)
+      fechaHoraISO: z.string().datetime(),
       asientos: z.number().int().min(1),
-      precio: z.number().positive(),
+      // Precio entre $1 y $100 MXN, máximo 2 decimales
+      precio: z.number().positive().max(100).multipleOf(0.01),
     })
   )
   .handler(async ({ input, context }) => {
     // 🔒 DEBOUNCE: Validar tiempo entre publicaciones
     const ahora = Date.now();
     const ultimaPublicacion = ultimaPublicacionPorUsuario.get(context.user.id);
-    
+
     if (ultimaPublicacion && (ahora - ultimaPublicacion) < 5000) { // 5 segundos
       throw new ORPCError('TOO_MANY_REQUESTS', {
         message: 'Debes esperar unos segundos antes de publicar otro viaje'
       });
     }
-    
+
     ultimaPublicacionPorUsuario.set(context.user.id, ahora);
-    
+
     // Limpiar registro después de 60 segundos
     setTimeout(() => {
       ultimaPublicacionPorUsuario.delete(context.user.id);
@@ -169,6 +130,51 @@ export const publicarViaje = protectedProcedure
     }
 
     const fechaHoraSalida = new Date(input.fechaHoraISO)
+
+    // Segunda línea de defensa: validar que la hora de salida sea al menos 10 minutos en el futuro
+    const limiteMinimo = new Date(Date.now() + 10 * 60 * 1000)
+    if (fechaHoraSalida < limiteMinimo) {
+      throw new ORPCError('BAD_REQUEST', {
+        message: 'La hora de salida debe ser al menos 10 minutos en el futuro',
+      })
+    }
+
+   // =========================================================================
+    // 🛑 VALIDACIÓN DE EMPALME DE AGENDA (ACTUALIZADA)
+    // =========================================================================
+    const margenHoras = 2 * 60 * 60 * 1000; 
+    const rangoInicio = new Date(fechaHoraSalida.getTime() - margenHoras);
+    const rangoFin = new Date(fechaHoraSalida.getTime() + margenHoras);
+
+    const viajeEmpalmado = await prisma.viajes_publicados.findFirst({
+      where: {
+        id_licencia_conductor: conductor.id_licencia,
+        fecha_hora_salida: {
+          gte: rangoInicio, 
+          lte: rangoFin,    
+        },
+        // 🚀 NUEVO: Ignorar viajes si ya están finalizados o cancelados
+        viajes_activos: {
+          none: {
+            estado_trayecto: {
+              in: ['finalizado', 'cancelado']
+            }
+          }
+        }
+      },
+    });
+
+    if (viajeEmpalmado) {
+      const horaEmpalme = viajeEmpalmado.fecha_hora_salida.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      throw new ORPCError('CONFLICT', {
+        message: `Ya tienes un viaje activo agendado para las ${horaEmpalme}. Debes finalizarlo o dejar un margen de 2 horas.`,
+      });
+    }
+    // =========================================================================
 
    // =========================================================================
     // 🛑 VALIDACIÓN DE EMPALME DE AGENDA (ACTUALIZADA)
@@ -235,14 +241,14 @@ export const publicarViaje = protectedProcedure
         viaje: nuevoViaje,
         mensaje: `Nuevo viaje disponible: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`
       })
-      
+
       io.emit('nueva_notificacion', {
         usuarioId: null,
         titulo: "Nuevo viaje disponible",
         cuerpo: `Nuevo viaje: ${nuevoViaje.origen_texto} → ${nuevoViaje.destino_texto}`,
         tipo: "viaje"
       })
-      
+
       console.log('📢 Eventos nuevo_viaje y nueva_notificacion emitidos')
     }
 
@@ -523,10 +529,10 @@ export const iniciarViaje = protectedProcedure
 
     const viajeActivo = await prisma.viajes_activos.create({
       data: {
-        id_viaje_pub:    input.viajeId,
+        id_viaje_pub: input.viajeId,
         hora_inicio_real: new Date(),
         estado_trayecto: 'en_curso',
-        historial_ruta:  [], 
+        historial_ruta: [],
       },
     });
 
@@ -560,6 +566,7 @@ export const cancelarViaje = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
+      include: {
       include: {
         conductor: { include: { usuario: true } },
         viajes_activos: { where: { estado_trayecto: 'en_curso' } },
@@ -634,9 +641,9 @@ export const finalizarViaje = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
-      include: { 
+      include: {
         conductor: { include: { usuario: true } },
-        solicitudes: { 
+        solicitudes: {
           where: { estado_solicitud: 'aceptada' },
           include: {
             pasajero: {
