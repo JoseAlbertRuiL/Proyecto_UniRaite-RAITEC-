@@ -209,6 +209,11 @@ app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
 });
 
+// Upload foto de credencial
+app.post('/upload/credentials', upload.single('foto_credencial'), (req, res) => {
+  res.json({ foto_credencial: req.file?.filename || null });
+});
+
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
 
 app.post(

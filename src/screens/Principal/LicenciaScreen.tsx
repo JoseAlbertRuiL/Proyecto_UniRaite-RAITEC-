@@ -39,7 +39,7 @@ const LicenciaScreen = ({ navigation }: any) => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [16, 9],
-      quality: 0.8,
+      quality: 0.6,
     });
     if (!result.canceled) setFotoLicencia(result.assets[0].uri);
   };

@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Image,
+  Keyboard,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
@@ -36,13 +37,40 @@ const RegisterScreen = ({ navigation }: any) => {
   // Paso 4 - Foto perfil
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
 
+  const [cargando, setCargando] = useState(false);
+
   const [paso, setPaso] = useState(1);
 
   // Lista de carreras
   const carreras = [
-    "Bioquímica", "Biomédica", "Eléctrica", "Electrónica", "Industrial",
-    "Mecánica", "Mecatrónica", "Materiales", "Gestión Empresarial",
-    "Sistemas Computacionales", "Tecnologías de la Información y Comunicaciones", "Informática",
+    // ─── INGENIERÍAS ───────────────────────────────────────────────────────────
+    { label: "Ing. Biomédica", value: "Ingeniería Biomédica" },
+    { label: "Ing. Bioquímica", value: "Ingeniería Bioquímica" },
+    { label: "Ing. Ciberseguridad", value: "Ingeniería en Ciberseguridad" },
+    { label: "Ing. Eléctrica", value: "Ingeniería Eléctrica" },
+    { label: "Ing. Electrónica", value: "Ingeniería Electrónica" },
+    { label: "Ing. Gestión Empresarial", value: "Ingeniería en Gestión Empresarial" },
+    { label: "Ing. Industrial", value: "Ingeniería Industrial" },
+    { label: "Ing. Materiales", value: "Ingeniería en Materiales" },
+    { label: "Ing. Mecánica", value: "Ingeniería Mecánica" },
+    { label: "Ing. Mecatrónica", value: "Ingeniería Mecatrónica" },
+    { label: "Ing. Semiconductores", value: "Ingeniería en Semiconductores" },
+    { label: "Ing. Sistemas Computacionales", value: "Ingeniería en Sistemas Computacionales" },
+    { label: "Ing. Tecnologías de la Inf. y Com.", value: "Ingeniería en Tecnologías de la Información y Comunicaciones" },
+
+    // ─── LICENCIATURAS ─────────────────────────────────────────────────────────
+    { label: "Administración", value: "Licenciatura en Administración" },
+    { label: "Contador Público", value: "Contador Público" },
+
+    // ─── POSGRADOS ─────────────────────────────────────────────────────────────
+    { label: "Mtría. Ciencias: Eléctrica", value: "Maestría en Ciencias en Ingeniería Eléctrica" },
+    { label: "Mtría. Ciencias: Electrónica", value: "Maestría en Ciencias en Ingeniería Electrónica" },
+    { label: "Mtría. Ciencias: Metalurgia", value: "Maestría en Ciencias en Metalurgia" },
+    { label: "Mtría. Economía Social", value: "Maestría en Economía Social y Solidaria" },
+    { label: "Mtría. Ingeniería Administrativa", value: "Maestría en Ingeniería Administrativa" },
+    { label: "Mtría. Sistemas Computacionales", value: "Maestría en Sistemas Computacionales" },
+    { label: "Doc. Ciencias de la Ingeniería", value: "Doctorado en Ciencias de la Ingeniería" },
+    { label: "Doc. Ciencias: Eléctrica", value: "Doctorado en Ciencias en Ingeniería Eléctrica" }
   ];
 
   // Validar correo institucional
@@ -62,7 +90,7 @@ const RegisterScreen = ({ navigation }: any) => {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.6,
       });
       if (!result.canceled && result.assets && result.assets[0]) {
         const uri = result.assets[0].uri;
@@ -99,7 +127,7 @@ const RegisterScreen = ({ navigation }: any) => {
     }
   };
 
-  // Seleccionar foto (menú con ambas opciones)
+  // Seleccionar foto
   const seleccionarFoto = (tipo: "credencial" | "perfil") => {
     Alert.alert("Seleccionar foto", "¿Cómo quieres subir la imagen?", [
       { text: "Cancelar", style: "cancel" },
@@ -109,6 +137,8 @@ const RegisterScreen = ({ navigation }: any) => {
   };
 
   const siguiente = async () => {
+    Keyboard.dismiss();
+
     if (paso === 1) {
       if (nombre && apellidoPaterno) {
         setPaso(2);
@@ -117,7 +147,16 @@ const RegisterScreen = ({ navigation }: any) => {
       }
     } else if (paso === 2) {
       if (email && password) {
-        if (!validarCorreo(email)) {
+        
+        // Ensamblar el correo si el usuario no escribió el '@'
+        let correoFinal = email.trim().toLowerCase();
+        if (!correoFinal.includes('@')) {
+          correoFinal += '@morelia.tecnm.mx';
+          setEmail(correoFinal);
+        }
+
+        // Validar con el correo ya ensamblado
+        if (!validarCorreo(correoFinal)) {
           Alert.alert("Error", "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx");
           return;
         }
@@ -125,8 +164,10 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "La contraseña debe tener mínimo 6 caracteres");
           return;
         }
+        
         try {
-          const data = await verificarCorreo(email);
+          // Usamos correoFinal aquí también
+          const data = await verificarCorreo(correoFinal);
           if (data.existe) {
             Alert.alert("Error", "Este correo ya está registrado");
             return;
@@ -136,7 +177,9 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "No se pudo verificar el correo");
           return;
         }
-        const numeros = email.match(/\d+/);
+        
+        // Extraemos los números del correoFinal
+        const numeros = correoFinal.match(/\d+/);
         if (numeros) setNumControl(numeros[0]);
         setPaso(3);
       } else {
@@ -158,6 +201,9 @@ const RegisterScreen = ({ navigation }: any) => {
   };
 
   const enviarRegistro = async () => {
+    if (cargando) return;
+    setCargando(true);
+
     try {
       await register({
         nombre,
@@ -182,10 +228,16 @@ const RegisterScreen = ({ navigation }: any) => {
 
   const volver = () => {
     if (paso > 1) setPaso(paso - 1);
+    setCargando(false);
   };
 
   return (
-    <ScrollView className="flex-1 bg-white px-6 pt-12">
+    <KeyboardAwareScrollView 
+      className="flex-1 bg-white px-6 pt-12"
+      enableOnAndroid={true}
+      extraScrollHeight={20}
+      keyboardShouldPersistTaps="handled"
+    >
       <View className="items-center mb-4">
         {fotoPerfil ? (
           <Image source={{ uri: fotoPerfil }} className="w-24 h-24 rounded-full border-2 border-blue-900" />
@@ -216,8 +268,27 @@ const RegisterScreen = ({ navigation }: any) => {
       {paso === 2 && (
         <View className="mt-6">
           <Text className="mb-1 text-gray-700">Correo institucional *</Text>
-          <TextInput className="border border-gray-300 rounded-xl p-4" placeholder="l2XXXXXXXX@morelia.tecnm.mx" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          <Text className="text-xs text-gray-500 mt-1">Formato: l + 8 números (empieza con 2) + @morelia.tecnm.mx</Text>
+          
+          {/* Falso input agrupado */}
+          <View className="flex-row items-center border border-gray-300 rounded-xl bg-white overflow-hidden">
+            <TextInput 
+              className="flex-1 p-4 text-gray-900" 
+              placeholder="l2XXXXXXXX" 
+              value={email} 
+              onChangeText={setEmail} 
+              keyboardType="email-address" 
+              autoCapitalize="none" 
+            />
+            {/* Si no ha escrito un '@', mostramos el autocompletado en gris */}
+            {!email.includes('@') && (
+              <Text className="pr-4 text-gray-400 font-medium" pointerEvents="none">
+                @morelia.tecnm.mx
+              </Text>
+            )}
+          </View>
+          
+          <Text className="text-xs text-gray-500 mt-1">Formato: l + 8 números (empieza con 2)</Text>
+          
           <Text className="mb-1 mt-4 text-gray-700">Contraseña *</Text>
           <View className="flex-row items-center border border-gray-300 rounded-xl bg-gray-50">
             <TextInput className="flex-1 p-4" placeholder="Contraseña" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
@@ -244,7 +315,7 @@ const RegisterScreen = ({ navigation }: any) => {
             <Picker selectedValue={carrera} onValueChange={(itemValue) => setCarrera(itemValue)}>
               <Picker.Item label="Selecciona tu carrera" value="" />
               {carreras.map((carr) => (
-                <Picker.Item key={carr} label={carr} value={carr} />
+                <Picker.Item key={carr.value} label={carr.label} value={carr.value} />
               ))}
             </Picker>
           </View>
@@ -285,11 +356,20 @@ const RegisterScreen = ({ navigation }: any) => {
             <Text className="text-white text-center font-bold">Atrás</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity className={`${paso > 1 ? "flex-1 ml-2" : "flex-1"} bg-blue-900 p-4 rounded-xl`} onPress={siguiente}>
-          <Text className="text-white text-center font-bold">{paso === 4 ? "Registrarme" : "Siguiente"}</Text>
+        <TouchableOpacity 
+          className={`${paso > 1 ? "flex-1 ml-2" : "flex-1"} ${cargando ? "bg-blue-400" : "bg-blue-900"} p-4 rounded-xl`} 
+          onPress={siguiente}
+          disabled={cargando}
+        >
+          <Text className="text-white text-center font-bold">
+            {paso === 4 
+              ? (cargando ? "Registrando..." : "Registrarme") 
+              : "Siguiente"
+            }
+          </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 

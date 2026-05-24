@@ -59,6 +59,13 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   // Estado para foto de perfil
   const [uploadingFoto, setUploadingFoto] = useState(false);
+ 
+  // Estados para la credencial
+  const [nuevaFotoCredencial, setNuevaFotoCredencial] = useState<string | null>(null);
+  const [uploadingCredencial, setUploadingCredencial] = useState(false);
+  
+  // NUEVO ESTADO: Controla el modal de opciones de foto
+  const [modalOpcionesCredencialVisible, setModalOpcionesCredencialVisible] = useState(false);
 
   // Lista de carreras
   const carreras = [
@@ -182,25 +189,103 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     ]);
   };
 
+  const tomarFotoCredencial = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso", "Necesitamos acceso a la cámara");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+      base64: false,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setNuevaFotoCredencial(result.assets[0].uri);
+    }
+    setModalOpcionesCredencialVisible(false); // Cerramos el menú
+  };
+
+  const elegirDeGaleriaCredencial = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso", "Necesitamos acceso a la galería");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setNuevaFotoCredencial(result.assets[0].uri);
+    }
+    setModalOpcionesCredencialVisible(false); // Cerramos el menú
+  };
+
+  const subirCredencialAlServidor = async (uri: string) => {
+    const formData = new FormData();
+    const fileExtension = uri.split(".").pop() || "jpg";
+    const fileName = `credencial_${Date.now()}.${fileExtension}`;
+    const mimeType = fileExtension === "jpg" ? "image/jpeg" : `image/${fileExtension}`;
+
+    formData.append("foto_credencial", {
+      uri: uri,
+      type: mimeType,
+      name: fileName,
+    } as any);
+
+    const token = await AsyncStorage.getItem("token");
+    // NOTA: Asegúrate de que el endpoint corresponda a tu API express donde guardas temporalmente
+    const response = await fetch(`${BASE_URL}/upload/credentials`, { 
+      method: "POST",
+      body: formData,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error al subir credencial temporal");
+    
+    // Suponemos que el endpoint Express devuelve { foto_credencial: 'nombre_del_archivo.jpg' }
+    return data.foto_credencial; 
+  };
+
   const cambiarNombre = async () => {
     if (!nombre || !apellidoPaterno) {
       Alert.alert("Error", "Nombre y apellido paterno son obligatorios");
       return;
     }
 
+    if (!nuevaFotoCredencial) {
+      Alert.alert("Error", "Debes subir una foto actualizada de tu credencial escolar para validar el cambio.");
+      return;
+    }
+
     try {
+      setUploadingCredencial(true);
+      // Subir la imagen temporalmente mediante Express
+      const filenameCredencial = await subirCredencialAlServidor(nuevaFotoCredencial);
+
       const result = await orpc.usuarios.actualizarPerfil({
         nombre,
         apellido_paterno: apellidoPaterno,
         apellido_materno: apellidoMaterno,
+        foto_credencial: filenameCredencial
       });
+
       if (result.success) {
         Alert.alert("Éxito", "Datos actualizados correctamente");
         setModalNombreVisible(false);
+        setNuevaFotoCredencial(null);
         obtenerPerfil();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo actualizar");
+      Alert.alert("Error", error.message || "No se pudo actualizar o validar tu identidad");
+    } finally {
+      setUploadingCredencial(false);
     }
   };
 
@@ -605,6 +690,19 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
                 placeholder="Apellido materno (opcional)"
                 className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
               />
+
+              {/* Botón para la credencial */}
+              <TouchableOpacity 
+                onPress={() => setModalOpcionesCredencialVisible(true)} 
+                className="bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 mb-4 items-center"
+              >
+                {nuevaFotoCredencial ? (
+                  <Text className="text-green-600 font-semibold">✓ Credencial lista</Text>
+                ) : (
+                  <Text className="text-gray-600">📷 Subir nueva credencial escolar *</Text>
+                )}
+              </TouchableOpacity>
+
               <View className="flex-row justify-between">
                 <TouchableOpacity
                   onPress={() => setModalNombreVisible(false)}
@@ -726,6 +824,50 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Modal opciones foto de credencial */}
+      <Modal
+        visible={modalOpcionesCredencialVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalOpcionesCredencialVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-end"
+          activeOpacity={1}
+          onPress={() => setModalOpcionesCredencialVisible(false)}
+        >
+          <View className="bg-white rounded-t-3xl p-6">
+            <Text className="text-lg font-bold text-center mb-4">
+              Foto de credencial
+            </Text>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 border-b border-gray-100"
+              onPress={tomarFotoCredencial}
+            >
+              <Text className="text-2xl mr-3">📷</Text>
+              <Text className="text-base text-gray-700">Tomar foto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 border-b border-gray-100"
+              onPress={elegirDeGaleriaCredencial}
+            >
+              <Text className="text-2xl mr-3">🖼️</Text>
+              <Text className="text-base text-gray-700">Elegir de galería</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 mt-2"
+              onPress={() => setModalOpcionesCredencialVisible(false)}
+            >
+              <Text className="text-2xl mr-3"></Text>
+              <Text className="text-base text-red-500">Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Modal foto perfil */}
