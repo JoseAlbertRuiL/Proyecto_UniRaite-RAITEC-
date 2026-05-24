@@ -400,7 +400,13 @@ const ConducirScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
+              // 🎨 Cambiamos el color dinámicamente: Naranja si está activo, Gris si no lo está
+              className={`rounded-lg px-4 py-2 mr-2 ${
+                esViajeActivo(viaje.id_viaje_pub) ? "bg-orange-500" : "bg-gray-400 opacity-70"
+              }`}
+              // 🔒 Bloqueamos el clic si el viaje NO está activo
+              disabled={!esViajeActivo(viaje.id_viaje_pub)}
+              
               onPress={() => {
                 destinoAlertado.current = true;
                 locationSub.current?.remove();
@@ -410,9 +416,8 @@ const ConducirScreen = ({ navigation }: any) => {
                 navigation.navigate("FinishTrip", {
                   viajeId: viaje.id_viaje_pub,
                   viaje, 
-                })
-              }
-            }
+                });
+              }}
             >
               <Text className="text-white font-semibold text-sm">Finalizar</Text>
             </TouchableOpacity>
