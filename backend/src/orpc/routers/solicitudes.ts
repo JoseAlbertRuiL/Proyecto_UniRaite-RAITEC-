@@ -252,9 +252,29 @@ export const obtenerEstadoPorViaje = protectedProcedure
         id_viaje_pub: input.viajeId,
         id_pasajero: context.user.id,
       },
+      include: {
+        viaje: {
+          select: {
+            viajes_activos: {
+              where: { estado_trayecto: 'en_curso' },
+              select: { id_viaje_activo: true },
+              take: 1,
+            },
+          },
+        },
+      },
     });
     console.log(`📋 Solicitud encontrada:`, solicitud);
-    return { estado: solicitud?.estado_solicitud || null };
+
+    let estado = solicitud?.estado_solicitud || null;
+
+    // Si la solicitud está aceptada y el viaje ya tiene un viaje_activo en curso,
+    // devolvemos "en_curso" para que el pasajero sepa que el viaje inició
+    if (estado === 'aceptada' && (solicitud?.viaje?.viajes_activos?.length ?? 0) > 0) {
+      estado = 'en_curso';
+    }
+
+    return { estado };
   });
 
 // Obtener todas las solicitudes del pasajero
@@ -296,6 +316,11 @@ export const obtenerSolicitudesActivas = protectedProcedure
             longitud_destino: true,
             fecha_hora_salida: true,
             costo_estimado: true,
+            viajes_activos: {
+              where: { estado_trayecto: 'en_curso' },
+              select: { id_viaje_activo: true },
+              take: 1,
+            },
           },
         },
       },
@@ -313,4 +338,66 @@ export const obtenerSolicitudesActivas = protectedProcedure
     //     longitud_recogida: s.longitud_recogida,
     //   })),
     // };
+  });
+
+// PUT /api/solicitudes/:id/cancelar
+export const cancelarSolicitud = protectedProcedure
+  .input(z.object({
+    solicitudId: z.number().int(),
+  }))
+  .handler(async ({ input, context }) => {
+    const solicitud = await prisma.solicitudes_viaje.findUnique({
+      where: { id_solicitud: input.solicitudId },
+      include: {
+        viaje: { include: { conductor: { include: { usuario: true } } } },
+      },
+    });
+
+    if (!solicitud) {
+      throw new ORPCError('NOT_FOUND', { message: 'Solicitud no encontrada' });
+    }
+
+    if (solicitud.id_pasajero !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'No autorizado para cancelar esta solicitud' });
+    }
+
+    if (solicitud.estado_solicitud !== 'pendiente') {
+      throw new ORPCError('BAD_REQUEST', { message: 'Solo puedes cancelar solicitudes pendientes' });
+    }
+
+    await prisma.solicitudes_viaje.delete({
+      where: { id_solicitud: input.solicitudId },
+    });
+
+    // NOTIFICACIÓN: Avisar al conductor
+    if (solicitud.viaje?.conductor?.usuario) {
+      await crearNotificacion(
+        solicitud.viaje.conductor.usuario.id_usuario,
+        "Solicitud cancelada",
+        `Un pasajero ha cancelado su solicitud para el viaje a ${solicitud.viaje.destino_texto}.`,
+        "cancelacion"
+      );
+    }
+
+    // EMITIR EVENTO WEBSOCKET
+    if (io) {
+      io.emit('solicitud_cancelada', {
+        viajeId: solicitud.id_viaje_pub,
+        solicitudId: input.solicitudId,
+        mensaje: `Un pasajero canceló su solicitud para el viaje a ${solicitud.viaje.destino_texto}`
+      });
+
+      if (solicitud.viaje?.conductor?.usuario) {
+        io.emit('nueva_notificacion', {
+          usuarioId: solicitud.viaje.conductor.usuario.id_usuario,
+          titulo: "Solicitud cancelada",
+          cuerpo: `Un pasajero canceló su solicitud para el viaje a ${solicitud.viaje.destino_texto}`,
+          tipo: "cancelacion"
+        });
+      }
+
+      console.log('📢 Evento solicitud_cancelada emitido');
+    }
+
+    return { success: true, message: 'Solicitud cancelada exitosamente' };
   });

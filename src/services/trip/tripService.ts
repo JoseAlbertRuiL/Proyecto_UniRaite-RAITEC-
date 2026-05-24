@@ -65,6 +65,10 @@ export const obtenerMisSolicitudes = async () => {
   return orpc.solicitudes.misSolicitudes();
 };
 
+export const cancelarSolicitud = async (solicitudId: number) => {
+  return orpc.solicitudes.cancelar({ solicitudId });
+};
+
 // ─── Conductor ────────────────────────────────────────────────────────────────
 
 export const registroConductor = async (params: {
