@@ -10,6 +10,7 @@ import { onError } from '@orpc/server'
 import { router } from './orpc/index'
 import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { loginLimiter, registerLimiter } from './middleware/rateLimiterByIp';
 
 require('dotenv').config()
 
@@ -195,18 +196,77 @@ const orpcHandler = new RPCHandler(router, {
   ],
 })
 
+// ─── Rate Limiting implementado DENTRO del handler de oRPC ─────────────────────
+
+// Almacenamiento simple para rate limiting por IP
+const intentosPorIP = new Map<string, { count: number; firstAttempt: number }>();
+
+// Middleware de rate limiting para login
+const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.log(`🟢 MIDDLEWARE EJECUTADO - URL: ${req.url}, METHOD: ${req.method}`);
+  // Solo aplicar a login
+  if (!req.url.includes('/login')) {
+    return next();
+  }
+  
+  // Obtener IP
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const intentos = intentosPorIP.get(ip);
+  
+  console.log(`🔐 RateLimit - IP: ${ip}`);
+  
+  if (intentos) {
+    // Si pasaron más de 15 minutos, reiniciar
+    if (now - intentos.firstAttempt > 15 * 60 * 1000) {
+      intentosPorIP.set(ip, { count: 1, firstAttempt: now });
+      console.log(`🔐 Reiniciando contador para IP: ${ip}`);
+      return next();
+    }
+    
+    // Si tiene 5 o más intentos, bloquear
+    if (intentos.count >= 5) {
+      const minutosRestantes = Math.ceil((15 * 60 * 1000 - (now - intentos.firstAttempt)) / 60000);
+      console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
+      return res.status(429).json({
+        success: false,
+        message: `Demasiados intentos. Bloqueado por ${minutosRestantes} minutos.`
+      });
+    }
+    
+    // Incrementar contador
+    intentos.count++;
+    intentosPorIP.set(ip, intentos);
+    console.log(`🔐 Intento ${intentos.count}/5 para IP: ${ip}`);
+  } else {
+    intentosPorIP.set(ip, { count: 1, firstAttempt: now });
+    console.log(`🔐 Primer intento para IP: ${ip}`);
+  }
+  
+  next();
+};
+
+// Limpiar intentos viejos cada hora
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of intentosPorIP.entries()) {
+    if (now - data.firstAttempt > 15 * 60 * 1000) {
+      intentosPorIP.delete(ip);
+    }
+  }
+}, 60 * 60 * 1000);
+
+// Aplicar rate limit middleware ANTES del handler de oRPC
+app.use('/rpc', rateLimitMiddleware);
+
+// oRPC handler principal
 app.use('/rpc', async (req, res, next) => {
-  console.log('📡 Petición recibida en /rpc:', req.method, req.url)
+  console.log('📡 Petición recibida en /rpc:', req.method, req.url);
   const { matched } = await orpcHandler.handle(req, res, {
     prefix: '/rpc',
     context: { headers: req.headers },
-  })
-  if (!matched) next()
-})
-
-// Upload foto de perfil
-app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
-  res.json({ foto_perfil: req.file?.filename || null });
+  });
+  if (!matched) next();
 });
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
@@ -258,6 +318,7 @@ app.get('/health', (req, res) => {
 serverHttp.listen(PORT, () => {
   console.log(`Servidor en http://localhost:${PORT}`)
   console.log(`oRPC    → /rpc/*`)
+  console.log(`Rate Limit → /rpc/login (5 intentos/15min), /rpc/register (3 intentos/hora)`)
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
   console.log(`WebSocket Server corriendo en el mismo puerto`)

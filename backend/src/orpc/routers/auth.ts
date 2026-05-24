@@ -122,13 +122,12 @@ export const forgotPassword = baseProcedure
       console.log('✅ Email enviado correctamente')
     } catch (emailError) {
       console.error('❌ Error al enviar email:', emailError)
-      // No lanzamos error, el código igual se guardó
     }
 
     return { success: true, message: 'Código enviado a tu correo' }
   })
 
-  // POST /api/verify-code
+// POST /api/verify-code
 export const verifyCode = baseProcedure
   .input(z.object({
     correo_inst: z.string().email(),
@@ -186,7 +185,6 @@ export const register = baseProcedure
       correo_inst: z.string().email(),
       password: z.string().min(6, { message: 'La contraseña debe tener mínimo 6 caracteres' }),
       carrera: z.string().optional(),
-      // URLs de Cloudinary devueltas por el endpoint de upload
       foto_credencial: z.string().optional(),
       foto_perfil: z.string().optional(),
     })
@@ -220,7 +218,7 @@ export const register = baseProcedure
       if (fs.existsSync(rutaPerfil)) {
         console.log('Subiendo foto de perfil a Cloudinary...');
         urlFotoPerfil = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
-        fs.unlinkSync(rutaPerfil); // Borramos el archivo local
+        fs.unlinkSync(rutaPerfil);
       }
     }
 
@@ -230,7 +228,7 @@ export const register = baseProcedure
       if (fs.existsSync(rutaCredencial)) {
         console.log('Subiendo credencial a Cloudinary...');
         urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
-        fs.unlinkSync(rutaCredencial); // Borramos el archivo local
+        fs.unlinkSync(rutaCredencial);
       }
     }
 
