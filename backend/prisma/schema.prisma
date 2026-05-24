@@ -39,6 +39,20 @@ model usuarios {
   reportes               incidentes_seguridad[]
   calificaciones_hechas  calificaciones[]    @relation("Evaluador")
   calificaciones_recibidas calificaciones[]  @relation("Evaluado")
+  historial_cambios      historial_cambios_perfil[]
+}
+
+model historial_cambios_perfil {
+  id_log            Int      @id @default(autoincrement())
+  id_usuario        String
+  campo_modificado  String   // Ej. "nombre", "apellido_paterno"
+  valor_anterior    String
+  valor_nuevo       String
+  foto_evidencia    String   // La URL de Cloudinary de la credencial que validó la IA
+  fecha_cambio      DateTime @default(now())
+
+  // Relaciones
+  usuario           usuarios @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 }
 
 // Conductores (Ahora incluye datos del vehículo)
@@ -81,6 +95,12 @@ model viajes_publicados {
   costo_estimado       Float
   es_recurrente        Boolean
   comentario_extra     String?
+
+  // SNAPSHOT: vehículo al momento de publicar el viaje
+  vehiculo_modelo     String
+  vehiculo_color      String
+  vehiculo_placas     String
+  capacidad_pasajeros Int
   
   // Relación directa al conductor
   conductor            conductores @relation(fields: [id_licencia_conductor], references: [id_licencia])
