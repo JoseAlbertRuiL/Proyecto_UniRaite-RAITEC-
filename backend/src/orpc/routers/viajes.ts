@@ -4,6 +4,9 @@ import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 import { io } from '../../server'
 
+// 🔒 DEBOUNCE: Map para evitar publicaciones duplicadas muy rápidas
+const ultimaPublicacionPorUsuario = new Map<string, number>();
+
 // Función auxiliar para crear notificaciones
 const crearNotificacion = async (
   usuarioId: string,
@@ -27,15 +30,11 @@ const crearNotificacion = async (
   }
 };
 
-
-
 function parseFechaHora(fecha: string, hora: string): Date {
   const meses: Record<string, number> = {
     ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5,
     jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
   }
-
-  
 
   const ahora = new Date()
   let dia = ahora.getDate()
@@ -77,7 +76,6 @@ export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
       asientos_disponibles: { gt: 0 },
-      // ELIMINADO: fecha_hora_salida: { gt: new Date() },
     },
     include: {
       conductor: {
@@ -131,6 +129,23 @@ export const publicarViaje = protectedProcedure
     })
   )
   .handler(async ({ input, context }) => {
+    // 🔒 DEBOUNCE: Validar tiempo entre publicaciones
+    const ahora = Date.now();
+    const ultimaPublicacion = ultimaPublicacionPorUsuario.get(context.user.id);
+    
+    if (ultimaPublicacion && (ahora - ultimaPublicacion) < 5000) { // 5 segundos
+      throw new ORPCError('TOO_MANY_REQUESTS', {
+        message: 'Debes esperar unos segundos antes de publicar otro viaje'
+      });
+    }
+    
+    ultimaPublicacionPorUsuario.set(context.user.id, ahora);
+    
+    // Limpiar registro después de 60 segundos
+    setTimeout(() => {
+      ultimaPublicacionPorUsuario.delete(context.user.id);
+    }, 60000);
+
     const usuario = await prisma.usuarios.findUnique({
       where: { id_usuario: context.user.id },
     })
@@ -350,37 +365,37 @@ export const obtenerViajePorId = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
-  where: { id_viaje_pub: input.viajeId },
-  include: {
-    conductor: {
+      where: { id_viaje_pub: input.viajeId },
       include: {
-        usuario: {
-          select: {
-            id_usuario: true,
-            nombre: true,
-            apellido_paterno: true,
-            foto_perfil: true,
-            reputacion_promedio: true,
-            viajes_completados: true,
+        conductor: {
+          include: {
+            usuario: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+                reputacion_promedio: true,
+                viajes_completados: true,
+              },
+            },
+          },
+        },
+        solicitudes: {
+          where: { estado_solicitud: 'aceptada' },
+          include: {
+            pasajero: {
+              select: {
+                id_usuario: true,
+                nombre: true,
+                apellido_paterno: true,
+                foto_perfil: true,
+              },
+            },
           },
         },
       },
-    },
-    solicitudes: {
-      where: { estado_solicitud: 'aceptada' },
-      include: {
-        pasajero: {
-          select: {
-            id_usuario: true,
-            nombre: true,
-            apellido_paterno: true,
-            foto_perfil: true,
-          },
-        },
-      },
-    },
-  },
-});
+    });
 
     if (!viaje) {
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
@@ -577,12 +592,10 @@ export const finalizarViaje = protectedProcedure
       data: {
         asientos_disponibles: 0,
         pasajeros_confirmados: pasajerosCount,
-        // ELIMINADO: fecha_hora_salida: new Date(),
       },
     });
 
     // 3. Incrementar viajes_completados del conductor
-
     await prisma.usuarios.update({
       where: { id_usuario: viaje.conductor.usuario.id_usuario },
       data: {
@@ -590,7 +603,7 @@ export const finalizarViaje = protectedProcedure
       },
     });
 
-    // 3. Opcional: Crear o actualizar viaje_activo con estado finalizado
+    // 4. Opcional: Crear o actualizar viaje_activo con estado finalizado
     const viajeActivoExistente = await prisma.viajes_activos.findFirst({
       where: { id_viaje_pub: input.viajeId },
     });
@@ -614,7 +627,7 @@ export const finalizarViaje = protectedProcedure
       });
     }
 
-    // 4. Notificar a pasajeros aceptados
+    // 5. Notificar a pasajeros aceptados
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
         await crearNotificacion(
@@ -634,7 +647,7 @@ export const finalizarViaje = protectedProcedure
       }
     }
 
-    // 5. Emitir evento para actualizar listas en tiempo real
+    // 6. Emitir evento para actualizar listas en tiempo real
     if (io) {
       io.emit('viaje_finalizado', { viajeId: input.viajeId });
     }
