@@ -76,14 +76,6 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [precioError, setPrecioError] = useState<string | null>(null);
 
   // Filtra el input de precio: solo dígitos y un punto decimal (máx. 2 decimales)
-  const sanitizarPrecio = (text: string): string => {
-    let limpio = text.replace(/[^0-9.]/g, "");
-    const partes = limpio.split(".");
-    if (partes.length > 2) limpio = partes[0] + "." + partes.slice(1).join("");
-    if (partes.length >= 2) limpio = partes[0] + "." + partes[1].slice(0, 2);
-    return limpio;
-  };
-
   const [mapVisible, setMapVisible] = useState(false);
   const [mapTipo, setMapTipo] = useState<"origen" | "destino">("origen");
   const [markerTemp, setMarkerTemp] = useState<{
@@ -103,29 +95,12 @@ const PublishTripScreen = ({ navigation }: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $999
-  const sanitizarPrecio = (text: string) => {
-    // Remover cualquier carácter que no sea dígito o punto
-    let limpio = text.replace(/[^0-9.]/g, '');
-    // Permitir solo un punto decimal
-    const partes = limpio.split('.');
-    if (partes.length > 2) limpio = partes[0] + '.' + partes.slice(1).join('');
-    // Limitar a 2 decimales
-    if (partes[1] && partes[1].length > 2) limpio = partes[0] + '.' + partes[1].slice(0, 2);
-
-    setForm((p) => ({ ...p, precio: limpio }));
-
-    // Validar rango y mostrar error inline
-    const valor = parseFloat(limpio);
-    if (limpio === '' || isNaN(valor)) {
-      setPrecioError('Ingresa un precio válido.');
-    } else if (valor < 1) {
-      setPrecioError('El precio mínimo es $1 MXN.');
-    } else if (valor > 999) {
-      setPrecioError('El precio máximo es $999 MXN.');
-    } else {
-      setPrecioError(null);
-    }
+  const sanitizarPrecio = (text: string): string => {
+    let limpio = text.replace(/[^0-9.]/g, "");
+    const partes = limpio.split(".");
+    if (partes.length > 2) limpio = partes[0] + "." + partes.slice(1).join("");
+    if (partes.length >= 2) limpio = partes[0] + "." + partes[1].slice(0, 2);
+    return limpio;
   };
 
   useEffect(() => {
