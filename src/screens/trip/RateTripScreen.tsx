@@ -94,7 +94,10 @@ export default function RateTripScreen({ navigation, route }: any) {
     fetchDriverData();
   }, []);
 
-  const handleSubmit = async () => {
+ const handleSubmit = async () => {
+    // Corta de inmediato si ya se está enviando (evita el doble clic)
+    if (submitting) return;
+
     if (rating === 0) {
       Alert.alert("Atención", "Por favor selecciona una calificación antes de enviar.");
       return;
@@ -130,7 +133,9 @@ export default function RateTripScreen({ navigation, route }: any) {
       const errorMsg = err?.message || "Error al guardar la calificación";
       Alert.alert("Error", errorMsg);
     } finally {
-      setSubmitting(false);
+      // Usar setTimeout pequeño es un truco extra para dar tiempo a la navegación 
+      // antes de volver a habilitar el botón
+      setTimeout(() => setSubmitting(false), 500); 
     }
   };
 
