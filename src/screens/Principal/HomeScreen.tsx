@@ -82,11 +82,18 @@ const StartScreen = ({ navigation }: any) => {
         }
 
         const viajesActivos = solicitud.viaje?.viajes_activos;
-        const tieneViajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0;
+        const viajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0 ? viajesActivos[0] : null;
+
+        // Si el viaje fue cancelado, no debe bloquear al pasajero
+        if (viajeActivo?.estado_trayecto === 'cancelado') {
+          setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
+          return;
+        }
 
         setSolicitudActiva({
           tieneSolicitud: true,
-          estado: tieneViajeActivo ? 'en_curso' : solicitud.estado_solicitud,
+          estado: viajeActivo ? 'en_curso' : solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
           solicitudId: solicitud.id_solicitud,
         });
@@ -214,6 +221,12 @@ const StartScreen = ({ navigation }: any) => {
         setViajes(viajesFiltrados);
         await cargarEstadosSolicitudes(viajesFiltrados);
         await verificarSolicitudActiva();
+
+        // Filtrar viajes cancelados o rechazados de la lista visible
+        setViajes((prev) => prev.filter((v: any) => {
+          const estado = estadosSolicitudes[v.id_viaje_pub];
+          return estado !== 'cancelado' && estado !== 'rechazada';
+        }));
       }
     } catch (error) {
       console.error("Error:", error);

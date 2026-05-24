@@ -31,6 +31,7 @@ interface DriverCardProps {
   estadoSolicitud?: string | null;
   onEliminar?: (id: number) => void;
   onCancelar?: (id: number) => void;
+  motivo?: string | null;
 }
 
 const DriverCard = ({
@@ -39,6 +40,7 @@ const DriverCard = ({
   onVerPerfil,
   estadoSolicitud,
   onCancelar,
+  motivo,
 }: DriverCardProps) => {
   const fecha = new Date(viaje.fecha_hora_salida);
   const hora = fecha.toLocaleTimeString("es-MX", {
@@ -201,6 +203,15 @@ const DriverCard = ({
           {viaje.conductor.modelo} • {viaje.conductor.color}
         </Text>
       </View>
+
+      {/* Motivo de cancelación */}
+      {estadoSolicitud === "cancelado" && motivo ? (
+        <View className="px-4 py-2 bg-red-50 border-t border-red-100">
+          <Text className="text-xs text-red-700 font-medium">
+            Motivo: {motivo}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Precio y acción */}
       <View className="p-4 flex-row justify-between items-center">

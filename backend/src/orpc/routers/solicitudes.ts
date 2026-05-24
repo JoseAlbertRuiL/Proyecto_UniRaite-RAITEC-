@@ -256,8 +256,7 @@ export const obtenerEstadoPorViaje = protectedProcedure
         viaje: {
           select: {
             viajes_activos: {
-              where: { estado_trayecto: 'en_curso' },
-              select: { id_viaje_activo: true },
+              select: { id_viaje_activo: true, estado_trayecto: true },
               take: 1,
             },
           },
@@ -268,10 +267,12 @@ export const obtenerEstadoPorViaje = protectedProcedure
 
     let estado: string | null = solicitud?.estado_solicitud || null;
 
-    // Si la solicitud está aceptada y el viaje ya tiene un viaje_activo en curso,
-    // devolvemos "en_curso" para que el pasajero sepa que el viaje inició
+    // Si la solicitud está aceptada y el viaje tiene un viaje_activo:
+    //   - en_curso → devolver "en_curso"
+    //   - cancelado → devolver "cancelado"
     if (estado === 'aceptada' && (solicitud?.viaje?.viajes_activos?.length ?? 0) > 0) {
-      estado = 'en_curso';
+      const estadoTrayecto = solicitud!.viaje!.viajes_activos[0].estado_trayecto;
+      estado = estadoTrayecto;
     }
 
     return { estado };
@@ -299,7 +300,9 @@ export const obtenerSolicitudesActivas = protectedProcedure
         viaje: {
           viajes_activos: {
             none: {
-              estado_trayecto: 'finalizado'
+              estado_trayecto: {
+                in: ['finalizado', 'cancelado']
+              }
             },
           },
         },
@@ -317,8 +320,7 @@ export const obtenerSolicitudesActivas = protectedProcedure
             fecha_hora_salida: true,
             costo_estimado: true,
             viajes_activos: {
-              where: { estado_trayecto: 'en_curso' },
-              select: { id_viaje_activo: true },
+              select: { id_viaje_activo: true, estado_trayecto: true },
               take: 1,
             },
           },

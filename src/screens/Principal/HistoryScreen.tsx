@@ -63,10 +63,17 @@ const HistoryScreen = ({ navigation }: any) => {
         fetchHistorial();
       };
 
+      const onViajeCancelado = (data: any) => {
+        console.log("📢 Viaje cancelado en History:", data);
+        fetchHistorial();
+      };
+
       socket.on("viaje_finalizado", onViajeFinalizado);
+      socket.on("viaje_cancelado", onViajeCancelado);
 
       return () => {
         socket.off("viaje_finalizado", onViajeFinalizado);
+        socket.off("viaje_cancelado", onViajeCancelado);
       };
     }
   }, []);
@@ -132,6 +139,10 @@ const HistoryScreen = ({ navigation }: any) => {
                   ? Math.max(0, capacidadTotal - item.asientos_disponibles)
                   : 0);
 
+            const estadoViaje = item.viajes_activos?.[0]?.estado_trayecto;
+            const motivoCancelacion = item.historial?.[0]?.motivo;
+            const esCancelado = estadoViaje === 'cancelado';
+
             return (
               <View className="mb-4 relative">
                 <View className="absolute z-10 top-2 right-2 bg-black/60 px-2 py-1 rounded-full">
@@ -159,7 +170,8 @@ const HistoryScreen = ({ navigation }: any) => {
                   }}
                   onPress={() => {}}
                   onVerPerfil={(id) => navigation.navigate("PerfilPublico", { usuarioId: id })}
-                  estadoSolicitud="completado"
+                  estadoSolicitud={esCancelado ? "cancelado" : "completado"}
+                  motivo={motivoCancelacion}
                 />
               </View>
             );
