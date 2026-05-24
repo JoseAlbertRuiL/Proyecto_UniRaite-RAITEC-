@@ -72,6 +72,18 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [capacidadMaxima, setCapacidadMaxima] = useState(4);
 
+  // Estado para error en tiempo real del campo precio
+  const [precioError, setPrecioError] = useState<string | null>(null);
+
+  // Filtra el input de precio: solo dígitos y un punto decimal (máx. 2 decimales)
+  const sanitizarPrecio = (text: string): string => {
+    let limpio = text.replace(/[^0-9.]/g, "");
+    const partes = limpio.split(".");
+    if (partes.length > 2) limpio = partes[0] + "." + partes.slice(1).join("");
+    if (partes.length >= 2) limpio = partes[0] + "." + partes[1].slice(0, 2);
+    return limpio;
+  };
+
   const [mapVisible, setMapVisible] = useState(false);
   const [mapTipo, setMapTipo] = useState<"origen" | "destino">("origen");
   const [markerTemp, setMarkerTemp] = useState<{
@@ -89,6 +101,31 @@ const PublishTripScreen = ({ navigation }: any) => {
     value: TripForm[K],
   ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $999
+  const sanitizarPrecio = (text: string) => {
+    // Remover cualquier carácter que no sea dígito o punto
+    let limpio = text.replace(/[^0-9.]/g, '');
+    // Permitir solo un punto decimal
+    const partes = limpio.split('.');
+    if (partes.length > 2) limpio = partes[0] + '.' + partes.slice(1).join('');
+    // Limitar a 2 decimales
+    if (partes[1] && partes[1].length > 2) limpio = partes[0] + '.' + partes[1].slice(0, 2);
+
+    setForm((p) => ({ ...p, precio: limpio }));
+
+    // Validar rango y mostrar error inline
+    const valor = parseFloat(limpio);
+    if (limpio === '' || isNaN(valor)) {
+      setPrecioError('Ingresa un precio válido.');
+    } else if (valor < 1) {
+      setPrecioError('El precio mínimo es $1 MXN.');
+    } else if (valor > 999) {
+      setPrecioError('El precio máximo es $999 MXN.');
+    } else {
+      setPrecioError(null);
+    }
   };
 
   useEffect(() => {
@@ -281,6 +318,14 @@ const PublishTripScreen = ({ navigation }: any) => {
       Alert.alert("Faltan datos", "Por favor ingresa el origen del viaje.");
       return;
     }
+    const precioVal = parseFloat(form.precio);
+    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 100) {
+      Alert.alert(
+        "Precio inválido",
+        "El precio por persona debe estar entre $1 y $100 MXN.",
+      );
+      return;
+    }
     if (!form.destino) {
       Alert.alert("Faltan datos", "Por favor ingresa el destino del viaje.");
       return;
@@ -309,10 +354,6 @@ const PublishTripScreen = ({ navigation }: any) => {
       Alert.alert("Faltan datos", "Por favor selecciona la hora del viaje.");
       return;
     }
-    if (!form.precio || parseFloat(form.precio) <= 0) {
-      Alert.alert("Faltan datos", "Por favor ingresa un precio válido.");
-      return;
-    }
 
     // Validación de tiempo mínimo (usa `date` directamente)
     const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
@@ -336,6 +377,7 @@ const PublishTripScreen = ({ navigation }: any) => {
         longitud_origen: form.origen!.longitude,
         latitud_destino: form.destino!.latitude,
         longitud_destino: form.destino!.longitude,
+        // UTC: Convertir la fecha local a formato ISO 8601 en UTC
         fechaHoraISO: date.toISOString(),
         asientos: form.asientos,
         precio: parseFloat(form.precio),
@@ -630,22 +672,38 @@ const PublishTripScreen = ({ navigation }: any) => {
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Precio por persona
             </Text>
-            <View className="flex-row items-center gap-3 border border-gray-200 rounded-xl px-4 py-3">
+            <View
+              className={`flex-row items-center gap-3 border rounded-xl px-4 py-3 ${
+                precioError ? 'border-red-400' : 'border-gray-200'
+              }`}
+            >
               <View className="bg-blue-50 rounded-lg px-2 py-1">
                 <Text className="text-blue-600 font-bold text-base">$</Text>
               </View>
               <TextInput
                 value={form.precio}
-                onChangeText={(text) =>
-                  setForm((p) => ({ ...p, precio: text }))
-                }
+                onChangeText={(text) => {
+                  const val = sanitizarPrecio(text);
+                  setForm((p) => ({ ...p, precio: val }));
+                  const n = parseFloat(val);
+                  if (!val) setPrecioError("El precio es requerido");
+                  else if (isNaN(n) || n < 1) setPrecioError("Mínimo $1 MXN");
+                  else if (n > 100) setPrecioError("Máximo $100 MXN");
+                  else setPrecioError(null);
+                }}
                 keyboardType="numeric"
                 className="flex-1 text-2xl font-bold text-gray-900"
                 placeholder="0.00"
                 placeholderTextColor="#9CA3AF"
+                maxLength={6}
               />
               <Text className="text-xs text-gray-400">MXN / persona</Text>
             </View>
+            {precioError ? (
+              <Text className="text-red-500 text-xs mt-1 ml-1">{precioError}</Text>
+            ) : (
+              <Text className="text-gray-400 text-xs mt-1 ml-1">Entre $1 y $100 MXN</Text>
+            )}
           </View>
 
           {/* Comentario */}

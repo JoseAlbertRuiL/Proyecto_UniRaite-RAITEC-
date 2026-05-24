@@ -78,16 +78,16 @@ io.use(async (socket, next) => {
     if (!token) {
       return next(new Error('Token requerido'));
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     const usuario = await prisma.usuarios.findUnique({
       where: { id_usuario: (decoded as any).id }
     });
-    
+
     if (!usuario) {
       return next(new Error('Usuario no encontrado'));
     }
-    
+
     (socket as any).user = usuario;
     next();
   } catch (error) {
@@ -99,12 +99,12 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
-  
+
   socket.on('join_chat', (chatId: string) => {
     socket.join(`chat_${chatId}`);
     console.log(`📱 Usuario unido al chat ${chatId}`);
   });
-  
+
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
     const user = (socket as any).user;
     try {
@@ -117,7 +117,7 @@ io.on('connection', (socket) => {
         },
         include: { emisor: { select: { nombre: true, foto_perfil: true } } }
       });
-      
+
       io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
     } catch (error) {
       console.error('Error al guardar mensaje:', error);
@@ -132,11 +132,11 @@ io.on('connection', (socket) => {
     lng: number;
   }) => {
     console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
-    
+
     const roomName = `viaje_${data.viajeId}`;
     const socketsEnRoom = await io.in(roomName).fetchSockets();
     console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
-    
+
     io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
       lng: data.lng,
@@ -175,7 +175,7 @@ io.on('connection', (socket) => {
   socket.on('leave_viaje', (viajeId: number) => {
     socket.leave(`viaje_${viajeId}`);
   });
-  
+
   socket.on('disconnect', () => {
     console.log('⚡ Usuario desconectado');
   });
@@ -203,22 +203,22 @@ const intentosPorIP = new Map<string, { count: number; firstAttempt: number }>()
 // Middleware de rate limiting para login
 const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.log(`🟢 MIDDLEWARE EJECUTADO - URL: ${req.url}, METHOD: ${req.method}`);
-  
+
   // Solo aplicar a rutas que contengan 'login'
   if (!req.url.includes('/login')) {
     console.log(`🟢 No es login, saltando...`);
     return next();
   }
-  
+
   console.log(`🟢 ES LOGIN, aplicando rate limit...`);
-  
+
   // Obtener IP
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
   const intentos = intentosPorIP.get(ip);
-  
+
   console.log(`🔐 RateLimit - IP: ${ip}`);
-  
+
   if (intentos) {
     // Si pasaron más de 15 minutos, reiniciar
     if (now - intentos.firstAttempt > 15 * 60 * 1000) {
@@ -226,7 +226,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       console.log(`🔐 Reiniciando contador para IP: ${ip}`);
       return next();
     }
-    
+
     // Si tiene 5 o más intentos, bloquear
     if (intentos.count >= 5) {
       const minutosRestantes = Math.ceil((15 * 60 * 1000 - (now - intentos.firstAttempt)) / 60000);
@@ -236,7 +236,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
         message: `Demasiados intentos. Bloqueado por ${minutosRestantes} minutos.`
       });
     }
-    
+
     // Incrementar contador
     intentos.count++;
     intentosPorIP.set(ip, intentos);
@@ -245,7 +245,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
     intentosPorIP.set(ip, { count: 1, firstAttempt: now });
     console.log(`🔐 Primer intento para IP: ${ip}`);
   }
-  
+
   next();
 };
 
