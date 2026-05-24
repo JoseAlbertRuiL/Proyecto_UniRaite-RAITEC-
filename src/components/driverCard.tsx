@@ -30,6 +30,7 @@ interface DriverCardProps {
   onVerPerfil: (usuarioId: string) => void;
   estadoSolicitud?: string | null;
   onEliminar?: (id: number) => void;
+  onCancelar?: (id: number) => void;
 }
 
 const DriverCard = ({
@@ -37,6 +38,7 @@ const DriverCard = ({
   onPress,
   onVerPerfil,
   estadoSolicitud,
+  onCancelar,
 }: DriverCardProps) => {
   const fecha = new Date(viaje.fecha_hora_salida);
   const hora = fecha.toLocaleTimeString("es-MX", {
@@ -52,9 +54,12 @@ const DriverCard = ({
   const reputacion = viaje.conductor.usuario.reputacion_promedio || 0;
   const totalViajes = viaje.conductor.usuario.total_viajes || 0;
 
+  const isPendiente = estadoSolicitud === "pendiente";
+
   const getBotonTexto = () => {
-    if (estadoSolicitud === "pendiente") return "Pendiente ⏳";
+    if (isPendiente) return "Cancelar solicitud";
     if (estadoSolicitud === "aceptada") return "Aceptado ✅";
+    if (estadoSolicitud === "en_curso") return "En curso 🚗";
     if (estadoSolicitud === "rechazada") return "Rechazado ❌";
     if (estadoSolicitud === "cancelado") return "Cancelado 🚫";
     if (estadoSolicitud === "completado") return "Finalizado 🏁";
@@ -62,8 +67,9 @@ const DriverCard = ({
   };
 
   const getBotonEstilo = () => {
-    if (estadoSolicitud === "pendiente") return "bg-yellow-500";
+    if (isPendiente) return "bg-red-500";
     if (estadoSolicitud === "aceptada") return "bg-green-500";
+    if (estadoSolicitud === "en_curso") return "bg-blue-600";
     if (estadoSolicitud === "rechazada") return "bg-red-500";
     if (estadoSolicitud === "cancelado") return "bg-gray-500";
     if (estadoSolicitud === "completado") return "bg-gray-600";
@@ -71,6 +77,7 @@ const DriverCard = ({
   };
 
   const getBotonDisabled = () => {
+    if (isPendiente) return false;
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
@@ -206,7 +213,7 @@ const DriverCard = ({
 
         <TouchableOpacity
           className={`${getBotonEstilo()} rounded-xl px-6 py-3 ${getBotonDisabled() ? "opacity-70" : ""}`}
-          onPress={() => onPress(viaje.id_viaje_pub)}
+          onPress={() => isPendiente ? onCancelar?.(viaje.id_viaje_pub) : onPress(viaje.id_viaje_pub)}
           disabled={getBotonDisabled()}
         >
           <Text className="text-white font-semibold text-sm">
