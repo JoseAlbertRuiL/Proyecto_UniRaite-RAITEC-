@@ -544,7 +544,9 @@ export const cancelarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
     }
 
-    // 1. Si el viaje está en curso, marcarlo como cancelado en viajes_activos
+    // 1. Si el viaje está en curso, marcarlo como cancelado en viajes_activos.
+    //    Si no está en curso (nunca se inició), crear un registro de cancelación
+    //    para que el viaje deje de aparecer como activo.
     const viajeActivoEnCurso = viaje.viajes_activos?.[0] ?? null
     if (viajeActivoEnCurso) {
       await prisma.viajes_activos.update({
@@ -552,6 +554,16 @@ export const cancelarViaje = protectedProcedure
         data: {
           estado_trayecto: 'cancelado',
           hora_fin_real: new Date(),
+        },
+      })
+    } else {
+      await prisma.viajes_activos.create({
+        data: {
+          id_viaje_pub: input.viajeId,
+          hora_inicio_real: new Date(),
+          hora_fin_real: new Date(),
+          estado_trayecto: 'cancelado',
+          historial_ruta: [],
         },
       })
     }
