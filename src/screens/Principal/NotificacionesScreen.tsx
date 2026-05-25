@@ -4,10 +4,9 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-  Alert,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import HeaderBack from "../../components/common/HeaderBack";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
@@ -21,6 +20,7 @@ interface Notificacion {
   tipo_notif: string;
   leido: boolean;
   fecha_creacion: string;
+  yaCalificado?: boolean;
 }
 
 const NotificacionesScreen = ({ navigation }: any) => {
@@ -35,6 +35,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
     try {
       const data = await orpc.notificaciones.obtenerTodas();
       if (data.success) {
+        // Asignación directa y limpia
         setNotificaciones(data.notificaciones || []);
       }
     } catch (error) {
@@ -46,9 +47,8 @@ const NotificacionesScreen = ({ navigation }: any) => {
   }, [refrescando]);
 
   useEffect(() => {
-    cargarNotificaciones(); // Carga inicial
+    cargarNotificaciones();
 
-    // Recargar cada vez que la pantalla vuelva a tener el foco
     if (navigation && navigation.addListener) {
       const unsubscribe = navigation.addListener('focus', () => {
         cargarNotificaciones();
@@ -60,10 +60,10 @@ const NotificacionesScreen = ({ navigation }: any) => {
   const marcarComoLeida = async (id: number) => {
     try {
       await orpc.notificaciones.marcarLeida({ id });
-      setNotificaciones((prev: Notificacion[]) =>
+      setNotificaciones((prev) =>
         prev.map((notif) =>
-          notif.id_notificacion === id ? { ...notif, leido: true } : notif,
-        ),
+          notif.id_notificacion === id ? { ...notif, leido: true } : notif
+        )
       );
     } catch (error) {
       console.error("Error al marcar como leída:", error);
@@ -73,8 +73,8 @@ const NotificacionesScreen = ({ navigation }: any) => {
   const marcarTodasLeidas = async () => {
     try {
       await orpc.notificaciones.marcarTodasLeidas();
-      setNotificaciones((prev: Notificacion[]) =>
-        prev.map((notif) => ({ ...notif, leido: true })),
+      setNotificaciones((prev) =>
+        prev.map((notif) => ({ ...notif, leido: true }))
       );
     } catch (error) {
       Alert.alert("Error", "No se pudieron marcar las notificaciones");
@@ -92,8 +92,8 @@ const NotificacionesScreen = ({ navigation }: any) => {
           onPress: async () => {
             try {
               await orpc.notificaciones.eliminar({ id });
-              setNotificaciones((prev: Notificacion[]) =>
-                prev.filter((notif) => notif.id_notificacion !== id),
+              setNotificaciones((prev) =>
+                prev.filter((notif) => notif.id_notificacion !== id)
               );
             } catch (error) {
               Alert.alert("Error", "No se pudo eliminar la notificación");
@@ -101,8 +101,18 @@ const NotificacionesScreen = ({ navigation }: any) => {
           },
           style: "destructive",
         },
-      ],
+      ]
     );
+  };
+
+  const manejarClickCalificar = async (notif: Notificacion) => {
+    if (!notif.leido) {
+      await marcarComoLeida(notif.id_notificacion);
+    }
+    
+    navigation.navigate("RateTrip", { 
+      notificacionId: notif.id_notificacion 
+    });
   };
 
   const formatearFecha = (fecha: string) => {
@@ -133,8 +143,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
 
       <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
         <Text className="text-sm text-gray-500">
-          {notificacionesNoLeidas} no leída
-          {notificacionesNoLeidas !== 1 ? "s" : ""}
+          {notificacionesNoLeidas} no leída{notificacionesNoLeidas !== 1 ? "s" : ""}
         </Text>
         {notificacionesNoLeidas > 0 && (
           <TouchableOpacity onPress={marcarTodasLeidas}>
@@ -147,79 +156,69 @@ const NotificacionesScreen = ({ navigation }: any) => {
 
       <ScrollView
         className="flex-1"
-        refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefresh} />}
       >
         {cargando ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color="#1e3a8a" />
-            <Text className="text-gray-500 mt-4">
-              Cargando notificaciones...
-            </Text>
+            <Text className="text-gray-500 mt-4">Cargando notificaciones...</Text>
           </View>
         ) : notificaciones.length === 0 ? (
           <View className="flex-1 items-center justify-center py-20">
             <Text className="text-5xl mb-4">🔔</Text>
-            <Text className="text-gray-500 text-center">
-              No tienes notificaciones
-            </Text>
+            <Text className="text-gray-500 text-center">No tienes notificaciones</Text>
           </View>
         ) : (
           notificaciones.map((notif) => (
             <TouchableOpacity
               key={notif.id_notificacion}
               className={`p-4 border-b border-gray-100 ${!notif.leido ? "bg-blue-50" : ""}`}
-              onPress={() =>
-                !notif.leido && marcarComoLeida(notif.id_notificacion)
-              }
+              onPress={() => !notif.leido && marcarComoLeida(notif.id_notificacion)}
               activeOpacity={0.7}
             >
               <View className="flex-row items-start">
                 <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center mr-3">
                   <Text className="text-xl">
-                    {notif.tipo_notif === "viaje"
-                      ? "🚗"
-                      : notif.tipo_notif === "solicitud"
-                        ? "📝"
-                        : notif.tipo_notif === "pago"
-                          ? "💰"
-                          : notif.tipo_notif === "finalizacion"
-                            ? "✅"
-                            : "🔔"}
+                    {notif.tipo_notif === "viaje" ? "🚗"
+                      : notif.tipo_notif === "solicitud" ? "📝"
+                      : notif.tipo_notif === "pago" ? "💰"
+                      : notif.tipo_notif === "finalizacion" ? "✅"
+                      : "🔔"}
                   </Text>
                 </View>
 
                 <View className="flex-1">
-                  <Text className="font-semibold text-gray-900">
-                    {notif.titulo}
-                  </Text>
-                  <Text className="text-sm text-gray-600 mt-1">
-                    {notif.cuerpo_mensaje}
-                  </Text>
-                  <Text className="text-xs text-gray-400 mt-2">
-                    {formatearFecha(notif.fecha_creacion)}
-                  </Text>
+                  <Text className="font-semibold text-gray-900">{notif.titulo}</Text>
+                  <Text className="text-sm text-gray-600 mt-1">{notif.cuerpo_mensaje}</Text>
+                  <Text className="text-xs text-gray-400 mt-2">{formatearFecha(notif.fecha_creacion)}</Text>
                 </View>
 
-                {!notif.leido && (
-                  <View className="w-2 h-2 rounded-full bg-blue-600 mt-2" />
-                )}
+                {!notif.leido && <View className="w-2 h-2 rounded-full bg-blue-600 mt-2" />}
               </View>
 
-              {/* Botón corregido con la prop navigation original */}
-              {notif.tipo_notif === "finalizacion" && !notif.leido && (
-                <TouchableOpacity
-                  className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
-                  onPress={async () => {
-                    await marcarComoLeida(notif.id_notificacion);
-                    navigation.navigate("RateTrip");
-                  }}
-                >
-                  <Text className="text-white text-sm font-semibold">
-                    Calificar viaje
-                  </Text>
-                </TouchableOpacity>
+              {/* Renderizado de botón de calificación inteligente */}
+              {notif.tipo_notif === "finalizacion" && (
+                <>
+                  {notif.yaCalificado ? (
+                    // Si ya está calificado, mostramos un mensaje sutil en lugar del botón
+                    <View className="mt-4 flex-row items-center">
+                      <Text className="text-gray-400 text-sm italic">✓ Viaje calificado</Text>
+                    </View>
+                  ) : (
+                    // Si NO está calificado, mostramos el botón
+                    <TouchableOpacity
+                      className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
+                      onPress={() => manejarClickCalificar(notif)}
+                    >
+                      <Text style={{ fontSize: 10, color: 'red' }}>
+                        ID: {notif.id_notificacion} | yaCalificado: {String(notif.yaCalificado)}
+                      </Text>
+                      <Text className="text-white text-sm font-semibold">
+                        Calificar viaje
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
 
               <TouchableOpacity

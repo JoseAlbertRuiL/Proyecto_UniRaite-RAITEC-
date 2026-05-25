@@ -60,7 +60,8 @@ import {
 import {
   guardarCalificacion,
   obtenerCalificacionesRecibidas,
-  obtenerMisCalificaciones
+  obtenerMisCalificaciones,
+  obtenerPendiente
 } from './routers/calificaciones'
 
 
@@ -130,6 +131,7 @@ calificaciones: {
   guardar: guardarCalificacion,
   obtenerRecibidas: obtenerCalificacionesRecibidas,
   obtenerMias: obtenerMisCalificaciones,
+  obtenerPendiente: obtenerPendiente,
 },
 
 }
