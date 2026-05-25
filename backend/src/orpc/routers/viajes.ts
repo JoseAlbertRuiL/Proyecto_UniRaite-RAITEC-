@@ -87,8 +87,8 @@ export const publicarViaje = protectedProcedure
       // ISO 8601 con zona horaria (ej. 2026-05-24T20:00:00.000Z)
       fechaHoraISO: z.string().datetime(),
       asientos: z.number().int().min(1),
-      // Precio entre $1 y $100 MXN, máximo 2 decimales
-      precio: z.number().positive().max(100).multipleOf(0.01),
+      // Precio entre $1 y $70 MXN, máximo 2 decimales
+      precio: z.number().positive().max(70).multipleOf(0.01),
     })
   )
   .handler(async ({ input, context }) => {

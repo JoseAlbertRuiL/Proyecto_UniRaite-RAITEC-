@@ -94,7 +94,7 @@ const PublishTripScreen = ({ navigation }: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $999
+  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $70
   const sanitizarPrecio = (text: string) => {
     // Remover cualquier carácter que no sea dígito o punto
     let limpio = text.replace(/[^0-9.]/g, '');
@@ -112,8 +112,8 @@ const PublishTripScreen = ({ navigation }: any) => {
       setPrecioError('Ingresa un precio válido.');
     } else if (valor < 1) {
       setPrecioError('El precio mínimo es $1 MXN.');
-    } else if (valor > 999) {
-      setPrecioError('El precio máximo es $999 MXN.');
+    } else if (valor > 70) {
+      setPrecioError('El precio máximo es $70 MXN.'); //
     } else {
       setPrecioError(null);
     }
@@ -297,7 +297,7 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔒 DEBOUNCE: Función modificada para evitar múltiples publicaciones
+  // DEBOUNCE: Función modificada para evitar múltiples publicaciones
   const handlePublicar = async () => {
     // Evitar múltiples clics
     if (isPublishingRef.current) {
@@ -310,10 +310,10 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
     const precioVal = parseFloat(form.precio);
-    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 100) {
+    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 70) { 
       Alert.alert(
         "Precio inválido",
-        "El precio por persona debe estar entre $1 y $100 MXN.",
+        "El precio por persona debe estar entre $1 y $70 MXN.",
       );
       return;
     }
@@ -685,7 +685,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             {precioError ? (
               <Text className="text-red-500 text-xs mt-1 ml-1">{precioError}</Text>
             ) : (
-              <Text className="text-gray-400 text-xs mt-1 ml-1">Entre $1 y $100 MXN</Text>
+              <Text className="text-gray-400 text-xs mt-1 ml-1">Entre $1 y $70 MXN</Text>
             )}
           </View>
 
@@ -706,7 +706,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/* 🔒 DEBOUNCE: Botón con estilo mejorado */}
+          {/* DEBOUNCE: Botón con estilo mejorado */}
           <TouchableOpacity
             onPress={handlePublicar}
             disabled={isLoading}
