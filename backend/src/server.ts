@@ -197,67 +197,78 @@ const orpcHandler = new RPCHandler(router, {
 
 // ─── Rate Limiting implementado DENTRO del handler de oRPC ─────────────────────
 
-// Almacenamiento simple para rate limiting por IP
-const intentosPorIP = new Map<string, { count: number; firstAttempt: number }>();
+// Almacenamiento: fallos de login y fallos de registro
+const intentosLogin = new Map<string, { count: number; firstAttempt: number }>();
+const intentosRegistro = new Map<string, { count: number; firstAttempt: number }>();
 
-// Middleware de rate limiting para login
+// Middleware de rate limiting
 const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.log(`🟢 MIDDLEWARE EJECUTADO - URL: ${req.url}, METHOD: ${req.method}`);
-  
-  // Solo aplicar a rutas que contengan 'login'
-  if (!req.url.includes('/login')) {
-    console.log(`🟢 No es login, saltando...`);
+  // Filtrar solo las rutas que nos interesan proteger
+  const esLogin = req.url.includes('/login');
+  const esRegistro = req.url.includes('/register');
+
+  if (!esLogin && !esRegistro) {
     return next();
   }
-  
-  console.log(`🟢 ES LOGIN, aplicando rate limit...`);
-  
+    
   // Obtener IP
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
-  const intentos = intentosPorIP.get(ip);
   
-  console.log(`🔐 RateLimit - IP: ${ip}`);
-  
+  // Reglas específicas para login y registro
+  const mapaActual = esLogin ? intentosLogin : intentosRegistro;
+  const limiteIntentos = esLogin ? 30 : 15; // 30 intentos para login, 15 para registro
+  const tiempoCastigo = esLogin ? (15 * 60 * 1000) : (30 * 60 * 1000); // 15 mins para login, 30 mins para registro
+
+  const intentos = mapaActual.get(ip);
+
+  // Verificación de bloqueos
   if (intentos) {
-    // Si pasaron más de 15 minutos, reiniciar
-    if (now - intentos.firstAttempt > 15 * 60 * 1000) {
-      intentosPorIP.set(ip, { count: 1, firstAttempt: now });
-      console.log(`🔐 Reiniciando contador para IP: ${ip}`);
-      return next();
-    }
-    
-    // Si tiene 5 o más intentos, bloquear
-    if (intentos.count >= 5) {
-      const minutosRestantes = Math.ceil((15 * 60 * 1000 - (now - intentos.firstAttempt)) / 60000);
+    if (now - intentos.firstAttempt > tiempoCastigo) {
+      // Ya pasó el tiempo de castigo, limpiamos su historial
+      mapaActual.delete(ip);
+    } else if (intentos.count >= limiteIntentos) {
+      // Sigue castigado: Bloqueamos la petición
+      const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
+      const accion = esLogin ? "iniciar sesión" : "registrarse";
+      
       console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
       return res.status(429).json({
         success: false,
-        message: `Demasiados intentos. Bloqueado por ${minutosRestantes} minutos.`
+        message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
       });
     }
-    
-    // Incrementar contador
-    intentos.count++;
-    intentosPorIP.set(ip, intentos);
-    console.log(`🔐 Intento ${intentos.count}/5 para IP: ${ip}`);
-  } else {
-    intentosPorIP.set(ip, { count: 1, firstAttempt: now });
-    console.log(`🔐 Primer intento para IP: ${ip}`);
   }
+
+  // Interceptamos la respuesta final
+  res.on('finish', () => {
+    // Si falla (Error 400+)
+    if (res.statusCode >= 400) {
+      const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
+      actuales.count++;
+      mapaActual.set(ip, actuales);
+      console.log(`🔐 [RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
+    } 
+    // Si tiene éxito (200)
+    else if (res.statusCode >= 200 && res.statusCode < 300) {
+      mapaActual.delete(ip);
+      console.log(`🔐 [RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
+    }
+  });
   
   next();
 };
 
-// Limpiar intentos viejos cada hora
+// Limpiador de basura
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, data] of intentosPorIP.entries()) {
-    if (now - data.firstAttempt > 15 * 60 * 1000) {
-      intentosPorIP.delete(ip);
-    }
+  for (const [ip, data] of intentosLogin.entries()) {
+    if (now - data.firstAttempt > 15 * 60 * 1000) intentosLogin.delete(ip);
   }
-}, 60 * 60 * 1000);
+  for (const [ip, data] of intentosRegistro.entries()) {
+    if (now - data.firstAttempt > 30 * 60 * 1000) intentosRegistro.delete(ip);
+  }
+}, 60 * 60 * 1000); // Se ejecuta cada hora para liberar RAM
 
 // Aplicar rate limit middleware ANTES del handler de oRPC
 app.use('/rpc', rateLimitMiddleware);
