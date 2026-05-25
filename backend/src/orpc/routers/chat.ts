@@ -172,7 +172,11 @@ export const misChats = protectedProcedure
 
       if (!viaje) continue;
 
-      const estaFinalizado = viaje.asientos_disponibles === 0;
+      
+      const viajeFinalizado = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: viajeId, estado_trayecto: 'finalizado' }
+    });
+    const estaFinalizado = !!viajeFinalizado;
 
       // LÓGICA DE VISIBILIDAD MANTENIDA:
       // Si no hay mensajes y el viaje ya terminó, se oculta (asumimos borrado)[cite: 4].
@@ -218,17 +222,24 @@ export const getEstado = protectedProcedure
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
-      select: { asientos_disponibles: true }
+      select: { id_viaje_pub: true } // Ya no necesitamos los asientos aquí
     });
 
     if (!viaje) {
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
     }
 
-    const estado = viaje.asientos_disponibles > 0 ? 'activo' : 'finalizado';
+    // Buscamos si el viaje ya tiene un registro de que finalizó
+    const viajeActivo = await prisma.viajes_activos.findFirst({
+      where: { 
+        id_viaje_pub: input.viajeId, 
+        estado_trayecto: 'finalizado' 
+      }
+    });
+
+    const estado = viajeActivo ? 'finalizado' : 'activo';
     return { estado };
   });
-
 // 6. Contar mensajes no leídos del usuario
 export const contarMensajesNoLeidos = protectedProcedure
   .handler(async ({ context }) => {

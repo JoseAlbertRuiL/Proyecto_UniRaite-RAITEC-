@@ -170,6 +170,43 @@ export const publicarViaje = protectedProcedure
 
     const fechaHoraSalida = new Date(input.fechaHoraISO)
 
+   // =========================================================================
+    // 🛑 VALIDACIÓN DE EMPALME DE AGENDA (ACTUALIZADA)
+    // =========================================================================
+    const margenHoras = 2 * 60 * 60 * 1000; 
+    const rangoInicio = new Date(fechaHoraSalida.getTime() - margenHoras);
+    const rangoFin = new Date(fechaHoraSalida.getTime() + margenHoras);
+
+    const viajeEmpalmado = await prisma.viajes_publicados.findFirst({
+      where: {
+        id_licencia_conductor: conductor.id_licencia,
+        fecha_hora_salida: {
+          gte: rangoInicio, 
+          lte: rangoFin,    
+        },
+        // 🚀 NUEVO: Ignorar viajes si ya están finalizados o cancelados
+        viajes_activos: {
+          none: {
+            estado_trayecto: {
+              in: ['finalizado', 'cancelado']
+            }
+          }
+        }
+      },
+    });
+
+    if (viajeEmpalmado) {
+      const horaEmpalme = viajeEmpalmado.fecha_hora_salida.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      throw new ORPCError('CONFLICT', {
+        message: `Ya tienes un viaje activo agendado para las ${horaEmpalme}. Debes finalizarlo o dejar un margen de 2 horas.`,
+      });
+    }
+    // =========================================================================
+
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
         id_licencia_conductor: conductor.id_licencia,

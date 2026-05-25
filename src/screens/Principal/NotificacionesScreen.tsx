@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -30,7 +30,8 @@ const NotificacionesScreen = ({ navigation }: any) => {
 
   useBackHandler(navigation, "normal");
 
-  const cargarNotificaciones = async () => {
+  const cargarNotificaciones = useCallback(async () => {
+    if (!refrescando) setCargando(true);
     try {
       const data = await orpc.notificaciones.obtenerTodas();
       if (data.success) {
@@ -42,12 +43,25 @@ const NotificacionesScreen = ({ navigation }: any) => {
       setCargando(false);
       setRefrescando(false);
     }
-  };
+  }, [refrescando]);
+
+  // Utilizamos el listener nativo de navigation en lugar de useFocusEffect
+  useEffect(() => {
+    cargarNotificaciones(); // Carga inicial
+
+    // Recargar cada vez que la pantalla vuelva a tener el foco
+    if (navigation && navigation.addListener) {
+      const unsubscribe = navigation.addListener('focus', () => {
+        cargarNotificaciones();
+      });
+      return unsubscribe; // Limpiamos el evento al desmontar
+    }
+  }, [navigation, cargarNotificaciones]);
 
   const marcarComoLeida = async (id: number) => {
     try {
       await orpc.notificaciones.marcarLeida({ id });
-      setNotificaciones((prev) =>
+      setNotificaciones((prev: Notificacion[]) =>
         prev.map((notif) =>
           notif.id_notificacion === id ? { ...notif, leido: true } : notif,
         ),
@@ -60,7 +74,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
   const marcarTodasLeidas = async () => {
     try {
       await orpc.notificaciones.marcarTodasLeidas();
-      setNotificaciones((prev) =>
+      setNotificaciones((prev: Notificacion[]) =>
         prev.map((notif) => ({ ...notif, leido: true })),
       );
     } catch (error) {
@@ -79,7 +93,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
           onPress: async () => {
             try {
               await orpc.notificaciones.eliminar({ id });
-              setNotificaciones((prev) =>
+              setNotificaciones((prev: Notificacion[]) =>
                 prev.filter((notif) => notif.id_notificacion !== id),
               );
             } catch (error) {
@@ -111,10 +125,6 @@ const NotificacionesScreen = ({ navigation }: any) => {
     setRefrescando(true);
     cargarNotificaciones();
   };
-
-  useEffect(() => {
-    cargarNotificaciones();
-  }, []);
 
   const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
@@ -198,11 +208,12 @@ const NotificacionesScreen = ({ navigation }: any) => {
                 )}
               </View>
 
-              {notif.tipo_notif === "finalizacion" && (
+              {/* Botón corregido con la prop navigation original */}
+              {notif.tipo_notif === "finalizacion" && !notif.leido && (
                 <TouchableOpacity
                   className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
                   onPress={async () => {
-                    if (!notif.leido) await marcarComoLeida(notif.id_notificacion);
+                    await marcarComoLeida(notif.id_notificacion);
                     navigation.navigate("RateTrip");
                   }}
                 >
