@@ -35,6 +35,13 @@ export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
       asientos_disponibles: { gt: 0 },
+      viajes_activos: {
+        none: {
+          estado_trayecto: {
+            in: ['cancelado', 'finalizado'],
+          },
+        },
+      },
     },
     include: {
       conductor: {
