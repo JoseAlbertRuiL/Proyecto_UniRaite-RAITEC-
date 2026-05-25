@@ -699,3 +699,9 @@ export const finalizarViaje = protectedProcedure
 
     return { success: true, message: 'Viaje finalizado y guardado en historial' };
   });
+
+// ─── Utilidades ──────────────────────────────────────────────────────────────
+
+export const serverTime = baseProcedure.handler(async () => {
+  return { serverTime: new Date().toISOString() }
+});

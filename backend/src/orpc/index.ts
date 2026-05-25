@@ -29,6 +29,7 @@ import {
   finalizarViaje,
   obtenerViajePorId,
   iniciarViaje,
+  serverTime,
 } from './routers/viajes'
 import { 
   solicitarViaje, 
@@ -131,6 +132,8 @@ calificaciones: {
   obtenerRecibidas: obtenerCalificacionesRecibidas,
   obtenerMias: obtenerMisCalificaciones,
 },
+
+serverTime,
 
 }
 

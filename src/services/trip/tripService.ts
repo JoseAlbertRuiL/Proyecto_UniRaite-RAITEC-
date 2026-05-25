@@ -2,6 +2,12 @@
 import { orpc, UPLOAD_URL } from '../api/apiClient'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
+// ─── Utilidades ───────────────────────────────────────────────────────────────
+
+export const getServerTime = async () => {
+  return orpc.serverTime()
+}
+
 // ─── Viajes ───────────────────────────────────────────────────────────────────
 
 export const listarViajes = async () => {
