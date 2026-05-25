@@ -87,7 +87,7 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [geocodingLoad, setGeocodingLoad] = useState(false);
   const mapRef = useRef<MapView>(null);
 
-  // 🔒 DEBOUNCE: Ref para evitar múltiples publicaciones
+  // DEBOUNCE: Ref para evitar múltiples publicaciones
   const isPublishingRef = useRef(false);
 
   const updateField = <K extends keyof TripForm>(
@@ -97,12 +97,29 @@ const PublishTripScreen = ({ navigation }: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const sanitizarPrecio = (text: string): string => {
-    let limpio = text.replace(/[^0-9.]/g, "");
-    const partes = limpio.split(".");
-    if (partes.length > 2) limpio = partes[0] + "." + partes.slice(1).join("");
-    if (partes.length >= 2) limpio = partes[0] + "." + partes[1].slice(0, 2);
-    return limpio;
+  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $70
+  const sanitizarPrecio = (text: string) => {
+    // Remover cualquier carácter que no sea dígito o punto
+    let limpio = text.replace(/[^0-9.]/g, '');
+    // Permitir solo un punto decimal
+    const partes = limpio.split('.');
+    if (partes.length > 2) limpio = partes[0] + '.' + partes.slice(1).join('');
+    // Limitar a 2 decimales
+    if (partes[1] && partes[1].length > 2) limpio = partes[0] + '.' + partes[1].slice(0, 2);
+
+    setForm((p) => ({ ...p, precio: limpio }));
+
+    // Validar rango y mostrar error inline
+    const valor = parseFloat(limpio);
+    if (limpio === '' || isNaN(valor)) {
+      setPrecioError('Ingresa un precio válido.');
+    } else if (valor < 1) {
+      setPrecioError('El precio mínimo es $1 MXN.');
+    } else if (valor > 70) {
+      setPrecioError('El precio máximo es $70 MXN.'); //
+    } else {
+      setPrecioError(null);
+    }
   };
 
   useEffect(() => {
@@ -303,7 +320,7 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔒 DEBOUNCE: Función modificada para evitar múltiples publicaciones
+  // DEBOUNCE: Función modificada para evitar múltiples publicaciones
   const handlePublicar = async () => {
     // Evitar múltiples clics
     if (isPublishingRef.current) {
@@ -316,10 +333,10 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
     const precioVal = parseFloat(form.precio);
-    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 100) {
+    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 70) { 
       Alert.alert(
         "Precio inválido",
-        "El precio por persona debe estar entre $1 y $100 MXN.",
+        "El precio por persona debe estar entre $1 y $70 MXN.",
       );
       return;
     }
@@ -679,15 +696,7 @@ const PublishTripScreen = ({ navigation }: any) => {
               </View>
               <TextInput
                 value={form.precio}
-                onChangeText={(text) => {
-                  const val = sanitizarPrecio(text);
-                  setForm((p) => ({ ...p, precio: val }));
-                  const n = parseFloat(val);
-                  if (!val) setPrecioError("El precio es requerido");
-                  else if (isNaN(n) || n < 1) setPrecioError("Mínimo $1 MXN");
-                  else if (n > 100) setPrecioError("Máximo $100 MXN");
-                  else setPrecioError(null);
-                }}
+                onChangeText={sanitizarPrecio}
                 keyboardType="numeric"
                 className="flex-1 text-2xl font-bold text-gray-900"
                 placeholder="0.00"
@@ -699,7 +708,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             {precioError ? (
               <Text className="text-red-500 text-xs mt-1 ml-1">{precioError}</Text>
             ) : (
-              <Text className="text-gray-400 text-xs mt-1 ml-1">Entre $1 y $100 MXN</Text>
+              <Text className="text-gray-400 text-xs mt-1 ml-1">Entre $1 y $70 MXN</Text>
             )}
           </View>
 
@@ -720,7 +729,7 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/* 🔒 DEBOUNCE: Botón con estilo mejorado */}
+          {/* DEBOUNCE: Botón con estilo mejorado */}
           <TouchableOpacity
             onPress={handlePublicar}
             disabled={isLoading}

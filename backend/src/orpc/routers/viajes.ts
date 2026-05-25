@@ -94,12 +94,12 @@ export const publicarViaje = protectedProcedure
       // ISO 8601 con zona horaria (ej. 2026-05-24T20:00:00.000Z)
       fechaHoraISO: z.string().datetime(),
       asientos: z.number().int().min(1),
-      // Precio entre $1 y $100 MXN, máximo 2 decimales
-      precio: z.number().positive().max(100).multipleOf(0.01),
+      // Precio entre $1 y $70 MXN, máximo 2 decimales
+      precio: z.number().positive().max(70).multipleOf(0.01),
     })
   )
   .handler(async ({ input, context }) => {
-    // 🔒 DEBOUNCE: Validar tiempo entre publicaciones
+    // DEBOUNCE: Validar tiempo entre publicaciones
     const ahora = Date.now();
     const ultimaPublicacion = ultimaPublicacionPorUsuario.get(context.user.id);
 
@@ -138,19 +138,17 @@ export const publicarViaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
     }
 
-    const fechaHoraSalida = new Date(input.fechaHoraISO)
+    const fechaHoraSalida = new Date(input.fechaHoraISO);
 
-    // Segunda línea de defensa: validar que la hora de salida sea al menos 10 minutos en el futuro
-    const limiteMinimo = new Date(Date.now() + 10 * 60 * 1000)
+    // Validar que la hora de salida sea al menos 10 minutos en el futuro (Fast-fail)
+    const limiteMinimo = new Date(Date.now() + 10 * 60 * 1000);
     if (fechaHoraSalida < limiteMinimo) {
       throw new ORPCError('BAD_REQUEST', {
         message: 'La hora de salida debe ser al menos 10 minutos en el futuro',
-      })
+      });
     }
 
-   // =========================================================================
-    // 🛑 VALIDACIÓN DE EMPALME DE AGENDA (ACTUALIZADA)
-    // =========================================================================
+    // Validar que no haya viajes empalmados (margen de 30 minutos)
     const margenHoras = 30 * 60 * 1000; 
     const rangoInicio = new Date(fechaHoraSalida.getTime() - margenHoras);
     const rangoFin = new Date(fechaHoraSalida.getTime() + margenHoras);
@@ -179,10 +177,11 @@ export const publicarViaje = protectedProcedure
       });
       
       throw new ORPCError('CONFLICT', {
-        message: `Ya tienes un viaje activo agendado para las ${horaEmpalme}. Debes cancelarlo o dejar un margen de 30 min.`,
+        message: `Ya tienes un viaje agendado a las ${horaEmpalme}. Debes cancelarlo o dejar un margen de 30 min.`,
       });
     }
 
+    // Si pasa ambas validaciones, creamos el viaje
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
         id_licencia_conductor: conductor.id_licencia,
@@ -203,7 +202,7 @@ export const publicarViaje = protectedProcedure
         vehiculo_placas: conductor.placas,
         capacidad_pasajeros: conductor.capacidad_pasajeros,
       },
-    })
+    });
 
     // Emitir evento WebSocket a todos los usuarios conectados
     if (io) {
