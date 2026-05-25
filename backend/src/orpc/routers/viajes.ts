@@ -12,7 +12,8 @@ const crearNotificacion = async (
   usuarioId: string,
   titulo: string,
   cuerpo: string,
-  tipo: string
+  tipo: string,
+  idViaje?: number
 ) => {
   try {
     await prisma.notificaciones.create({
@@ -23,6 +24,7 @@ const crearNotificacion = async (
         tipo_notif: tipo,
         leido: false,
         fecha_creacion: new Date(),
+        id_viaje: idViaje,
       },
     });
   } catch (error) {
@@ -149,7 +151,7 @@ export const publicarViaje = protectedProcedure
    // =========================================================================
     // 🛑 VALIDACIÓN DE EMPALME DE AGENDA (ACTUALIZADA)
     // =========================================================================
-    const margenHoras = 2 * 60 * 60 * 1000; 
+    const margenHoras = 30 * 60 * 1000; 
     const rangoInicio = new Date(fechaHoraSalida.getTime() - margenHoras);
     const rangoFin = new Date(fechaHoraSalida.getTime() + margenHoras);
 
@@ -160,7 +162,6 @@ export const publicarViaje = protectedProcedure
           gte: rangoInicio, 
           lte: rangoFin,    
         },
-        // 🚀 NUEVO: Ignorar viajes si ya están finalizados o cancelados
         viajes_activos: {
           none: {
             estado_trayecto: {
@@ -178,10 +179,9 @@ export const publicarViaje = protectedProcedure
       });
       
       throw new ORPCError('CONFLICT', {
-        message: `Ya tienes un viaje activo agendado para las ${horaEmpalme}. Debes finalizarlo o dejar un margen de 2 horas.`,
+        message: `Ya tienes un viaje activo agendado para las ${horaEmpalme}. Debes cancelarlo o dejar un margen de 30 min.`,
       });
     }
-    // =========================================================================
 
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
@@ -512,7 +512,8 @@ export const iniciarViaje = protectedProcedure
         solicitud.id_pasajero,
         '¡El conductor está en camino!',
         `Tu viaje a ${viaje.destino_texto} ha comenzado.`,
-        'viaje_iniciado'
+        'viaje_iniciado',
+        viaje.id_viaje_pub
       );
 
       if (io) {
@@ -595,6 +596,7 @@ export const cancelarViaje = protectedProcedure
           'Viaje cancelado',
           `El viaje a ${viaje.destino_texto} fue cancelado por el conductor. Motivo: ${input.motivo}`,
           'cancelacion',
+          viaje.id_viaje_pub
         )
 
         if (io) {
@@ -694,18 +696,20 @@ export const finalizarViaje = protectedProcedure
     // 5. Notificar a pasajeros aceptados
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
+
         await crearNotificacion(
           solicitud.id_pasajero,
           "Viaje finalizado",
           `El viaje a ${viaje.destino_texto} ha sido completado.`,
-          "finalizacion"
+          "finalizacion",
+          viaje.id_viaje_pub
         );
         if (io) {
           io.emit('nueva_notificacion', {
             usuarioId: solicitud.id_pasajero,
             titulo: "Viaje finalizado",
             cuerpo: `El viaje a ${viaje.destino_texto} ha sido completado.`,
-            tipo: "finalizacion"
+            tipo: "finalizacion",
           });
         }
       }

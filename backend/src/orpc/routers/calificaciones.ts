@@ -14,7 +14,7 @@ export const guardarCalificacion = protectedProcedure
   )
   .handler(async ({ input, context }) => {
     try {
-      // 1. Obtener el viaje y verificar que el usuario es pasajero aceptado
+      // Obtener el viaje y verificar que el usuario es pasajero aceptado
       const viaje = await prisma.viajes_publicados.findUnique({
         where: { id_viaje_pub: input.viajeId },
         include: {
@@ -66,7 +66,7 @@ export const guardarCalificacion = protectedProcedure
 
       const viajeActivoId = viaje.viajes_activos[0].id_viaje_activo;
 
-      // 2. Verificar si ya existe una calificación de este pasajero para este viaje
+      // Verificar si ya existe una calificación de este pasajero para este viaje
       const calificacionExistente = await prisma.calificaciones.findFirst({
         where: {
           id_viaje_activo: viajeActivoId,
@@ -81,7 +81,7 @@ export const guardarCalificacion = protectedProcedure
         });
       }
 
-      // 3. Crear la calificación
+      // Crear la calificación
       const calificacion = await prisma.calificaciones.create({
         data: {
           id_viaje_activo: viajeActivoId,
@@ -92,7 +92,7 @@ export const guardarCalificacion = protectedProcedure
         },
       });
 
-      // 4. Actualizar reputación promedio del conductor
+      // Actualizar reputación promedio del conductor
       const todasLasCalificaciones = await prisma.calificaciones.findMany({
         where: { id_evaluado: conductorId },
       });
@@ -163,3 +163,48 @@ export const obtenerMisCalificaciones = protectedProcedure
 
     return { success: true, calificaciones };
   });
+
+  // Obtener el viaje más reciente completado que aún no tiene calificación por parte del usuario
+export const obtenerPendiente = protectedProcedure.handler(async ({ context }) => {
+  try {
+    // Buscamos todas las solicitudes aceptadas del usuario
+    const solicitudes = await prisma.solicitudes_viaje.findMany({
+      where: {
+        id_pasajero: context.user.id,
+        estado_solicitud: "aceptada",
+      },
+      include: {
+        viaje: {
+          include: {
+            conductor: { include: { usuario: true } },
+            viajes_activos: {
+              where: { estado_trayecto: "finalizado" },
+              include: {
+                calificaciones: {
+                  where: { id_evaluador: context.user.id },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { id_solicitud: "desc" },
+    });
+
+    // Buscamos el primero que no tenga calificación
+    for (const sol of solicitudes) {
+      if (sol.viaje.viajes_activos && sol.viaje.viajes_activos.length > 0) {
+        const activo = sol.viaje.viajes_activos[0];
+        // Si no hay calificaciones hechas por este usuario en este viaje activo
+        if (activo.calificaciones.length === 0) {
+          return { success: true, viaje: sol.viaje };
+        }
+      }
+    }
+
+    return { success: false, message: "No hay viajes pendientes por calificar" };
+  } catch (error) {
+    console.error("Error en obtenerPendiente:", error);
+    throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Error al buscar viaje pendiente" });
+  }
+});

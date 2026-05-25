@@ -9,7 +9,8 @@ const crearNotificacion = async (
   usuarioId: string,
   titulo: string,
   cuerpo: string,
-  tipo: string
+  tipo: string,
+  idViaje?: number
 ) => {
   await prisma.notificaciones.create({
     data: {
@@ -19,6 +20,7 @@ const crearNotificacion = async (
       tipo_notif: tipo,
       leido: false,
       fecha_creacion: new Date(),
+      id_viaje: idViaje,
     },
   });
 };
@@ -81,7 +83,8 @@ export const solicitarViaje = protectedProcedure
       viaje.conductor.usuario.id_usuario,
       "Nueva solicitud de viaje",
       `${usuario?.nombre} ${usuario?.apellido_paterno} ha solicitado un asiento en tu viaje a ${viaje.destino_texto}`,
-      "solicitud"
+      "solicitud",
+      viaje.id_viaje_pub
     );
 
     // EMITIR EVENTO WEBSOCKET
@@ -173,7 +176,8 @@ export const responderSolicitud = protectedProcedure
       solicitud.id_pasajero,
       input.estado === 'aceptada' ? "Solicitud aceptada" : "Solicitud rechazada",
       mensaje,
-      input.estado === 'aceptada' ? "aceptacion" : "rechazo"
+      input.estado === 'aceptada' ? "aceptacion" : "rechazo",
+      solicitud.id_viaje_pub
     );
 
     // EMITIR EVENTO WEBSOCKET
@@ -377,7 +381,8 @@ export const cancelarSolicitud = protectedProcedure
         solicitud.viaje.conductor.usuario.id_usuario,
         "Solicitud cancelada",
         `Un pasajero ha cancelado su solicitud para el viaje a ${solicitud.viaje.destino_texto}.`,
-        "cancelacion"
+        "cancelacion",
+        solicitud.id_viaje_pub
       );
     }
 

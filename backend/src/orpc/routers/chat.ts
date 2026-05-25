@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
-// 1. Obtener mensajes de un viaje
+// Obtener mensajes de un viaje
 export const getMensajes = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
   .handler(async ({ input, context }) => {
@@ -48,7 +48,7 @@ export const getMensajes = protectedProcedure
     return mensajes;
   });
 
-// 2. Enviar mensaje
+// Enviar mensaje
 export const enviarMensaje = protectedProcedure
   .input(z.object({
     id_viaje_pub: z.number(),
@@ -105,7 +105,7 @@ export const enviarMensaje = protectedProcedure
     return mensaje;
   });
 
-// 3. Obtener chats del usuario (Corregido: Solo muestra chats con match confirmado)
+// Obtener chats del usuario (Corregido: Solo muestra chats con match confirmado)
 export const misChats = protectedProcedure
   .handler(async ({ context }) => {
     const viajesConductor = await prisma.viajes_publicados.findMany({
@@ -178,8 +178,6 @@ export const misChats = protectedProcedure
     });
     const estaFinalizado = !!viajeFinalizado;
 
-      // LÓGICA DE VISIBILIDAD MANTENIDA:
-      // Si no hay mensajes y el viaje ya terminó, se oculta (asumimos borrado)[cite: 4].
       if (!ultimoMensaje && estaFinalizado) {
         continue;
       }
@@ -203,7 +201,7 @@ export const misChats = protectedProcedure
     return { success: true, chats: chats.slice(0, 10), idUsuario: context.user.id };
   });
   
-// 4. Eliminar historial de chat
+// Eliminar historial de chat
 export const eliminarHistorial = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
   .handler(async ({ input }) => {
@@ -216,7 +214,7 @@ export const eliminarHistorial = protectedProcedure
     return { success: true, message: 'Historial eliminado correctamente' };
   });
 
-// 5. Obtener estado del viaje
+// Obtener estado del viaje
 export const getEstado = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
@@ -240,7 +238,7 @@ export const getEstado = protectedProcedure
     const estado = viajeActivo ? 'finalizado' : 'activo';
     return { estado };
   });
-// 6. Contar mensajes no leídos del usuario
+// Contar mensajes no leídos del usuario
 export const contarMensajesNoLeidos = protectedProcedure
   .handler(async ({ context }) => {
     const viajesConductor = await prisma.viajes_publicados.findMany({
