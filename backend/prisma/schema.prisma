@@ -68,19 +68,6 @@ model historial_viajes {
   viaje           viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
 }
 
-// Historial de cambios de estado de viajes (auditoría)
-model historial_viajes {
-  id_historial    Int      @id @default(autoincrement())
-  id_viaje_pub    Int
-  accion          String   // "iniciado", "cancelado", "finalizado"
-  motivo          String   // Razón (obligatorio para cancelaciones)
-  realizado_por   String   // "conductor", "pasajero", "sistema"
-  id_usuario      String
-  fecha_cambio    DateTime @default(now())
-
-  viaje           viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
-}
-
 // Conductores (Ahora incluye datos del vehículo)
 model conductores {
   id_licencia      String  @id
