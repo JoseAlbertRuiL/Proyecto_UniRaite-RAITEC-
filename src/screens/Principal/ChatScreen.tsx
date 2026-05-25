@@ -50,8 +50,7 @@ export default function ChatScreen({ navigation, route }: any) {
 
   useEffect(() => {
     const socket = getSocket();
-
-    // 1. Extraemos la lógica de unirse a la sala para poder reusarla
+    
     const unirseAlChat = () => {
       if (socket && socket.connected) {
         joinChat(idViaje);
@@ -69,7 +68,7 @@ export default function ChatScreen({ navigation, route }: any) {
 
         unirseAlChat(); // Intento inicial
       } catch (error: any) {
-        // Manejo de errores...
+        console.error("Error al inicializar el chat:", error);
       } finally {
         setCargando(false);
       }
@@ -77,7 +76,6 @@ export default function ChatScreen({ navigation, route }: any) {
 
     inicializarChat();
 
-    // 2. Si el socket se reconecta (ej. pasa de Wi-Fi a 4G), lo volvemos a meter a la sala
     if (socket) {
       socket.on("connect", unirseAlChat);
     }
@@ -99,7 +97,7 @@ export default function ChatScreen({ navigation, route }: any) {
 
     return () => {
       offNewMessage();
-      // 3. Limpiamos el evento para no duplicar llamadas
+      // Limpiamos el evento para no duplicar llamadas
       if (socket) {
         socket.off("connect", unirseAlChat);
       }

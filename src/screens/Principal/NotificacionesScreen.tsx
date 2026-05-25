@@ -45,7 +45,6 @@ const NotificacionesScreen = ({ navigation }: any) => {
     }
   }, [refrescando]);
 
-  // Utilizamos el listener nativo de navigation en lugar de useFocusEffect
   useEffect(() => {
     cargarNotificaciones(); // Carga inicial
 
@@ -54,7 +53,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
       const unsubscribe = navigation.addListener('focus', () => {
         cargarNotificaciones();
       });
-      return unsubscribe; // Limpiamos el evento al desmontar
+      return unsubscribe;
     }
   }, [navigation, cargarNotificaciones]);
 
