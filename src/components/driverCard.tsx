@@ -32,6 +32,7 @@ interface DriverCardProps {
   estadoSolicitud?: string | null;
   onEliminar?: (id: number) => void;
   onCancelar?: (id: number) => void;
+  onCancelarAceptada?: (id: number) => void;
   motivo?: string | null;
 }
 
@@ -41,6 +42,7 @@ const DriverCard = ({
   onVerPerfil,
   estadoSolicitud,
   onCancelar,
+  onCancelarAceptada,
   motivo,
 }: DriverCardProps) => {
   const fecha = new Date(viaje.fecha_hora_salida);
@@ -223,15 +225,33 @@ const DriverCard = ({
           <Text className="text-xs text-gray-500">por persona</Text>
         </View>
 
-        <TouchableOpacity
-          className={`${getBotonEstilo()} rounded-xl px-6 py-3 ${getBotonDisabled() ? "opacity-70" : ""}`}
-          onPress={() => isPendiente ? onCancelar?.(viaje.id_viaje_pub) : onPress(viaje.id_viaje_pub)}
-          disabled={getBotonDisabled()}
-        >
-          <Text className="text-white font-semibold text-sm">
-            {getBotonTexto()}
-          </Text>
-        </TouchableOpacity>
+        {estadoSolicitud === "aceptada" ? (
+          <View className="flex-row gap-2">
+            <View className="bg-green-500 rounded-xl px-6 py-3 opacity-70">
+              <Text className="text-white font-semibold text-sm">
+                Aceptado ✅
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="bg-red-500 rounded-xl px-6 py-3"
+              onPress={() => onCancelarAceptada?.(viaje.id_viaje_pub)}
+            >
+              <Text className="text-white font-semibold text-sm">
+                Cancelar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            className={`${getBotonEstilo()} rounded-xl px-6 py-3 ${getBotonDisabled() ? "opacity-70" : ""}`}
+            onPress={() => isPendiente ? onCancelar?.(viaje.id_viaje_pub) : onPress(viaje.id_viaje_pub)}
+            disabled={getBotonDisabled()}
+          >
+            <Text className="text-white font-semibold text-sm">
+              {getBotonTexto()}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

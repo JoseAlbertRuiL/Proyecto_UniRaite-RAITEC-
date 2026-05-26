@@ -71,8 +71,8 @@ export const obtenerMisSolicitudes = async () => {
   return orpc.solicitudes.misSolicitudes();
 };
 
-export const cancelarSolicitud = async (solicitudId: number) => {
-  return orpc.solicitudes.cancelar({ solicitudId });
+export const cancelarSolicitud = async (solicitudId: number, motivo?: string) => {
+  return orpc.solicitudes.cancelar({ solicitudId, motivo });
 };
 
 // ─── Conductor ────────────────────────────────────────────────────────────────
