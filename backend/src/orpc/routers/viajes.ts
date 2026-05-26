@@ -66,7 +66,8 @@ export const listarViajes = baseProcedure.handler(async () => {
 
   const viajesConDatos = viajes.map((viaje: any) => ({
     ...viaje,
-    asientos_totales: viaje.conductor.capacidad_pasajeros,
+    asientos_ofrecidos: viaje.asientos_ofrecidos || viaje.capacidad_pasajeros,
+    asientos_ocupados: (viaje.asientos_ofrecidos || viaje.capacidad_pasajeros) - viaje.asientos_disponibles,
     conductor: {
       ...viaje.conductor,
       usuario: {
@@ -193,6 +194,7 @@ export const publicarViaje = protectedProcedure
         longitud_destino: input.longitud_destino,
         fecha_hora_salida: fechaHoraSalida,
         asientos_disponibles: input.asientos,
+        asientos_ofrecidos: input.asientos,
         costo_estimado: input.precio,
         es_recurrente: false,
 
@@ -451,7 +453,8 @@ export const obtenerViajePorId = protectedProcedure
       success: true,
       viaje: {
         ...viaje,
-        asientos_totales: viaje.conductor.capacidad_pasajeros,
+        asientos_ofrecidos: viaje.asientos_ofrecidos || viaje.capacidad_pasajeros,
+        asientos_ocupados: (viaje.asientos_ofrecidos || viaje.capacidad_pasajeros) - viaje.asientos_disponibles,
         conductor: {
           ...viaje.conductor,
           usuario: {

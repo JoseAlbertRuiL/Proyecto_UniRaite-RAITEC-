@@ -131,13 +131,11 @@ const HistoryScreen = ({ navigation }: any) => {
             </View>
           }
           renderItem={({ item }) => {
-            const capacidadTotal = item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4;
-            
-            const pasajerosOcupados = typeof (item as any).pasajeros_confirmados === "number"
+            const capacidadPasajeros = item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4;
+            const asientosOfrecidos = item.asientos_ofrecidos || capacidadPasajeros;
+            const asientosOcupados = typeof (item as any).pasajeros_confirmados === "number"
               ? (item as any).pasajeros_confirmados
-              : (typeof item.asientos_disponibles === "number"
-                  ? Math.max(0, capacidadTotal - item.asientos_disponibles)
-                  : 0);
+              : Math.max(0, asientosOfrecidos - item.asientos_disponibles);
 
             const estadoViaje = item.viajes_activos?.[0]?.estado_trayecto;
             const motivoCancelacion = item.historial?.[0]?.motivo;
@@ -153,15 +151,14 @@ const HistoryScreen = ({ navigation }: any) => {
                 <DriverCard
                   viaje={{
                     ...item,
-                    asientos_totales: capacidadTotal,
-                    asientos_ocupados: pasajerosOcupados,
+                    asientos_ofrecidos: asientosOfrecidos,
+                    asientos_ocupados: asientosOcupados,
+                    capacidad_pasajeros: capacidadPasajeros,
                     conductor: {
                       ...item.conductor,
                       modelo: item.vehiculo_modelo ?? item.conductor?.modelo,
                       color: item.vehiculo_color ?? item.conductor?.color,
                       placas: item.vehiculo_placas ?? item.conductor?.placas,
-                      capacidad_pasajeros: capacidadTotal,
-                      
                       usuario: {
                         ...item.conductor.usuario,
                         total_viajes: item.conductor.usuario.viajes_completados || 0,

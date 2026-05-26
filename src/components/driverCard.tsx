@@ -9,8 +9,9 @@ interface DriverCardProps {
     destino_texto: string;
     fecha_hora_salida: string;
     asientos_disponibles: number;
-    asientos_totales: number;
-    asientos_ocupados?: number;
+    asientos_ofrecidos: number;
+    asientos_ocupados: number;
+    capacidad_pasajeros: number;
     costo_estimado: number;
     conductor: {
       modelo: string;
@@ -83,12 +84,7 @@ const DriverCard = ({
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
-  const ocupados = typeof viaje.asientos_ocupados === "number"
-    ? viaje.asientos_ocupados
-    : viaje.asientos_totales - viaje.asientos_disponibles;
-  const mostrarOcupados = typeof viaje.asientos_ocupados === "number";
-  const lugaresTexto = mostrarOcupados ? "ocupados" : "disponibles";
-  const valorMostrar = mostrarOcupados ? ocupados : viaje.asientos_disponibles;
+  const asientosOcupados = viaje.asientos_ofrecidos - viaje.asientos_disponibles;
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
     ? viaje.conductor.usuario.foto_perfil
@@ -191,16 +187,21 @@ const DriverCard = ({
           <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-800 font-medium">
-            {valorMostrar}/{viaje.asientos_totales} {lugaresTexto}
+            {asientosOcupados}/{viaje.asientos_ofrecidos} ocupados
           </Text>
         </View>
       </View>
 
       {/* Vehículo */}
-      <View className="px-4 py-2 flex-row items-center border-b border-gray-100">
-        <Text className="text-gray-500 mr-2">🚗</Text>
-        <Text className="text-sm text-gray-700">
-          {viaje.conductor.modelo} • {viaje.conductor.color}
+      <View className="px-4 py-2 border-b border-gray-100">
+        <View className="flex-row items-center">
+          <Text className="text-gray-500 mr-2">🚗</Text>
+          <Text className="text-sm text-gray-700">
+            {viaje.conductor.modelo} • {viaje.conductor.color}
+          </Text>
+        </View>
+        <Text className="px-4 py-1 text-sm text-gray-400 ml-7 mt-0.5">
+          Capacidad: {viaje.capacidad_pasajeros} asientos
         </Text>
       </View>
 

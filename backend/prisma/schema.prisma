@@ -104,6 +104,7 @@ model viajes_publicados {
 
   fecha_hora_salida     DateTime
   asientos_disponibles  Int
+  asientos_ofrecidos    Int   @default(0)
   pasajeros_confirmados Int?
   costo_estimado        Float
   es_recurrente         Boolean
