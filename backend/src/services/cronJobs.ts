@@ -101,18 +101,6 @@ const cancelarViajesExpirados = async (io: Server) => {
         });
 
         // Eliminar en cascada
-        await prisma.mensajes_chat.deleteMany({
-          where: { id_viaje_pub: viaje.id_viaje_pub },
-        });
-
-        await prisma.viajes_activos.deleteMany({
-          where: { id_viaje_pub: viaje.id_viaje_pub },
-        });
-
-        await prisma.solicitudes_viaje.deleteMany({
-          where: { id_viaje_pub: viaje.id_viaje_pub },
-        });
-
         await prisma.viajes_publicados.delete({
           where: { id_viaje_pub: viaje.id_viaje_pub },
         });

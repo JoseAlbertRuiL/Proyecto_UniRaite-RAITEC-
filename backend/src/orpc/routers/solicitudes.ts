@@ -217,6 +217,9 @@ export const obtenerSolicitudesRecibidas = protectedProcedure
       include: {
         viaje: {
           include: {
+            solicitudes: {
+              where: { estado_solicitud: 'aceptada' }
+            },
             conductor: {
               include: {
                 usuario: {
