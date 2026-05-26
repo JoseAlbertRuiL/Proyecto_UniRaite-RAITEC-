@@ -542,7 +542,10 @@ export const cancelarViaje = protectedProcedure
       include: {
         conductor: { include: { usuario: true } },
         viajes_activos: { where: { estado_trayecto: 'en_curso' } },
-        solicitudes: { select: { id_pasajero: true, estado_solicitud: true } },
+        solicitudes: {
+          where: { estado_solicitud: { in: ['pendiente', 'aceptada'] } },
+          select: { id_pasajero: true, estado_solicitud: true },
+        },
       },
     })
 
@@ -590,9 +593,10 @@ export const cancelarViaje = protectedProcedure
       },
     })
 
-    // 3. NOTIFICACIÓN: Avisar a todos los pasajeros que solicitaron el viaje
+    // 3. NOTIFICACIÓN: Avisar solo a pasajeros con solicitud pendiente o aceptada
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
+        if (solicitud.estado_solicitud === 'rechazada') continue;
         await crearNotificacion(
           solicitud.id_pasajero,
           'Viaje cancelado',
