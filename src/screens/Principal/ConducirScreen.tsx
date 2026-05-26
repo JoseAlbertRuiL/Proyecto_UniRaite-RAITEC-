@@ -381,7 +381,7 @@ const ConducirScreen = ({ navigation }: any) => {
         <View className="flex-row items-center">
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-700">
-            {viaje.asientos_disponibles} lugares
+            {(viaje.solicitudes?.length ?? 0)}/{viaje.asientos_ofrecidos ?? viaje.capacidad_pasajeros ?? '?'} ocupados
           </Text>
         </View>
       </View>

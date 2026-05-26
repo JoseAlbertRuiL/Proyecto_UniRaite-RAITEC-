@@ -581,7 +581,22 @@ export const cancelarViaje = protectedProcedure
       })
     }
 
-    // 2. Registrar en el historial de auditoría
+    // 2. Restaurar asientos y rechazar solicitudes activas
+    const capacidadTotal = viaje.asientos_ofrecidos || viaje.capacidad_pasajeros;
+    await prisma.viajes_publicados.update({
+      where: { id_viaje_pub: input.viajeId },
+      data: { asientos_disponibles: capacidadTotal },
+    });
+
+    await prisma.solicitudes_viaje.updateMany({
+      where: {
+        id_viaje_pub: input.viajeId,
+        estado_solicitud: { in: ['pendiente', 'aceptada'] },
+      },
+      data: { estado_solicitud: 'rechazada' },
+    });
+
+    // 3. Registrar en el historial de auditoría
     await prisma.historial_viajes.create({
       data: {
         id_viaje_pub: input.viajeId,
@@ -593,7 +608,7 @@ export const cancelarViaje = protectedProcedure
       },
     })
 
-    // 3. NOTIFICACIÓN: Avisar solo a pasajeros con solicitud pendiente o aceptada
+    // 4. NOTIFICACIÓN: Avisar solo a pasajeros con solicitud pendiente o aceptada
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
         if (solicitud.estado_solicitud === 'rechazada') continue;
@@ -616,7 +631,7 @@ export const cancelarViaje = protectedProcedure
       }
     }
 
-    // 4. Emitir evento WebSocket para actualizar listas
+    // 5. Emitir evento WebSocket para actualizar listas
     if (io) {
       io.emit('viaje_cancelado', { viajeId: input.viajeId })
     }
