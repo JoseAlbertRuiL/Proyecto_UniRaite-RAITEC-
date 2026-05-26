@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
@@ -64,6 +65,11 @@ const StartScreen = ({ navigation }: any) => {
     latitude: number; longitude: number;
   } | null>(null);
 
+  const [modalCancelarVisible, setModalCancelarVisible] = useState(false);
+  const [modalMotivoVisible, setModalMotivoVisible] = useState(false);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [viajeACancelar, setViajeACancelar] = useState<number | null>(null);
+
   useBackHandler(navigation, "main");
 
   const verificarSolicitudActiva = async () => {
@@ -82,11 +88,18 @@ const StartScreen = ({ navigation }: any) => {
         }
 
         const viajesActivos = solicitud.viaje?.viajes_activos;
-        const tieneViajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0;
+        const viajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0 ? viajesActivos[0] : null;
+
+        // Si el viaje fue cancelado, no debe bloquear al pasajero
+        if (viajeActivo?.estado_trayecto === 'cancelado') {
+          setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
+          return;
+        }
 
         setSolicitudActiva({
           tieneSolicitud: true,
-          estado: tieneViajeActivo ? 'en_curso' : solicitud.estado_solicitud,
+          estado: viajeActivo ? 'en_curso' : solicitud.estado_solicitud,
           viajeId: solicitud.id_viaje_pub,
           solicitudId: solicitud.id_solicitud,
         });
@@ -214,6 +227,12 @@ const StartScreen = ({ navigation }: any) => {
         setViajes(viajesFiltrados);
         await cargarEstadosSolicitudes(viajesFiltrados);
         await verificarSolicitudActiva();
+
+        // Filtrar viajes cancelados o rechazados de la lista visible
+        setViajes((prev) => prev.filter((v: any) => {
+          const estado = estadosSolicitudes[v.id_viaje_pub];
+          return estado !== 'cancelado' && estado !== 'rechazada';
+        }));
       }
     } catch (error) {
       console.error("Error:", error);
@@ -326,6 +345,47 @@ const StartScreen = ({ navigation }: any) => {
         },
       ]
     );
+  };
+
+  const handleCancelarAceptada = (viajeId: number) => {
+    setViajeACancelar(viajeId);
+    setModalCancelarVisible(true);
+  };
+
+  const handleConfirmarCancelacion = () => {
+    setModalCancelarVisible(false);
+    setMotivoCancelacion("");
+    setModalMotivoVisible(true);
+  };
+
+  const handleEnviarCancelacion = async () => {
+    if (!viajeACancelar || !solicitudActiva.solicitudId) {
+      Alert.alert("Error", "No se encontró la solicitud a cancelar");
+      return;
+    }
+
+    try {
+      await cancelarSolicitud(solicitudActiva.solicitudId, motivoCancelacion || undefined);
+      setEstadosSolicitudes((prev) => {
+        const updated = { ...prev };
+        delete updated[viajeACancelar];
+        return updated;
+      });
+      setSolicitudActiva({
+        tieneSolicitud: false,
+        estado: null,
+        viajeId: undefined,
+        solicitudId: undefined,
+      });
+      setCoordsRecogidaBD(null);
+      setModalMotivoVisible(false);
+      setMotivoCancelacion("");
+      setViajeACancelar(null);
+      await cargarViajes();
+      Alert.alert("Viaje cancelado", "Has cancelado tu participación en el viaje.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo cancelar el viaje");
+    }
   };
 
   const abrirMapaEncuentro = () => {
@@ -550,6 +610,7 @@ const StartScreen = ({ navigation }: any) => {
                   onPress={handleSolicitarViaje}
                   onVerPerfil={handleVerPerfil}
                   onCancelar={handleCancelarSolicitud}
+                  onCancelarAceptada={handleCancelarAceptada}
                   estadoSolicitud={
                     estadosSolicitudes[viaje.id_viaje_pub] || null
                   }
@@ -716,6 +777,81 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+      {/* Modal de confirmación cancelar viaje aceptado */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalCancelarVisible}
+        onRequestClose={() => setModalCancelarVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+          activeOpacity={1}
+          onPress={() => setModalCancelarVisible(false)}
+        >
+          <View className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <Text className="text-lg font-bold text-gray-900 text-center mb-2">
+              ¿Estás seguro que quieres cancelar el viaje?
+            </Text>
+            <Text className="text-sm text-gray-500 text-center mb-6">
+              El conductor será notificado de tu cancelación.
+            </Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                className="flex-1 bg-gray-100 rounded-xl py-3 items-center"
+                onPress={() => setModalCancelarVisible(false)}
+              >
+                <Text className="text-gray-700 font-semibold">No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 bg-red-500 rounded-xl py-3 items-center"
+                onPress={handleConfirmarCancelacion}
+              >
+                <Text className="text-white font-semibold">Sí</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal de motivo de cancelación */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalMotivoVisible}
+        onRequestClose={() => setModalMotivoVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+          activeOpacity={1}
+          onPress={() => setModalMotivoVisible(false)}
+        >
+          <View className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <Text className="text-lg font-bold text-gray-900 text-center mb-2">
+              Cuéntanos el motivo
+            </Text>
+            <Text className="text-sm text-gray-500 text-center mb-4">
+              ¿Por qué cancelaste el viaje? (opcional)
+            </Text>
+            <TextInput
+              className="border border-gray-300 rounded-xl p-3 text-gray-900 mb-4"
+              placeholder="Escribe aquí el motivo..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              numberOfLines={3}
+              value={motivoCancelacion}
+              onChangeText={setMotivoCancelacion}
+            />
+            <TouchableOpacity
+              className="bg-blue-900 rounded-xl py-3 items-center"
+              onPress={handleEnviarCancelacion}
+            >
+              <Text className="text-white font-semibold">Enviar cancelación</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Footer navigation={navigation} />
 
       <LiveMapModal

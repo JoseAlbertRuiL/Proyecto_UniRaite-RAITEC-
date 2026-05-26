@@ -25,7 +25,30 @@ const io = new Server(serverHttp, {
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
 
-// Guardar io para usarlo en otros archivos
+// ─── Helper: verificar acceso a chat ──────────────────────────────────────────
+const tieneAccesoChat = async (prisma: PrismaClient, userId: string, viajeId: number) => {
+  const viaje = await prisma.viajes_publicados.findUnique({
+    where: { id_viaje_pub: viajeId },
+    select: {
+      id_licencia_conductor: true,
+      conductor: { select: { usuario: { select: { id_usuario: true } } } },
+    },
+  });
+  if (!viaje) return false;
+
+  const esConductor = viaje.conductor?.usuario?.id_usuario === userId;
+  if (esConductor) return true;
+
+  const solicitud = await prisma.solicitudes_viaje.findFirst({
+    where: {
+      id_viaje_pub: viajeId,
+      id_pasajero: userId,
+      estado_solicitud: 'aceptada',
+    },
+  });
+  return !!solicitud;
+};
+
 export { io }
 
 // ─── Directorios de uploads ───────────────────────────────────────────────────
@@ -79,16 +102,16 @@ io.use(async (socket, next) => {
     if (!token) {
       return next(new Error('Token requerido'));
     }
-
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     const usuario = await prisma.usuarios.findUnique({
       where: { id_usuario: (decoded as any).id }
     });
-
+    
     if (!usuario) {
       return next(new Error('Usuario no encontrado'));
     }
-
+    
     (socket as any).user = usuario;
     next();
   } catch (error) {
@@ -100,25 +123,43 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
+  
+  socket.on('join_chat', async (chatId: string) => {
+    const user = (socket as any).user;
+    const viajeId = parseInt(chatId);
+    if (isNaN(viajeId)) return;
 
-  socket.on('join_chat', (chatId: string) => {
+    const puedeAcceder = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeAcceder) {
+      socket.emit('chat_error', 'No tienes acceso a este chat');
+      return;
+    }
     socket.join(`chat_${chatId}`);
     console.log(`📱 Usuario unido al chat ${chatId}`);
   });
-
+  
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
     const user = (socket as any).user;
+    const viajeId = parseInt(data.chatId);
+    if (isNaN(viajeId)) return;
+
+    const puedeEnviar = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeEnviar) {
+      socket.emit('chat_error', 'No tienes permiso para enviar mensajes en este chat');
+      return;
+    }
+
     try {
       const mensaje = await prisma.mensajes_chat.create({
         data: {
-          id_viaje_pub: parseInt(data.chatId),
+          id_viaje_pub: viajeId,
           id_emisor: user.id_usuario,
           contenido: data.message,
           fecha_envio: new Date(),
         },
         include: { emisor: { select: { nombre: true, foto_perfil: true } } }
       });
-
+      
       io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
     } catch (error) {
       console.error('Error al guardar mensaje:', error);
@@ -133,11 +174,11 @@ io.on('connection', (socket) => {
     lng: number;
   }) => {
     console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
-
+    
     const roomName = `viaje_${data.viajeId}`;
     const socketsEnRoom = await io.in(roomName).fetchSockets();
     console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
-
+    
     io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
       lng: data.lng,
@@ -176,7 +217,7 @@ io.on('connection', (socket) => {
   socket.on('leave_viaje', (viajeId: number) => {
     socket.leave(`viaje_${viajeId}`);
   });
-
+  
   socket.on('disconnect', () => {
     console.log('⚡ Usuario desconectado');
   });

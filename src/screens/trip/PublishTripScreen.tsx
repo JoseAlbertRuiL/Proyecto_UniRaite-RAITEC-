@@ -21,7 +21,7 @@ import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Header from "../../components/common/HeaderBack";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { publicarViaje, getVehiculo } from "../../services/trip/tripService";
+import { publicarViaje, getVehiculo, getServerTime } from "../../services/trip/tripService";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { orpc } from "../../services/api/apiClient";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
@@ -71,10 +71,13 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [capacidadMaxima, setCapacidadMaxima] = useState(4);
+  const serverTimeRef = useRef(new Date());
+  const [serverTimeLoaded, setServerTimeLoaded] = useState(false);
 
   // Estado para error en tiempo real del campo precio
   const [precioError, setPrecioError] = useState<string | null>(null);
 
+  // Filtra el input de precio: solo dígitos y un punto decimal (máx. 2 decimales)
   const [mapVisible, setMapVisible] = useState(false);
   const [mapTipo, setMapTipo] = useState<"origen" | "destino">("origen");
   const [markerTemp, setMarkerTemp] = useState<{
@@ -137,6 +140,26 @@ const PublishTripScreen = ({ navigation }: any) => {
       }
     };
     cargarCapacidad();
+  }, []);
+
+  useEffect(() => {
+    const fetchServerTime = async () => {
+      try {
+        const res = await getServerTime();
+        const serverDate = new Date(res.serverTime);
+        serverTimeRef.current = serverDate;
+        setDate(serverDate);
+        setForm((prev) => ({
+          ...prev,
+          fecha: formatFecha(serverDate),
+          hora: formatHora(serverDate),
+        }));
+      } catch {
+        serverTimeRef.current = new Date();
+      }
+      setServerTimeLoaded(true);
+    };
+    fetchServerTime();
   }, []);
 
   const formatFecha = (d: Date): string => {
@@ -346,8 +369,8 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
-    // Validación de tiempo mínimo (usa `date` directamente)
-    const limiteFuturo = new Date(Date.now() + 10 * 60 * 1000);
+    // Validación de tiempo mínimo contra la hora del servidor
+    const limiteFuturo = new Date(serverTimeRef.current.getTime() + 10 * 60 * 1000);
     if (date <= limiteFuturo) {
       Alert.alert(
         "Horario inválido",
@@ -594,7 +617,7 @@ const PublishTripScreen = ({ navigation }: any) => {
               value={date}
               mode="date"
               display={Platform.OS === "ios" ? "spinner" : "default"}
-              minimumDate={new Date()}
+              minimumDate={serverTimeLoaded ? serverTimeRef.current : new Date()}
               onChange={onChangeFecha}
               locale="es-MX"
             />

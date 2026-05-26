@@ -55,6 +55,19 @@ model historial_cambios_perfil {
   usuario usuarios @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
 }
 
+// Historial de cambios de estado de viajes (auditoría)
+model historial_viajes {
+  id_historial    Int      @id @default(autoincrement())
+  id_viaje_pub    Int
+  accion          String   // "iniciado", "cancelado", "finalizado"
+  motivo          String   // Razón (obligatorio para cancelaciones)
+  realizado_por   String   // "conductor", "pasajero", "sistema"
+  id_usuario      String
+  fecha_cambio    DateTime @default(now())
+
+  viaje           viajes_publicados @relation(fields: [id_viaje_pub], references: [id_viaje_pub])
+}
+
 // Conductores (Ahora incluye datos del vehículo)
 model conductores {
   id_licencia      String  @id
@@ -91,6 +104,7 @@ model viajes_publicados {
 
   fecha_hora_salida     DateTime
   asientos_disponibles  Int
+  asientos_ofrecidos    Int   @default(0)
   pasajeros_confirmados Int?
   costo_estimado        Float
   es_recurrente         Boolean
@@ -103,10 +117,11 @@ model viajes_publicados {
   capacidad_pasajeros Int
 
   // Relación directa al conductor
-  conductor      conductores         @relation(fields: [id_licencia_conductor], references: [id_licencia])
-  solicitudes    solicitudes_viaje[]
-  mensajes       mensajes_chat[]
-  viajes_activos viajes_activos[]
+  conductor            conductores @relation(fields: [id_licencia_conductor], references: [id_licencia])
+  solicitudes          solicitudes_viaje[]
+  mensajes             mensajes_chat[]
+  viajes_activos       viajes_activos[]
+  historial            historial_viajes[]
   notificaciones notificaciones[]
 }
 

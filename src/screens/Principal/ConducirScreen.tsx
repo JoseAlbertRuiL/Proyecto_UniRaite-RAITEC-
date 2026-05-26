@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Alert,
   StatusBar,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from 'expo-location';
@@ -34,6 +36,9 @@ const ConducirScreen = ({ navigation }: any) => {
   const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
   const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [cancelandoViajeId, setCancelandoViajeId] = useState<number | null>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
@@ -159,32 +164,39 @@ const ConducirScreen = ({ navigation }: any) => {
     );
   };
 
-  const cancelarViaje = async (viajeId: number) => {
-    Alert.alert(
-      "Cancelar viaje",
-      "¿Estás seguro de que deseas cancelar este viaje?",
-      [
-        {
-          text: "Sí, cancelar",
-          onPress: async () => {
-            try {
-              const result = await orpc.viajes.cancelar({ viajeId });
-              if (result.success) {
-                Alert.alert("Éxito", "Viaje cancelado correctamente");
-                cargarDatos();
-              }
-            } catch (error: any) {
-              Alert.alert(
-                "Error",
-                error.message || "No se pudo cancelar el viaje",
-              );
-            }
-          },
-          style: "destructive",
-        },
-        { text: "No", style: "cancel" },
-      ],
-    );
+  const detenerTransmision = (viajeId: number) => {
+    locationSub.current?.remove();
+    locationSub.current = null;
+
+    const socket = getSocket();
+    socket?.emit('leave_viaje', viajeId);
+    setTransmitiendo(null);
+  };
+
+  const abrirModalCancelacion = (viajeId: number) => {
+    setCancelandoViajeId(viajeId);
+    setMotivoCancelacion("");
+    setShowCancelModal(true);
+  };
+
+  const ejecutarCancelacion = async () => {
+    if (!cancelandoViajeId || !motivoCancelacion.trim()) return;
+
+    try {
+      const result = await orpc.viajes.cancelar({
+        viajeId: cancelandoViajeId,
+        motivo: motivoCancelacion.trim(),
+      });
+      if (result.success) {
+        setShowCancelModal(false);
+        setCancelandoViajeId(null);
+        setMotivoCancelacion("");
+        Alert.alert("Viaje cancelado", "Se ha registrado el motivo en la auditoría.");
+        cargarDatos();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo cancelar el viaje");
+    }
   };
 
   const calcularDistanciaMetros = (
@@ -339,7 +351,7 @@ const ConducirScreen = ({ navigation }: any) => {
         <View className="flex-row items-center">
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-700">
-            {viaje.asientos_disponibles} lugares
+            {(viaje.solicitudes?.length ?? 0)}/{viaje.asientos_ofrecidos ?? viaje.capacidad_pasajeros ?? '?'} ocupados
           </Text>
         </View>
       </View>
@@ -389,7 +401,7 @@ const ConducirScreen = ({ navigation }: any) => {
             </TouchableOpacity>
             <TouchableOpacity
               className="bg-red-500 rounded-lg px-4 py-2 mr-2"
-              onPress={() => cancelarViaje(viaje.id_viaje_pub)}
+              onPress={() => abrirModalCancelacion(viaje.id_viaje_pub)}
             >
               <Text className="text-white font-semibold text-sm">Cancelar</Text>
             </TouchableOpacity>
@@ -555,6 +567,50 @@ const ConducirScreen = ({ navigation }: any) => {
           />
         );
       })()}
+
+      {/* Modal de cancelación con motivo */}
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="bg-white rounded-2xl w-5/6 p-6">
+            <Text className="text-lg font-bold text-gray-800 mb-2">
+              Cancelar viaje
+            </Text>
+            <Text className="text-sm text-gray-500 mb-4">
+              Indica el motivo de la cancelación. Esta información quedará registrada en la auditoría del viaje.
+            </Text>
+
+            <TextInput
+              className="border border-gray-300 rounded-xl p-3 text-base mb-4 min-h-[80px]"
+              placeholder="Escribe el motivo..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={motivoCancelacion}
+              onChangeText={setMotivoCancelacion}
+            />
+
+            <View className="flex-row justify-end gap-3">
+              <TouchableOpacity
+                className="px-5 py-3 rounded-xl bg-gray-200"
+                onPress={() => setShowCancelModal(false)}
+              >
+                <Text className="text-gray-700 font-semibold">Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`px-5 py-3 rounded-xl ${motivoCancelacion.trim() ? "bg-red-500" : "bg-red-300"}`}
+                onPress={ejecutarCancelacion}
+                disabled={!motivoCancelacion.trim()}
+              >
+                <Text className="text-white font-semibold">Cancelar viaje</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 };

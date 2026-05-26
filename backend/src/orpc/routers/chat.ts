@@ -201,10 +201,23 @@ export const misChats = protectedProcedure
     return { success: true, chats: chats.slice(0, 10), idUsuario: context.user.id };
   });
   
-// Eliminar historial de chat
+// Eliminar historial de chat (solo conductor)
 export const eliminarHistorial = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.idViaje },
+      include: { conductor: { include: { usuario: { select: { id_usuario: true } } } } },
+    });
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    }
+
+    if (viaje.conductor?.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'Solo el conductor puede eliminar el historial del chat' });
+    }
+
     await prisma.mensajes_chat.deleteMany({
       where: {
         id_viaje_pub: input.idViaje

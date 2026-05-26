@@ -260,8 +260,7 @@ export const obtenerEstadoPorViaje = protectedProcedure
         viaje: {
           select: {
             viajes_activos: {
-              where: { estado_trayecto: 'en_curso' },
-              select: { id_viaje_activo: true },
+              select: { id_viaje_activo: true, estado_trayecto: true },
               take: 1,
             },
           },
@@ -272,10 +271,12 @@ export const obtenerEstadoPorViaje = protectedProcedure
 
     let estado: string | null = solicitud?.estado_solicitud || null;
 
-    // Si la solicitud está aceptada y el viaje ya tiene un viaje_activo en curso,
-    // devolvemos "en_curso" para que el pasajero sepa que el viaje inició
+    // Si la solicitud está aceptada y el viaje tiene un viaje_activo:
+    //   - en_curso → devolver "en_curso"
+    //   - cancelado → devolver "cancelado"
     if (estado === 'aceptada' && (solicitud?.viaje?.viajes_activos?.length ?? 0) > 0) {
-      estado = 'en_curso';
+      const estadoTrayecto = solicitud!.viaje!.viajes_activos[0].estado_trayecto;
+      estado = estadoTrayecto;
     }
 
     return { estado };
@@ -303,7 +304,9 @@ export const obtenerSolicitudesActivas = protectedProcedure
         viaje: {
           viajes_activos: {
             none: {
-              estado_trayecto: 'finalizado'
+              estado_trayecto: {
+                in: ['finalizado', 'cancelado']
+              }
             },
           },
         },
@@ -321,8 +324,7 @@ export const obtenerSolicitudesActivas = protectedProcedure
             fecha_hora_salida: true,
             costo_estimado: true,
             viajes_activos: {
-              where: { estado_trayecto: 'en_curso' },
-              select: { id_viaje_activo: true },
+              select: { id_viaje_activo: true, estado_trayecto: true },
               take: 1,
             },
           },
@@ -348,6 +350,7 @@ export const obtenerSolicitudesActivas = protectedProcedure
 export const cancelarSolicitud = protectedProcedure
   .input(z.object({
     solicitudId: z.number().int(),
+    motivo: z.string().optional(),
   }))
   .handler(async ({ input, context }) => {
     const solicitud = await prisma.solicitudes_viaje.findUnique({
@@ -365,20 +368,39 @@ export const cancelarSolicitud = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado para cancelar esta solicitud' });
     }
 
-    if (solicitud.estado_solicitud !== 'pendiente') {
-      throw new ORPCError('BAD_REQUEST', { message: 'Solo puedes cancelar solicitudes pendientes' });
+    if (!['pendiente', 'aceptada'].includes(solicitud.estado_solicitud)) {
+      throw new ORPCError('BAD_REQUEST', { message: 'Solo puedes cancelar solicitudes pendientes o aceptadas' });
     }
 
-    await prisma.solicitudes_viaje.delete({
-      where: { id_solicitud: input.solicitudId },
-    });
+    const eraAceptada = solicitud.estado_solicitud === 'aceptada';
+
+    if (eraAceptada) {
+      await prisma.solicitudes_viaje.update({
+        where: { id_solicitud: input.solicitudId },
+        data: { estado_solicitud: 'rechazada' },
+      });
+
+      await prisma.viajes_publicados.update({
+        where: { id_viaje_pub: solicitud.id_viaje_pub },
+        data: { asientos_disponibles: { increment: 1 } },
+      });
+    } else {
+      await prisma.solicitudes_viaje.delete({
+        where: { id_solicitud: input.solicitudId },
+      });
+    }
+
+    const motivoTexto = input.motivo ? ` Motivo: ${input.motivo}` : '';
+    const notifCuerpo = eraAceptada
+      ? `Un pasajero ha cancelado su viaje aceptado a ${solicitud.viaje.destino_texto}.${motivoTexto}`
+      : `Un pasajero ha cancelado su solicitud para el viaje a ${solicitud.viaje.destino_texto}.${motivoTexto}`;
 
     // NOTIFICACIÓN: Avisar al conductor
     if (solicitud.viaje?.conductor?.usuario) {
       await crearNotificacion(
         solicitud.viaje.conductor.usuario.id_usuario,
-        "Solicitud cancelada",
-        `Un pasajero ha cancelado su solicitud para el viaje a ${solicitud.viaje.destino_texto}.`,
+        eraAceptada ? "Viaje cancelado por pasajero" : "Solicitud cancelada",
+        notifCuerpo,
         "cancelacion",
         solicitud.id_viaje_pub
       );
@@ -389,14 +411,14 @@ export const cancelarSolicitud = protectedProcedure
       io.emit('solicitud_cancelada', {
         viajeId: solicitud.id_viaje_pub,
         solicitudId: input.solicitudId,
-        mensaje: `Un pasajero canceló su solicitud para el viaje a ${solicitud.viaje.destino_texto}`
+        mensaje: notifCuerpo,
       });
 
       if (solicitud.viaje?.conductor?.usuario) {
         io.emit('nueva_notificacion', {
           usuarioId: solicitud.viaje.conductor.usuario.id_usuario,
-          titulo: "Solicitud cancelada",
-          cuerpo: `Un pasajero canceló su solicitud para el viaje a ${solicitud.viaje.destino_texto}`,
+          titulo: eraAceptada ? "Viaje cancelado por pasajero" : "Solicitud cancelada",
+          cuerpo: notifCuerpo,
           tipo: "cancelacion"
         });
       }
