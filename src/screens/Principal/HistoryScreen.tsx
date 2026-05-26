@@ -132,10 +132,12 @@ const HistoryScreen = ({ navigation }: any) => {
           }
           renderItem={({ item }) => {
             const capacidadPasajeros = item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4;
-            const asientosOfrecidos = item.asientos_ofrecidos > 0 
-              ? item.asientos_ofrecidos 
+            const asientosOfrecidos = item.asientos_ofrecidos > 0
+              ? item.asientos_ofrecidos
               : (item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4);
-            const asientosOcupados = Math.max(0, asientosOfrecidos - item.asientos_disponibles);
+            const asientosOcupados = item.pasajeros_confirmados != null
+              ? item.pasajeros_confirmados
+              : Math.max(0, asientosOfrecidos - item.asientos_disponibles);
 
             const estadoViaje = item.viajes_activos?.[0]?.estado_trayecto;
             const motivoCancelacion = item.historial?.[0]?.motivo;

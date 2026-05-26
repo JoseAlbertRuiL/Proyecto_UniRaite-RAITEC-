@@ -210,9 +210,6 @@ const NotificacionesScreen = ({ navigation }: any) => {
                       className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
                       onPress={() => manejarClickCalificar(notif)}
                     >
-                      <Text style={{ fontSize: 10, color: 'red' }}>
-                        ID: {notif.id_notificacion} | yaCalificado: {String(notif.yaCalificado)}
-                      </Text>
                       <Text className="text-white text-sm font-semibold">
                         Calificar viaje
                       </Text>
