@@ -86,7 +86,7 @@ const DriverCard = ({
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
-  const asientosOcupados = viaje.asientos_ofrecidos - viaje.asientos_disponibles;
+  const asientosOcupados = viaje.asientos_ocupados;
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
     ? viaje.conductor.usuario.foto_perfil

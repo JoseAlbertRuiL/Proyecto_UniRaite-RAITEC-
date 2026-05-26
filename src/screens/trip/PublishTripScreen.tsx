@@ -29,13 +29,29 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 const REGION_MORELIA = {
   latitude: 19.7069,
   longitude: -101.1945,
-  latitudeDelta: 0.001,
-  longitudeDelta: 0.001,
+  latitudeDelta: 0.01,
+  longitudeDelta: 0.01,
 };
 
-const ITM_COORDS = { latitude: 19.720909, longitude: -101.186786 };
-const ITM_COORDS_ALT = { latitude: 19.723697, longitude: -101.184259 };
-const ITM_TEXTO = "Avenida Tecnológico, 1500, Morelia";
+const POLIGONO_PRINCIPAL = [
+  { lat: 19.721472, lng: -101.187861 },
+  { lat: 19.719639, lng: -101.184111 },
+  { lat: 19.721389, lng: -101.183194 },
+  { lat: 19.722944, lng: -101.186417 },
+];
+
+const POLIGONO_SECUNDARIO = [
+  { lat: 19.721389, lng: -101.183194 },
+  { lat: 19.722944, lng: -101.186417 },
+  { lat: 19.723944, lng: -101.185306 },
+  { lat: 19.723583, lng: -101.183167 },
+  { lat: 19.722444, lng: -101.182944 },
+];
+
+const ENTRADA_PRINCIPAL = { latitude: 19.720909, longitude: -101.186786 };
+const ENTRADA_SECUNDARIA = { latitude: 19.723697, longitude: -101.184259 };
+const TEXTO_PRINCIPAL = "ITM - Entrada Principal (Av. Tecnológico 1500)";
+const TEXTO_SECUNDARIA = "ITM - Entrada Secundaria (C. Raza Maya)";
 
 interface Coordenada {
   latitude: number;
@@ -61,6 +77,20 @@ const INITIAL_FORM: TripForm = {
   asientos: 1,
   precio: "25",
   comentario: "",
+};
+
+// Algoritmo Ray-Casting: Verifica si un punto (lat/lng) está dentro de area segura ITM
+const estaEnPoligono = (lat: number, lng: number, poligono: { lat: number, lng: number }[]) => {
+  let adentro = false;
+  for (let i = 0, j = poligono.length - 1; i < poligono.length; j = i++) {
+    const xi = poligono[i].lat, yi = poligono[i].lng;
+    const xj = poligono[j].lat, yj = poligono[j].lng;
+
+    const intersecta = ((yi > lng) !== (yj > lng)) &&
+        (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersecta) adentro = !adentro;
+  }
+  return adentro;
 };
 
 const PublishTripScreen = ({ navigation }: any) => {
@@ -266,51 +296,75 @@ const PublishTripScreen = ({ navigation }: any) => {
     setMarkerTemp(e.nativeEvent.coordinate);
   };
 
+
+
   const confirmarPunto = async () => {
     if (!markerTemp) {
-      Alert.alert(
-        "Selecciona un punto",
-        "Toca el mapa para elegir la ubicación.",
-      );
+      Alert.alert("Selecciona un punto", "Toca el mapa para elegir la ubicación.");
       return;
     }
+
+    const { latitude, longitude } = markerTemp;
+
+    // 1️⃣ Validar si cayó en la Zona Principal
+    if (estaEnPoligono(latitude, longitude, POLIGONO_PRINCIPAL)) {
+      setForm((prev) => {
+        const nuevo = { ...prev, [mapTipo]: { ...ENTRADA_PRINCIPAL, texto: TEXTO_PRINCIPAL } };
+        // Si el origen es el Tec, limpiamos el destino para que elija su casa
+        if (mapTipo === "origen" && (prev.destino?.texto === TEXTO_PRINCIPAL || prev.destino?.texto === TEXTO_SECUNDARIA)) {
+            nuevo.destino = null; 
+        }
+        return nuevo;
+      });
+      setMapVisible(false);
+      return;
+    }
+
+    // 2️⃣ Validar si cayó en la Zona Secundaria
+    if (estaEnPoligono(latitude, longitude, POLIGONO_SECUNDARIO)) {
+      setForm((prev) => {
+        const nuevo = { ...prev, [mapTipo]: { ...ENTRADA_SECUNDARIA, texto: TEXTO_SECUNDARIA } };
+        if (mapTipo === "origen" && (prev.destino?.texto === TEXTO_PRINCIPAL || prev.destino?.texto === TEXTO_SECUNDARIA)) {
+            nuevo.destino = null; 
+        }
+        return nuevo;
+      });
+      setMapVisible(false);
+      return;
+    }
+
+    // 3️⃣ Si cayó en cualquier otra parte (su casa, centro, etc.), usamos Google Maps
     setGeocodingLoad(true);
     try {
       const resultados = await Location.reverseGeocodeAsync(markerTemp);
       const r = resultados[0];
-      // Construir texto: "Calle número, Colonia, Ciudad"
-      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(
-        Boolean,
-      );
-      const texto =
-        partes.length > 0
-          ? partes.join(", ")
-          : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
+      const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
+      const texto = partes.length > 0
+        ? partes.join(", ")
+        : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 
-      const coordenada: Coordenada = { ...markerTemp, texto };
+      const coordenada: Coordenada = { latitude, longitude, texto };
+
       setForm((prev) => {
         const nuevo = { ...prev, [mapTipo]: coordenada };
-
-        if (mapTipo === "origen" && texto !== ITM_TEXTO) {
-          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+        
+        // Si eligió su casa como origen, forzamos el destino a la Entrada Principal por defecto 
+        // (el usuario puede cambiarlo a la secundaria después si quiere)
+        if (mapTipo === "origen") {
+          nuevo.destino = { ...ENTRADA_PRINCIPAL, texto: TEXTO_PRINCIPAL };
         }
-
-        if (mapTipo === "origen" && texto === ITM_TEXTO) {
-          nuevo.destino = null;
-        }
-
+        
         return nuevo;
       });
       setMapVisible(false);
     } catch (e) {
-      // Si falla la geocodificación, usar coordenadas como texto
-      const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
-      const coordenada: Coordenada = { ...markerTemp, texto };
-
+      // Fallback si falla el internet
+      const texto = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      const coordenada: Coordenada = { latitude, longitude, texto };
       setForm((prev) => {
         const nuevo = { ...prev, [mapTipo]: coordenada };
         if (mapTipo === "origen") {
-          nuevo.destino = { ...ITM_COORDS, texto: ITM_TEXTO };
+          nuevo.destino = { ...ENTRADA_PRINCIPAL, texto: TEXTO_PRINCIPAL };
         }
         return nuevo;
       });
@@ -351,8 +405,12 @@ const PublishTripScreen = ({ navigation }: any) => {
       );
       return;
     }
-    const pasaPorITM =
-      form.origen.texto === ITM_TEXTO || form.destino.texto === ITM_TEXTO;
+    const pasaPorITM = 
+      form.origen.texto === TEXTO_PRINCIPAL || 
+      form.origen.texto === TEXTO_SECUNDARIA || 
+      form.destino.texto === TEXTO_PRINCIPAL || 
+      form.destino.texto === TEXTO_SECUNDARIA;
+      
     if (!pasaPorITM) {
       Alert.alert(
         "Ruta inválida",
