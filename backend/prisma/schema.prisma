@@ -93,7 +93,6 @@ model viajes_publicados {
   origen_texto          String
   destino_texto         String
 
-  // Coordenadas exactas para el algoritmo de Match
   latitud_origen   Float
   longitud_origen  Float
   latitud_destino  Float
