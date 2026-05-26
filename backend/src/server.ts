@@ -4,12 +4,13 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import http from 'http'
+import jwt from 'jsonwebtoken'
 import { Server } from 'socket.io'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
-import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { iniciarCronJobs } from './services/cronJobs'
 
 require('dotenv').config()
 
@@ -341,8 +342,9 @@ app.get('/health', (req, res) => {
 
 serverHttp.listen(PORT, () => {
   console.log(`Servidor en http://localhost:${PORT}`)
+  iniciarCronJobs(io);
   console.log(`oRPC    → /rpc/*`)
-  console.log(`Rate Limit → /rpc/login (5 intentos/15min)`)
+  console.log(`Rate Limit → Login (30 intentos/15min) | Registro (15 intentos/30min)`)
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
   console.log(`WebSocket Server corriendo en el mismo puerto`)

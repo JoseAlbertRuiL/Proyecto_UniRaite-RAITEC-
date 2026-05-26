@@ -43,44 +43,14 @@ const ConducirScreen = ({ navigation }: any) => {
   const cargarDatos = async () => {
     try {
       const activosData = await orpc.viajes.activos();
-      const todosActivos = activosData.viajes || [];
-
       if (activosData.success) {
-        const ahora = new Date();
-
-        const expirados = todosActivos.filter((viaje: any) => {
-          const haIniciado = viaje.viajes_activos?.length > 0;
-          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
-          return !haIniciado && fechaPasada;
-        });
-
-        if (expirados.length > 0) {
-          Promise.allSettled(
-            expirados.map((v: any) =>
-              orpc.viajes.cancelar({ viajeId: v.id_viaje_pub })
-            )
-          ).then((results) => {
-            const cancelados = results.filter((r) => r.status === 'fulfilled').length;
-            if (cancelados > 0) {
-              console.log(`🗑️ ${cancelados} viaje(s) expirado(s) cancelado(s) automáticamente`);
-              // Refrescar para que desaparezcan de la lista
-              cargarDatos();
-            }
-          });
-        }
-        
-        const vigentes = todosActivos.filter((viaje: any) => {
-          const haIniciado = viaje.viajes_activos?.length > 0;
-          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
-          return haIniciado || !fechaPasada;
-        });
-
-        setViajesActivos(vigentes);
+        setViajesActivos(activosData.viajes || []);
       }
 
       const solicitudesData = await orpc.solicitudes.recibidas();
-      if (solicitudesData.success)
+      if (solicitudesData.success) {
         setSolicitudes(solicitudesData.solicitudes || []);
+      }
     } catch (error) {
       console.error("Error al cargar datos:", error);
     } finally {
@@ -187,15 +157,6 @@ const ConducirScreen = ({ navigation }: any) => {
         }
       }
     );
-  };
-
-  const detenerTransmision = (viajeId: number) => {
-    locationSub.current?.remove();
-    locationSub.current = null;
-
-    const socket = getSocket();
-    socket?.emit('leave_viaje', viajeId);
-    setTransmitiendo(null);
   };
 
   const cancelarViaje = async (viajeId: number) => {
