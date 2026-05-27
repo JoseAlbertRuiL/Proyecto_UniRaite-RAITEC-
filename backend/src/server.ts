@@ -328,7 +328,7 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
-serverHttp.listen(PORT, () => {
+serverHttp.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Servidor en http://localhost:${PORT}`)
   console.log(`oRPC    → /rpc/*`)
   console.log(`Rate Limit → /rpc/login (5 intentos/15min)`)
