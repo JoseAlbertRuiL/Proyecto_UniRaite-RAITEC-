@@ -1,4 +1,3 @@
-// src/screens/trip/PublishTripScreen.tsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -15,15 +14,14 @@ import {
 import MapView, {
   Marker,
   MapPressEvent,
-  PROVIDER_GOOGLE,
 } from "react-native-maps";
 import * as Location from "expo-location";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Header from "../../components/common/HeaderBack";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { publicarViaje, getVehiculo, getServerTime } from "../../services/trip/tripService";
+import { publicarViaje } from "../../services/trip/tripService";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { orpc } from "../../services/api/apiClient";
+import { useVehiculo, useServerTime } from "../../hooks/queries/useViajes";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const REGION_MORELIA = {
@@ -70,14 +68,7 @@ const PublishTripScreen = ({ navigation }: any) => {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [capacidadMaxima, setCapacidadMaxima] = useState(4);
-  const serverTimeRef = useRef(new Date());
-  const [serverTimeLoaded, setServerTimeLoaded] = useState(false);
-
-  // Estado para error en tiempo real del campo precio
   const [precioError, setPrecioError] = useState<string | null>(null);
-
-  // Filtra el input de precio: solo dígitos y un punto decimal (máx. 2 decimales)
   const [mapVisible, setMapVisible] = useState(false);
   const [mapTipo, setMapTipo] = useState<"origen" | "destino">("origen");
   const [markerTemp, setMarkerTemp] = useState<{
@@ -86,9 +77,38 @@ const PublishTripScreen = ({ navigation }: any) => {
   } | null>(null);
   const [geocodingLoad, setGeocodingLoad] = useState(false);
   const mapRef = useRef<MapView>(null);
-
-  // DEBOUNCE: Ref para evitar múltiples publicaciones
   const isPublishingRef = useRef(false);
+
+  const { data: vehiculoData } = useVehiculo();
+  const { data: serverTimeData } = useServerTime();
+
+  const capacidadMaxima = vehiculoData?.vehiculo?.capacidad_pasajeros ?? 4;
+  const serverTimeRef = useRef(new Date());
+  const [serverTimeLoaded, setServerTimeLoaded] = useState(false);
+
+  useEffect(() => {
+    if (serverTimeData) {
+      const serverDate = new Date(serverTimeData.serverTime);
+      serverTimeRef.current = serverDate;
+      setDate(serverDate);
+      setForm((prev) => ({
+        ...prev,
+        fecha: formatFecha(serverDate),
+        hora: formatHora(serverDate),
+      }));
+      setServerTimeLoaded(true);
+    }
+  }, [serverTimeData]);
+
+  useEffect(() => {
+    if (vehiculoData?.vehiculo?.capacidad_pasajeros) {
+      const capacidad = vehiculoData.vehiculo.capacidad_pasajeros;
+      setForm((prev) => ({
+        ...prev,
+        asientos: Math.min(prev.asientos, capacidad),
+      }));
+    }
+  }, [vehiculoData]);
 
   const updateField = <K extends keyof TripForm>(
     field: K,
@@ -97,88 +117,33 @@ const PublishTripScreen = ({ navigation }: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Sanitización del precio: solo dígitos y un punto decimal, máx $70
   const sanitizarPrecio = (text: string) => {
-    // Remover cualquier carácter que no sea dígito o punto
     let limpio = text.replace(/[^0-9.]/g, '');
-    // Permitir solo un punto decimal
     const partes = limpio.split('.');
     if (partes.length > 2) limpio = partes[0] + '.' + partes.slice(1).join('');
-    // Limitar a 2 decimales
     if (partes[1] && partes[1].length > 2) limpio = partes[0] + '.' + partes[1].slice(0, 2);
 
     setForm((p) => ({ ...p, precio: limpio }));
 
-    // Validar rango y mostrar error inline
     const valor = parseFloat(limpio);
     if (limpio === '' || isNaN(valor)) {
       setPrecioError('Ingresa un precio válido.');
     } else if (valor < 1) {
       setPrecioError('El precio mínimo es $1 MXN.');
     } else if (valor > 70) {
-      setPrecioError('El precio máximo es $70 MXN.'); //
+      setPrecioError('El precio máximo es $70 MXN.');
     } else {
       setPrecioError(null);
     }
   };
-
-  useEffect(() => {
-    const cargarCapacidad = async () => {
-      try {
-        const data = await getVehiculo();
-        if (data.success && data.vehiculo?.capacidad_pasajeros) {
-          const capacidad = data.vehiculo.capacidad_pasajeros;
-          setCapacidadMaxima(capacidad);
-          // Si el valor actual de asientos excede la capacidad real, ajustarlo
-          setForm((prev) => ({
-            ...prev,
-            asientos: Math.min(prev.asientos, capacidad),
-          }));
-        }
-      } catch (error) {
-        console.log("No se pudo cargar la capacidad del vehículo:", error);
-      }
-    };
-    cargarCapacidad();
-  }, []);
-
-  useEffect(() => {
-    const fetchServerTime = async () => {
-      try {
-        const res = await getServerTime();
-        const serverDate = new Date(res.serverTime);
-        serverTimeRef.current = serverDate;
-        setDate(serverDate);
-        setForm((prev) => ({
-          ...prev,
-          fecha: formatFecha(serverDate),
-          hora: formatHora(serverDate),
-        }));
-      } catch {
-        serverTimeRef.current = new Date();
-      }
-      setServerTimeLoaded(true);
-    };
-    fetchServerTime();
-  }, []);
 
   const formatFecha = (d: Date): string => {
     const hoy = new Date();
     const manana = new Date();
     manana.setDate(hoy.getDate() + 1);
     const meses = [
-      "ene",
-      "feb",
-      "mar",
-      "abr",
-      "may",
-      "jun",
-      "jul",
-      "ago",
-      "sep",
-      "oct",
-      "nov",
-      "dic",
+      "ene", "feb", "mar", "abr", "may", "jun",
+      "jul", "ago", "sep", "oct", "nov", "dic",
     ];
     const dia = d.getDate();
     const mes = meses[d.getMonth()];
@@ -230,7 +195,6 @@ const PublishTripScreen = ({ navigation }: any) => {
 
   const abrirMapa = (tipo: "origen" | "destino") => {
     setMapTipo(tipo);
-    // Si ya hay un punto seleccionado, centrar en él; si no, pedir ubicación actual
     const puntoExistente = tipo === "origen" ? form.origen : form.destino;
     if (puntoExistente) {
       setMarkerTemp({
@@ -278,7 +242,6 @@ const PublishTripScreen = ({ navigation }: any) => {
     try {
       const resultados = await Location.reverseGeocodeAsync(markerTemp);
       const r = resultados[0];
-      // Construir texto: "Calle número, Colonia, Ciudad"
       const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(
         Boolean,
       );
@@ -303,7 +266,6 @@ const PublishTripScreen = ({ navigation }: any) => {
       });
       setMapVisible(false);
     } catch (e) {
-      // Si falla la geocodificación, usar coordenadas como texto
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const coordenada: Coordenada = { ...markerTemp, texto };
 
@@ -320,9 +282,7 @@ const PublishTripScreen = ({ navigation }: any) => {
     }
   };
 
-  // DEBOUNCE: Función modificada para evitar múltiples publicaciones
   const handlePublicar = async () => {
-    // Evitar múltiples clics
     if (isPublishingRef.current) {
       console.log("🔒 Publicación en curso, ignorando clic");
       return;
@@ -333,7 +293,7 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
     const precioVal = parseFloat(form.precio);
-    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 70) { 
+    if (!form.precio || isNaN(precioVal) || precioVal < 1 || precioVal > 70) {
       Alert.alert(
         "Precio inválido",
         "El precio por persona debe estar entre $1 y $70 MXN.",
@@ -369,7 +329,6 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
-    // Validación de tiempo mínimo contra la hora del servidor
     const limiteFuturo = new Date(serverTimeRef.current.getTime() + 10 * 60 * 1000);
     if (date <= limiteFuturo) {
       Alert.alert(
@@ -379,7 +338,6 @@ const PublishTripScreen = ({ navigation }: any) => {
       return;
     }
 
-    // 🔒 DEBOUNCE: Marcar como publicando
     isPublishingRef.current = true;
     setIsLoading(true);
 
@@ -391,7 +349,6 @@ const PublishTripScreen = ({ navigation }: any) => {
         longitud_origen: form.origen!.longitude,
         latitud_destino: form.destino!.latitude,
         longitud_destino: form.destino!.longitude,
-        // UTC: Convertir la fecha local a formato ISO 8601 en UTC
         fechaHoraISO: date.toISOString(),
         asientos: form.asientos,
         precio: parseFloat(form.precio),
@@ -413,7 +370,6 @@ const PublishTripScreen = ({ navigation }: any) => {
         error?.message || "Ocurrió un problema. Intenta de nuevo.",
       );
     } finally {
-      // 🔒 DEBOUNCE: Liberar el bloqueo después de 1 segundo
       setTimeout(() => {
         isPublishingRef.current = false;
       }, 1000);
@@ -425,7 +381,6 @@ const PublishTripScreen = ({ navigation }: any) => {
     <ScreenWrapper hasFooter={false}>
       <Header navigation={navigation} title="Publica tu Viaje" />
 
-      {/* ── Modal mapa picker ── */}
       <Modal visible={mapVisible} animationType="slide">
         <View style={{ flex: 1 }}>
           <MapView
@@ -441,7 +396,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             {markerTemp && <Marker coordinate={markerTemp} />}
           </MapView>
 
-          {/* Instrucción flotante */}
           <View
             style={{
               position: "absolute",
@@ -462,7 +416,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             </Text>
           </View>
 
-          {/* Botones inferiores */}
           <View
             style={{
               position: "absolute",
@@ -535,7 +488,6 @@ const PublishTripScreen = ({ navigation }: any) => {
         keyboardShouldPersistTaps="handled"
       >
         <View className="px-4 py-5 gap-5">
-          {/* Origen / Destino */}
           <View className="bg-blue-50 rounded-2xl p-4">
             <View className="flex-row items-stretch gap-3">
               <View className="items-center mt-1">
@@ -547,7 +499,6 @@ const PublishTripScreen = ({ navigation }: any) => {
                 <View className="w-3 h-3 rounded-full border-2 border-blue-600 bg-white" />
               </View>
               <View className="flex-1 gap-3">
-                {/* Origen */}
                 <View>
                   <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                     Origen
@@ -562,7 +513,6 @@ const PublishTripScreen = ({ navigation }: any) => {
                     </Text>
                   </TouchableOpacity>
                 </View>
-                {/* Destino */}
                 <View>
                   <Text className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                     Destino
@@ -581,7 +531,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/* Fecha y Hora */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Fecha y Hora
@@ -632,7 +581,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           )}
 
-          {/* Asientos */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Lugares disponibles
@@ -681,7 +629,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             </View>
           </View>
 
-          {/* Precio */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Precio por persona
@@ -712,7 +659,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             )}
           </View>
 
-          {/* Comentario */}
           <View>
             <Text className="text-sm font-semibold text-gray-700 mb-2">
               Comentario adicional
@@ -729,7 +675,6 @@ const PublishTripScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {/* DEBOUNCE: Botón con estilo mejorado */}
           <TouchableOpacity
             onPress={handlePublicar}
             disabled={isLoading}

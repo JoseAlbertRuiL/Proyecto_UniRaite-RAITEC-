@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   ActivityIndicator,
   FlatList,
-  StatusBar,
   RefreshControl,
   TouchableOpacity,
 } from "react-native";
@@ -12,75 +11,32 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
-import { orpc } from "../../services/api/apiClient";
+import { useHistorialPasajero, useHistorialConductor } from "../../hooks/queries/useViajes";
+import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { getSocket } from "../../services/socket";
 
 const HistoryScreen = ({ navigation }: any) => {
   useBackHandler(navigation, "normal");
-  
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viajes, setViajes] = useState<any[]>([]);
+  useSocketInvalidator();
+
+  const { data: dataPasajero, isLoading: loadingPasajero, refetch: refetchPasajero } = useHistorialPasajero();
+  const { data: dataConductor, isLoading: loadingConductor, refetch: refetchConductor } = useHistorialConductor();
   const [filtro, setFiltro] = useState<"todos" | "pasajero" | "conductor">("todos");
 
-  const fetchHistorial = async () => {
-    try {
-      const [resPasajero, resConductor] = await Promise.all([
-        orpc.viajes.historialPasajero(),
-        orpc.viajes.historialConductor(),
-      ]);
+  const isLoading = loadingPasajero || loadingConductor;
 
-      let combinados = [];
-
-      if (resPasajero.success) {
-        combinados.push(...resPasajero.viajes.map((v: any) => ({ ...v, rol: "pasajero" })));
-      }
-      
-      if (resConductor.success) {
-        combinados.push(...resConductor.viajes.map((v: any) => ({ ...v, rol: "conductor" })));
-      }
-
-      // Ordenar del más reciente al más viejo
-      combinados.sort((a, b) => new Date(b.fecha_hora_salida).getTime() - new Date(a.fecha_hora_salida).getTime());
-      
-      setViajes(combinados);
-    } catch (error) {
-      console.error("Error al obtener historial:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHistorial();
-
-    const socket = getSocket();
-    if (socket) {
-      const onViajeFinalizado = (data: any) => {
-        console.log("📢 Viaje finalizado en History:", data);
-        fetchHistorial();
-      };
-
-      const onViajeCancelado = (data: any) => {
-        console.log("📢 Viaje cancelado en History:", data);
-        fetchHistorial();
-      };
-
-      socket.on("viaje_finalizado", onViajeFinalizado);
-      socket.on("viaje_cancelado", onViajeCancelado);
-
-      return () => {
-        socket.off("viaje_finalizado", onViajeFinalizado);
-        socket.off("viaje_cancelado", onViajeCancelado);
-      };
-    }
-  }, []);
+  let viajes: any[] = [];
+  if (dataPasajero?.success) {
+    viajes.push(...dataPasajero.viajes.map((v: any) => ({ ...v, rol: "pasajero" })));
+  }
+  if (dataConductor?.success) {
+    viajes.push(...dataConductor.viajes.map((v: any) => ({ ...v, rol: "conductor" })));
+  }
+  viajes.sort((a, b) => new Date(b.fecha_hora_salida).getTime() - new Date(a.fecha_hora_salida).getTime());
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchHistorial();
+    refetchPasajero();
+    refetchConductor();
   };
 
   const viajesFiltrados = viajes.filter(v => filtro === "todos" || v.rol === filtro);
@@ -110,7 +66,7 @@ const HistoryScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#1e3a8a" />
           <Text className="mt-4 text-gray-500">Cargando historial...</Text>
@@ -121,7 +77,7 @@ const HistoryScreen = ({ navigation }: any) => {
           keyExtractor={(item, index) => `historial-${item.id_viaje_pub}-${index}`}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
           }
           ListEmptyComponent={
             <View className="items-center justify-center py-10 mt-10">

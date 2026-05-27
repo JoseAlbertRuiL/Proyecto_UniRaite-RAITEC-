@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -10,7 +10,13 @@ import {
 } from "react-native";
 import HeaderBack from "../../components/common/HeaderBack";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { orpc } from "../../services/api/apiClient";
+import { useNotificaciones } from "../../hooks/queries/useNotificaciones";
+import {
+  useMarcarNotificacionLeidaMutation,
+  useMarcarTodasLeidasMutation,
+  useEliminarNotificacionMutation,
+} from "../../hooks/mutations/useTripMutations";
+import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
 import { useBackHandler } from "../../hooks/useBackHandler";
 
 interface Notificacion {
@@ -24,64 +30,26 @@ interface Notificacion {
 }
 
 const NotificacionesScreen = ({ navigation }: any) => {
-  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-
   useBackHandler(navigation, "normal");
+  useSocketInvalidator();
 
-  const cargarNotificaciones = useCallback(async () => {
-    if (!refrescando) setCargando(true);
-    try {
-      const data = await orpc.notificaciones.obtenerTodas();
-      if (data.success) {
-        // Asignación directa y limpia
-        setNotificaciones(data.notificaciones || []);
-      }
-    } catch (error) {
-      console.error("Error al cargar notificaciones:", error);
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
-  }, [refrescando]);
+  const { data, isLoading, refetch, isRefetching } = useNotificaciones();
+  const marcarLeidaMutation = useMarcarNotificacionLeidaMutation();
+  const marcarTodasMutation = useMarcarTodasLeidasMutation();
+  const eliminarMutation = useEliminarNotificacionMutation();
 
-  useEffect(() => {
-    cargarNotificaciones();
+  const notificaciones: Notificacion[] = data?.notificaciones ?? [];
+  const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
-    if (navigation && navigation.addListener) {
-      const unsubscribe = navigation.addListener('focus', () => {
-        cargarNotificaciones();
-      });
-      return unsubscribe;
-    }
-  }, [navigation, cargarNotificaciones]);
-
-  const marcarComoLeida = async (id: number) => {
-    try {
-      await orpc.notificaciones.marcarLeida({ id });
-      setNotificaciones((prev) =>
-        prev.map((notif) =>
-          notif.id_notificacion === id ? { ...notif, leido: true } : notif
-        )
-      );
-    } catch (error) {
-      console.error("Error al marcar como leída:", error);
-    }
+  const marcarComoLeida = (id: number) => {
+    marcarLeidaMutation.mutate({ id });
   };
 
-  const marcarTodasLeidas = async () => {
-    try {
-      await orpc.notificaciones.marcarTodasLeidas();
-      setNotificaciones((prev) =>
-        prev.map((notif) => ({ ...notif, leido: true }))
-      );
-    } catch (error) {
-      Alert.alert("Error", "No se pudieron marcar las notificaciones");
-    }
+  const marcarTodasLeidas = () => {
+    marcarTodasMutation.mutate();
   };
 
-  const eliminarNotificacion = async (id: number) => {
+  const eliminarNotificacion = (id: number) => {
     Alert.alert(
       "Eliminar notificación",
       "¿Estás seguro de que deseas eliminar esta notificación?",
@@ -89,16 +57,7 @@ const NotificacionesScreen = ({ navigation }: any) => {
         { text: "Cancelar", style: "cancel" },
         {
           text: "Eliminar",
-          onPress: async () => {
-            try {
-              await orpc.notificaciones.eliminar({ id });
-              setNotificaciones((prev) =>
-                prev.filter((notif) => notif.id_notificacion !== id)
-              );
-            } catch (error) {
-              Alert.alert("Error", "No se pudo eliminar la notificación");
-            }
-          },
+          onPress: () => eliminarMutation.mutate({ id }),
           style: "destructive",
         },
       ]
@@ -107,11 +66,11 @@ const NotificacionesScreen = ({ navigation }: any) => {
 
   const manejarClickCalificar = async (notif: Notificacion) => {
     if (!notif.leido) {
-      await marcarComoLeida(notif.id_notificacion);
+      marcarLeidaMutation.mutate({ id: notif.id_notificacion });
     }
-    
-    navigation.navigate("RateTrip", { 
-      notificacionId: notif.id_notificacion 
+
+    navigation.navigate("RateTrip", {
+      notificacionId: notif.id_notificacion,
     });
   };
 
@@ -129,13 +88,6 @@ const NotificacionesScreen = ({ navigation }: any) => {
     if (diffDays === 1) return "Ayer";
     return date.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
   };
-
-  const onRefresh = () => {
-    setRefrescando(true);
-    cargarNotificaciones();
-  };
-
-  const notificacionesNoLeidas = notificaciones.filter((n) => !n.leido).length;
 
   return (
     <ScreenWrapper hasFooter={false}>
@@ -156,9 +108,9 @@ const NotificacionesScreen = ({ navigation }: any) => {
 
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
-        {cargando ? (
+        {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color="#1e3a8a" />
             <Text className="text-gray-500 mt-4">Cargando notificaciones...</Text>
@@ -196,16 +148,13 @@ const NotificacionesScreen = ({ navigation }: any) => {
                 {!notif.leido && <View className="w-2 h-2 rounded-full bg-blue-600 mt-2" />}
               </View>
 
-              {/* Renderizado de botón de calificación inteligente */}
               {notif.tipo_notif === "finalizacion" && (
                 <>
                   {notif.yaCalificado ? (
-                    // Si ya está calificado, mostramos un mensaje sutil en lugar del botón
                     <View className="mt-4 flex-row items-center">
                       <Text className="text-gray-400 text-sm italic">✓ Viaje calificado</Text>
                     </View>
                   ) : (
-                    // Si NO está calificado, mostramos el botón
                     <TouchableOpacity
                       className="mt-4 bg-blue-600 rounded-full px-4 py-2 self-start"
                       onPress={() => manejarClickCalificar(notif)}

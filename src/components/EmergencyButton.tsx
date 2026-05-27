@@ -1,35 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from "react-native";
 import * as Linking from "expo-linking";
 import { PanResponder, Animated } from "react-native";
-import { orpc } from "../services/api/apiClient";
-
+import { usePerfil } from "../hooks/queries/usePerfil";
 
 const EmergencyButton = () => {
   const [visible, setVisible] = useState(false);
-  const [contactoEmergencia, setContactoEmergencia] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPerfil = async () => {
-      console.log("🔍 EmergencyButton: Iniciando fetchPerfil");
-      try {
-        const response = await orpc.usuarios.getPerfil();
-        console.log("✅ EmergencyButton: Respuesta de getPerfil:", response);
-        if (response.success && response.user) {
-          console.log("📞 EmergencyButton: Contacto de emergencia encontrado:", response.user.contacto_emergencia);
-          setContactoEmergencia(response.user.contacto_emergencia);
-        } else {
-          console.log("❌ EmergencyButton: Respuesta no exitosa o sin usuario");
-        }
-      } catch (error) {
-        console.error("❌ EmergencyButton: Error al obtener perfil:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchPerfil();
-  }, []);
+  const { data: response, isLoading } = usePerfil();
+  const contactoEmergencia = response?.user?.contacto_emergencia ?? null;
 
   const callNumber = (number: string) => {
     Linking.openURL(`tel:${number}`);
@@ -39,47 +17,44 @@ const EmergencyButton = () => {
     Linking.openURL(`whatsapp://send?phone=${number}`);
   };
 
-
   return (
-  <>
-    <TouchableOpacity style={styles.floatingButton} onPress={() => setVisible(true)}>
-      <Text style={styles.text}>!</Text>
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity style={styles.floatingButton} onPress={() => setVisible(true)}>
+        <Text style={styles.text}>!</Text>
+      </TouchableOpacity>
 
-    <Modal transparent={true} visible={visible} animationType="slide">
-      <View style={styles.modalContainer}>
-        <View style={styles.modal}>
-          <Text style={styles.title}>Opciones de emergencia</Text>
+      <Modal transparent={true} visible={visible} animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modal}>
+            <Text style={styles.title}>Opciones de emergencia</Text>
 
-          <TouchableOpacity onPress={() => callNumber("911")}>
-            <Text style={styles.option}>📞 Llamar 911</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => callNumber("911")}>
+              <Text style={styles.option}>📞 Llamar 911</Text>
+            </TouchableOpacity>
 
-          {loading ? (
-            <Text style={styles.option}>Cargando contacto...</Text>
-          ) : contactoEmergencia ? (
-            <>
-              <TouchableOpacity onPress={() => callNumber(contactoEmergencia)}>
-                <Text style={styles.option}>📱 Llamar contacto de emergencia</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => openWhatsApp(contactoEmergencia)}>
-                <Text style={styles.option}>💬 WhatsApp contacto de emergencia</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text style={styles.optionDisabled}>No tienes contacto de emergencia configurado</Text>
-          )}
+            {isLoading ? (
+              <Text style={styles.option}>Cargando contacto...</Text>
+            ) : contactoEmergencia ? (
+              <>
+                <TouchableOpacity onPress={() => callNumber(contactoEmergencia)}>
+                  <Text style={styles.option}>📱 Llamar contacto de emergencia</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => openWhatsApp(contactoEmergencia)}>
+                  <Text style={styles.option}>💬 WhatsApp contacto de emergencia</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.optionDisabled}>No tienes contacto de emergencia configurado</Text>
+            )}
 
-          <TouchableOpacity onPress={() => setVisible(false)}>
-            <Text style={styles.close}>Cerrar</Text>
-          </TouchableOpacity>
-
-          
+            <TouchableOpacity onPress={() => setVisible(false)}>
+              <Text style={styles.close}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
-  </>
-);
+      </Modal>
+    </>
+  );
 };
 
 export default EmergencyButton;
@@ -90,7 +65,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
   },
-    text: {
+  text: {
     color: "white",
     fontSize: 45,
     fontWeight: "bold",
@@ -124,7 +99,6 @@ const styles = StyleSheet.create({
     marginTop: 15,
     textAlign: "center",
   },
-
   floatingButton: {
     position: "absolute",
     bottom: 110,
@@ -135,8 +109,8 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 8, // Android sombra
-    shadowColor: "#000", // iOS sombra
+    elevation: 8,
+    shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 5,
   },

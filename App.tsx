@@ -1,6 +1,7 @@
 import "./global.css";
 import React, { useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -20,6 +21,16 @@ import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 import FinishTripScreen from "./src/screens/trip/FinishTripScreen";
 import RateTripScreen from "./src/screens/trip/RateTripScreen";
 import HistoryScreen from "./src/screens/Principal/HistoryScreen";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 30,
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 type ScreenName =
   | "Login"
@@ -103,8 +114,10 @@ export default function App() {
 
   // Un return limpio y seguro
   return (
-    <SafeAreaProvider>
-      {renderScreen()}
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        {renderScreen()}
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

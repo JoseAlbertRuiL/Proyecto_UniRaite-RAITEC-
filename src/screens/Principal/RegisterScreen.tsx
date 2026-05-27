@@ -17,33 +17,22 @@ import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 const RegisterScreen = ({ navigation }: any) => {
-  useBackHandler(navigation, "normal");
+  useBackHandler(navigation, "login");
 
-  // Paso 1 - Datos personales
   const [nombre, setNombre] = useState("");
   const [apellidoPaterno, setApellidoPaterno] = useState("");
   const [apellidoMaterno, setApellidoMaterno] = useState("");
-
-  // Paso 2 - Correo y contraseña
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  // Paso 3 - Datos escuela
   const [numControl, setNumControl] = useState("");
   const [carrera, setCarrera] = useState("");
   const [fotoCredencial, setFotoCredencial] = useState<string | null>(null);
-
-  // Paso 4 - Foto perfil
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
-
   const [cargando, setCargando] = useState(false);
-
   const [paso, setPaso] = useState(1);
 
-  // Lista de carreras
   const carreras = [
-    // ─── INGENIERÍAS ───────────────────────────────────────────────────────────
     { label: "Ing. Biomédica", value: "Ingeniería Biomédica" },
     { label: "Ing. Bioquímica", value: "Ingeniería Bioquímica" },
     { label: "Ing. Ciberseguridad", value: "Ingeniería en Ciberseguridad" },
@@ -57,12 +46,8 @@ const RegisterScreen = ({ navigation }: any) => {
     { label: "Ing. Semiconductores", value: "Ingeniería en Semiconductores" },
     { label: "Ing. Sistemas Computacionales", value: "Ingeniería en Sistemas Computacionales" },
     { label: "Ing. Tecnologías de la Inf. y Com.", value: "Ingeniería en Tecnologías de la Información y Comunicaciones" },
-
-    // ─── LICENCIATURAS ─────────────────────────────────────────────────────────
     { label: "Administración", value: "Licenciatura en Administración" },
     { label: "Contador Público", value: "Contador Público" },
-
-    // ─── POSGRADOS ─────────────────────────────────────────────────────────────
     { label: "Mtría. Ciencias: Eléctrica", value: "Maestría en Ciencias en Ingeniería Eléctrica" },
     { label: "Mtría. Ciencias: Electrónica", value: "Maestría en Ciencias en Ingeniería Electrónica" },
     { label: "Mtría. Ciencias: Metalurgia", value: "Maestría en Ciencias en Metalurgia" },
@@ -73,13 +58,11 @@ const RegisterScreen = ({ navigation }: any) => {
     { label: "Doc. Ciencias: Eléctrica", value: "Doctorado en Ciencias en Ingeniería Eléctrica" }
   ];
 
-  // Validar correo institucional
   const validarCorreo = (correo: string) => {
     const regex = /^l[2][0-9]{7}@morelia\.tecnm\.mx$/;
     return regex.test(correo);
   };
 
-  // Tomar foto con cámara
   const tomarFoto = async (tipo: "credencial" | "perfil") => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -103,7 +86,6 @@ const RegisterScreen = ({ navigation }: any) => {
     }
   };
 
-  // Elegir de galería
   const elegirDeGaleria = async (tipo: "credencial" | "perfil") => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -127,7 +109,6 @@ const RegisterScreen = ({ navigation }: any) => {
     }
   };
 
-  // Seleccionar foto
   const seleccionarFoto = (tipo: "credencial" | "perfil") => {
     Alert.alert("Seleccionar foto", "¿Cómo quieres subir la imagen?", [
       { text: "Cancelar", style: "cancel" },
@@ -147,15 +128,12 @@ const RegisterScreen = ({ navigation }: any) => {
       }
     } else if (paso === 2) {
       if (email && password) {
-        
-        // Ensamblar el correo si el usuario no escribió el '@'
         let correoFinal = email.trim().toLowerCase();
         if (!correoFinal.includes('@')) {
           correoFinal += '@morelia.tecnm.mx';
           setEmail(correoFinal);
         }
 
-        // Validar con el correo ya ensamblado
         if (!validarCorreo(correoFinal)) {
           Alert.alert("Error", "El correo debe tener formato: lXXXXXXXX@morelia.tecnm.mx");
           return;
@@ -164,9 +142,8 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "La contraseña debe tener mínimo 6 caracteres");
           return;
         }
-        
+
         try {
-          // Usamos correoFinal aquí también
           const data = await verificarCorreo(correoFinal);
           if (data.existe) {
             Alert.alert("Error", "Este correo ya está registrado");
@@ -177,8 +154,7 @@ const RegisterScreen = ({ navigation }: any) => {
           Alert.alert("Error", "No se pudo verificar el correo");
           return;
         }
-        
-        // Extraemos los números del correoFinal
+
         const numeros = correoFinal.match(/\d+/);
         if (numeros) setNumControl(numeros[0]);
         setPaso(3);
@@ -232,7 +208,7 @@ const RegisterScreen = ({ navigation }: any) => {
   };
 
   return (
-    <KeyboardAwareScrollView 
+    <KeyboardAwareScrollView
       className="flex-1 bg-white px-6 pt-12"
       enableOnAndroid={true}
       extraScrollHeight={20}
@@ -268,27 +244,25 @@ const RegisterScreen = ({ navigation }: any) => {
       {paso === 2 && (
         <View className="mt-6">
           <Text className="mb-1 text-gray-700">Correo institucional *</Text>
-          
-          {/* Falso input agrupado */}
+
           <View className="flex-row items-center border border-gray-300 rounded-xl bg-white overflow-hidden">
-            <TextInput 
-              className="flex-1 p-4 text-gray-900" 
-              placeholder="l2XXXXXXXX" 
-              value={email} 
-              onChangeText={setEmail} 
-              keyboardType="email-address" 
-              autoCapitalize="none" 
+            <TextInput
+              className="flex-1 p-4 text-gray-900"
+              placeholder="l2XXXXXXXX"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
             />
-            {/* Si no ha escrito un '@', mostramos el autocompletado en gris */}
             {!email.includes('@') && (
               <Text className="pr-4 text-gray-400 font-medium" pointerEvents="none">
                 @morelia.tecnm.mx
               </Text>
             )}
           </View>
-          
+
           <Text className="text-xs text-gray-500 mt-1">Formato: l + 8 números (empieza con 2)</Text>
-          
+
           <Text className="mb-1 mt-4 text-gray-700">Contraseña *</Text>
           <View className="flex-row items-center border border-gray-300 rounded-xl bg-gray-50">
             <TextInput className="flex-1 p-4" placeholder="Contraseña" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
@@ -356,14 +330,14 @@ const RegisterScreen = ({ navigation }: any) => {
             <Text className="text-white text-center font-bold">Atrás</Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity 
-          className={`${paso > 1 ? "flex-1 ml-2" : "flex-1"} ${cargando ? "bg-blue-400" : "bg-blue-900"} p-4 rounded-xl`} 
+        <TouchableOpacity
+          className={`${paso > 1 ? "flex-1 ml-2" : "flex-1"} ${cargando ? "bg-blue-400" : "bg-blue-900"} p-4 rounded-xl`}
           onPress={siguiente}
           disabled={cargando}
         >
           <Text className="text-white text-center font-bold">
-            {paso === 4 
-              ? (cargando ? "Registrando..." : "Registrarme") 
+            {paso === 4
+              ? (cargando ? "Registrando..." : "Registrarme")
               : "Siguiente"
             }
           </Text>

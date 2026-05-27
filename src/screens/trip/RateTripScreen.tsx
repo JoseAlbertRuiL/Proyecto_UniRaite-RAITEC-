@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,17 +11,24 @@ import {
   Alert,
 } from "react-native";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { orpc } from "../../services/api/apiClient";
+import { useViajePorId } from "../../hooks/queries/useViajes";
+import { useCalificacionPendiente } from "../../hooks/queries/useChat";
+import { useCalificarViajeMutation } from "../../hooks/mutations/useTripMutations";
 
 export default function RateTripScreen({ navigation, route }: any) {
   useBackHandler(navigation, "normal");
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState("");
-  const [driver, setDriver] = useState<any>(route?.params?.driver || null);
-  const [trip, setTrip] = useState<any>(route?.params?.viaje || null);
-  const [loading, setLoading] = useState(!route?.params?.driver && !route?.params?.viaje);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  const viajeId = route?.params?.viajeId;
+  const { data: viajeData, isLoading: loadingViaje } = useViajePorId(viajeId);
+  const { data: pendienteData, isLoading: loadingPendiente } = useCalificacionPendiente();
+
+  const calificarMutation = useCalificarViajeMutation();
+
+  const trip = route?.params?.viaje || viajeData?.viaje || pendienteData?.viaje;
+  const driver = route?.params?.driver || trip?.conductor?.usuario || trip?.conductor || pendienteData?.viaje?.conductor?.usuario;
+  const loading = loadingViaje || loadingPendiente;
 
   const driverUser = driver?.usuario || driver;
   const driverName =
@@ -40,51 +47,8 @@ export default function RateTripScreen({ navigation, route }: any) {
       ? `⭐ ${driverUser?.reputacion_promedio ?? route?.params?.driverRating}`
       : "⭐ 4.9";
 
-  const fetchDriverData = async () => {
-    if (route?.params?.driver || route?.params?.viaje) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const viajeId = route?.params?.viajeId;
-
-      if (viajeId) {
-        const response = await orpc.viajes.porId({ viajeId });
-        if (response.success && response.viaje) {
-          setTrip(response.viaje);
-          setDriver(response.viaje.conductor?.usuario || response.viaje.conductor || null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const response = await orpc.calificaciones.obtenerPendiente();
-      if (response.success && response.viaje) {
-        setTrip(response.viaje);
-        setDriver(response.viaje.conductor?.usuario || response.viaje.conductor || null);
-        setLoading(false);
-        return;
-      }
-
-      setError("No tienes viajes pendientes por calificar.");
-    } catch (fetchError) {
-      console.log("DETALLE DEL ERROR:", fetchError);
-      setError("Error al obtener datos del conductor.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDriverData();
-  }, []);
-
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (calificarMutation.isPending) return;
 
     if (rating === 0) {
       Alert.alert("Atención", "Por favor selecciona una calificación antes de enviar.");
@@ -96,39 +60,38 @@ export default function RateTripScreen({ navigation, route }: any) {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const response = await orpc.calificaciones.guardar({
+    calificarMutation.mutate(
+      {
         viajeId: trip.id_viaje_pub,
         estrellas: rating,
         comentario: comment || undefined,
-      });
-
-      if (response.success) {
-        Alert.alert(
-          "¡Gracias!",
-          `Tu calificación de ${rating} ⭐ ha sido guardada exitosamente.`,
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("Home"),
-            },
-          ]
-        );
+      },
+      {
+        onSuccess: (response: any) => {
+          if (response.success) {
+            Alert.alert(
+              "¡Gracias!",
+              `Tu calificación de ${rating} ⭐ ha sido guardada exitosamente.`,
+              [
+                {
+                  text: "OK",
+                  onPress: () => navigation.navigate("Home"),
+                },
+              ]
+            );
+          }
+        },
+        onError: (err: any) => {
+          console.error("Error guardando calificación:", err);
+          Alert.alert("Error", err?.message || "Error al guardar la calificación");
+        },
       }
-    } catch (err: any) {
-      console.error("Error guardando calificación:", err);
-      const errorMsg = err?.message || "Error al guardar la calificación";
-      Alert.alert("Error", errorMsg);
-    } finally {
-      setTimeout(() => setSubmitting(false), 500); 
-    }
+    );
   };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f8f9fa]">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Encabezado */}
         <View className="flex-row items-center justify-center p-4 relative">
           <TouchableOpacity
             className="absolute left-4 p-2"
@@ -146,17 +109,15 @@ export default function RateTripScreen({ navigation, route }: any) {
             <ActivityIndicator size="large" color="#047857" />
             <Text className="text-center text-slate-500 mt-4">Cargando datos del conductor...</Text>
           </View>
-        ) : error ? (
+        ) : !trip ? (
           <View className="mx-5 mt-12 bg-white rounded-[32px] p-6 shadow-sm items-center justify-center h-64">
-            <Text className="text-center text-slate-700 font-semibold mb-3">{error}</Text>
-            <Text className="text-center text-slate-500">
-              Si este problema persiste, revisa el viaje activo o intenta de nuevo desde tus solicitudes.
+            <Text className="text-center text-slate-700 font-semibold mb-3">
+              No tienes viajes pendientes por calificar.
             </Text>
           </View>
         ) : (
           <>
             <View className="mx-5 mt-12 bg-white rounded-[32px] p-6 shadow-sm items-center relative">
-              {/* Avatar del Conductor */}
               <View className="absolute -top-10 w-20 h-20 rounded-full border-4 border-white overflow-hidden bg-slate-200">
                 <Image
                   source={{ uri: driverAvatar }}
@@ -164,7 +125,6 @@ export default function RateTripScreen({ navigation, route }: any) {
                 />
               </View>
 
-              {/* Información del Conductor */}
               <Text className="mt-10 text-xs text-slate-500 font-medium tracking-wide uppercase mb-1">
                 Tu Conductor
               </Text>
@@ -178,7 +138,6 @@ export default function RateTripScreen({ navigation, route }: any) {
                 </Text>
               </View>
 
-              {/* Estrellas de Calificación */}
               <Text className="text-base font-semibold mt-8 mb-4">
                 ¿Qué tal estuvo el viaje?
               </Text>
@@ -195,7 +154,6 @@ export default function RateTripScreen({ navigation, route }: any) {
               </View>
             </View>
 
-            {/* Comentario */}
             <View className="mx-5 mt-4 bg-white rounded-[32px] p-6 shadow-sm">
               <Text className="font-bold text-[#1e293b] mb-4">Comentarios</Text>
               <TextInput
@@ -209,16 +167,15 @@ export default function RateTripScreen({ navigation, route }: any) {
               />
             </View>
 
-            {/* Botón de Enviar */}
             <View className="mt-8 px-5">
               <TouchableOpacity
                 onPress={handleSubmit}
-                disabled={submitting}
+                disabled={calificarMutation.isPending}
                 className={`w-full py-4 rounded-2xl items-center ${
-                  submitting ? "bg-slate-400" : "bg-[#047857]"
+                  calificarMutation.isPending ? "bg-slate-400" : "bg-[#047857]"
                 }`}
               >
-                {submitting ? (
+                {calificarMutation.isPending ? (
                   <View className="flex-row items-center gap-2">
                     <ActivityIndicator color="white" size="small" />
                     <Text className="text-white text-lg font-bold">
