@@ -381,7 +381,7 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
-serverHttp.listen(PORT, () => {
+serverHttp.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Servidor en http://localhost:${PORT}`)
   iniciarCronJobs(io);
   console.log(`oRPC    → /rpc/*`)
