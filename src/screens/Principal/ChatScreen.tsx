@@ -1,4 +1,3 @@
-// src/screens/Principal/ChatScreen.tsx
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -8,15 +7,16 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  StatusBar,
   Alert,
   ActivityIndicator,
 } from "react-native";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
-import { orpc } from "../../services/api/apiClient";
+import { usePerfil } from "../../hooks/queries/usePerfil";
+import { useMensajes } from "../../hooks/queries/useChat";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { orpc } from "../../services/api/apiClient";
 
 import {
   getSocket,
@@ -34,23 +34,28 @@ export default function ChatScreen({ navigation, route }: any) {
   const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
   const [estaFinalizado, setEstaFinalizado] = useState(false);
-  const [myId, setMyId] = useState<string | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const { data: perfilData } = usePerfil();
+  const { data: mensajesData, isLoading: loadingMensajes } = useMensajes(idViaje);
+
+  const myId = perfilData?.user?.id_usuario ?? null;
   const flatListRef = useRef<FlatList>(null);
 
-  const marcarMensajesComoLeidos = async () => {
-    try {
-      console.log("📱 Marcando mensajes como leídos para viaje:", idViaje);
-      await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
-    } catch (error) {
-      console.error("Error al marcar mensajes como leídos:", error);
+  useEffect(() => {
+    if (mensajesData) {
+      const formateados = mensajesData.map((msg: any) => ({
+        id: msg.id_mensaje.toString(),
+        texto: msg.contenido,
+        remitente: msg.id_emisor === myId ? "yo" : "otro",
+        nombre: msg.emisor?.nombre || "Usuario",
+      }));
+      setMensajes(formateados);
     }
-  };
+  }, [mensajesData, myId]);
 
   useEffect(() => {
     const socket = getSocket();
-    
+
     const unirseAlChat = () => {
       if (socket && socket.connected) {
         joinChat(idViaje);
@@ -60,21 +65,17 @@ export default function ChatScreen({ navigation, route }: any) {
 
     const inicializarChat = async () => {
       try {
-        await marcarMensajesComoLeidos();
-        const perfil = await orpc.usuarios.getPerfil();
-        setMyId(perfil.user.id_usuario);
-        await cargarMensajes(perfil.user.id_usuario);
+        await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
         await checarEstadoViaje();
-
-        unirseAlChat(); // Intento inicial
+        unirseAlChat();
       } catch (error: any) {
         console.error("Error al inicializar el chat:", error);
-      } finally {
-        setCargando(false);
       }
     };
 
-    inicializarChat();
+    if (myId) {
+      inicializarChat();
+    }
 
     if (socket) {
       socket.on("connect", unirseAlChat);
@@ -97,28 +98,11 @@ export default function ChatScreen({ navigation, route }: any) {
 
     return () => {
       offNewMessage();
-      // Limpiamos el evento para no duplicar llamadas
       if (socket) {
         socket.off("connect", unirseAlChat);
       }
     };
   }, [idViaje, myId]);
-
-  const cargarMensajes = async (currentUserId: string) => {
-    try {
-      const data = await orpc.chat.getMensajes({ idViaje });
-      const formateados = data.map((msg: any) => ({
-        id: msg.id_mensaje.toString(),
-        texto: msg.contenido,
-        remitente: msg.id_emisor === currentUserId ? "yo" : "otro",
-        nombre: msg.emisor?.nombre || "Usuario",
-      }));
-      setMensajes(formateados);
-    } catch (error) {
-      console.error("Error al obtener mensajes:", error);
-      throw error;
-    }
-  };
 
   const checarEstadoViaje = async () => {
     try {
@@ -168,32 +152,11 @@ export default function ChatScreen({ navigation, route }: any) {
     );
   };
 
-  if (cargando) {
+  if (loadingMensajes && mensajes.length === 0) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
         <ActivityIndicator size="large" color="#1e3a8a" />
         <Text className="mt-2 text-gray-500">Cargando chat...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View
-        className="flex-1 justify-center items-center bg-white p-6"
-        style={{ paddingTop: StatusBar.currentHeight || 0 }}
-      >
-        <Header navigation={navigation} title="Chat" />
-        <View className="flex-1 justify-center items-center">
-          <Text className="text-red-500 text-lg text-center mb-4">{error}</Text>
-          <TouchableOpacity
-            className="bg-blue-900 px-6 py-3 rounded-xl"
-            onPress={() => navigation.goBack()}
-          >
-            <Text className="text-white font-semibold">Volver</Text>
-          </TouchableOpacity>
-        </View>
-        <Footer navigation={navigation} />
       </View>
     );
   }
