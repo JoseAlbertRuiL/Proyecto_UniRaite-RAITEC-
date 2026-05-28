@@ -19,7 +19,6 @@ import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
 import LiveMapModal from "../../components/LiveMapModal";
 import { getUsuarioById } from "../../services/auth/authService";
-import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -71,54 +70,6 @@ const StartScreen = ({ navigation }: any) => {
   const { data: perfilData, isLoading: cargandoPerfilData } = usePerfil();
   const { data: viajesData, isLoading: cargandoViajes, refetch: refetchViajes } = useViajesDisponibles();
 
-  const verificarSolicitudActiva = async () => {
-    try {
-      const result = await obtenerSolicitudesActivas();
-      if (
-        result.success &&
-        result.solicitudes.length > 0
-      ) {
-        const solicitud = result.solicitudes[0];
-
-        if (solicitud.estado_solicitud === 'rechazada') {
-          setSolicitudActiva({ tieneSolicitud: false, estado: null });
-          setCoordsRecogidaBD(null);
-          return;
-        }
-
-        const viajesActivos = solicitud.viaje?.viajes_activos;
-        const viajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0 ? viajesActivos[0] : null;
-
-        if (viajeActivo?.estado_trayecto === 'cancelado') {
-          setSolicitudActiva({ tieneSolicitud: false, estado: null });
-          setCoordsRecogidaBD(null);
-          return;
-        }
-
-        setSolicitudActiva({
-          tieneSolicitud: true,
-          estado: viajeActivo ? 'en_curso' : solicitud.estado_solicitud,
-          viajeId: solicitud.id_viaje_pub,
-          solicitudId: solicitud.id_solicitud,
-        });
-
-        if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
-          setCoordsRecogidaBD(
-            {
-              latitude: solicitud.latitud_recogida,
-              longitude: solicitud.longitud_recogida,
-            }
-          );
-        }
-      } else {
-        setSolicitudActiva({ tieneSolicitud: false, estado: null });
-        setCoordsRecogidaBD(null);
-      }
-    } catch (error) {
-      console.log("Error al verificar solicitud activa:", error);
-    }
-  };
-
   const verificarModoCondutor = async (perfil: any) => {
     const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
     const activo = perfil?.es_conductor === true && modoGuardado === "true";
@@ -136,7 +87,7 @@ const StartScreen = ({ navigation }: any) => {
   // Procesar viajes cada vez que cambien los datos
   useEffect(() => {
     const procesarViajes = async () => {
-      if (!viajesData || !viajesData.success || !perfilData?.user) return;
+      if (!viajesData?.success || !perfilData?.user) return;
 
       const perfil = perfilData.user;
       await verificarModoCondutor(perfil);
@@ -152,6 +103,30 @@ const StartScreen = ({ navigation }: any) => {
         const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
         const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
         const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
+
+        if (solicitudReciente && estadoSolicitudReciente !== 'rechazada') {
+          const viajeActivo = solicitudReciente.viaje?.viajes_activos?.[0] ?? null;
+          if (viajeActivo?.estado_trayecto !== 'cancelado') {
+            setSolicitudActiva({
+              tieneSolicitud: true,
+              estado: viajeActivo ? 'en_curso' : estadoSolicitudReciente,
+              viajeId: solicitudReciente.id_viaje_pub,
+              solicitudId: solicitudReciente.id_solicitud,
+            });
+            if (solicitudReciente.latitud_recogida && solicitudReciente.longitud_recogida) {
+              setCoordsRecogidaBD({
+                latitude: solicitudReciente.latitud_recogida,
+                longitude: solicitudReciente.longitud_recogida,
+              });
+            }
+          } else {
+            setSolicitudActiva({ tieneSolicitud: false, estado: null });
+            setCoordsRecogidaBD(null);
+          }
+        } else {
+          setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
+        }
 
         const tieneActivaPendienteOAceptada =
           estadoSolicitudReciente === 'pendiente' || estadoSolicitudReciente === 'aceptada';
@@ -199,7 +174,6 @@ const StartScreen = ({ navigation }: any) => {
       }
 
       setViajes(viajesFiltrados);
-      await verificarSolicitudActiva();
     };
 
     procesarViajes();
@@ -501,7 +475,11 @@ const StartScreen = ({ navigation }: any) => {
                   onVerPerfil={handleVerPerfil}
                   onCancelar={handleCancelarSolicitud}
                   onCancelarAceptada={handleCancelarAceptada}
-                  estadoSolicitud={null}
+                  estadoSolicitud={
+                    viaje.id_viaje_pub === solicitudActiva.viajeId
+                      ? solicitudActiva.estado
+                      : null
+                  }
                 />
               ))
             )}

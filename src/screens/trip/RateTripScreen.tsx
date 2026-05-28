@@ -4,12 +4,12 @@ import {
   Text,
   TouchableOpacity,
   Image,
-  SafeAreaView,
   ScrollView,
   TextInput,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { useViajePorId } from "../../hooks/queries/useViajes";
 import { useCalificacionPendiente } from "../../hooks/queries/useChat";
@@ -90,7 +90,7 @@ export default function RateTripScreen({ navigation, route }: any) {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-[#f8f9fa]">
+    <ScreenWrapper hasHeader={false}>
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="flex-row items-center justify-center p-4 relative">
           <TouchableOpacity
@@ -192,6 +192,6 @@ export default function RateTripScreen({ navigation, route }: any) {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }

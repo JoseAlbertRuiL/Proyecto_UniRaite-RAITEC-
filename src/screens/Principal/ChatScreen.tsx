@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
@@ -28,30 +29,19 @@ import {
 
 export default function ChatScreen({ navigation, route }: any) {
   const { idViaje = 1 } = route?.params || {};
+  const viajeIdNum = Number(idViaje);
+  const queryClient = useQueryClient();
 
   useBackHandler(navigation, "normal");
 
-  const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
   const [estaFinalizado, setEstaFinalizado] = useState(false);
 
   const { data: perfilData } = usePerfil();
-  const { data: mensajesData, isLoading: loadingMensajes } = useMensajes(idViaje);
+  const { data: mensajesData, isLoading: loadingMensajes } = useMensajes(viajeIdNum);
 
   const myId = perfilData?.user?.id_usuario ?? null;
   const flatListRef = useRef<FlatList>(null);
-
-  useEffect(() => {
-    if (mensajesData) {
-      const formateados = mensajesData.map((msg: any) => ({
-        id: msg.id_mensaje.toString(),
-        texto: msg.contenido,
-        remitente: msg.id_emisor === myId ? "yo" : "otro",
-        nombre: msg.emisor?.nombre || "Usuario",
-      }));
-      setMensajes(formateados);
-    }
-  }, [mensajesData, myId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -82,15 +72,11 @@ export default function ChatScreen({ navigation, route }: any) {
     }
 
     const handleNewMessage = (data: any) => {
-      if (data.id_viaje_pub === idViaje) {
-        const nuevoMensaje = {
-          id: data.id_mensaje.toString(),
-          texto: data.contenido,
-          remitente: data.id_emisor === myId ? "yo" : "otro",
-          nombre: data.emisor?.nombre || "Usuario",
-        };
-        setMensajes((prev) => [...prev, nuevoMensaje]);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+      console.log("🔥 [SOCKET] MENSAJE ENTRANTE:", data);
+      
+      if (data?.id_viaje_pub == viajeIdNum || data?.idViaje == viajeIdNum || !data) {
+        queryClient.invalidateQueries({ queryKey: ["chat", "mensajes", viajeIdNum] });
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
       }
     };
 
@@ -103,6 +89,16 @@ export default function ChatScreen({ navigation, route }: any) {
       }
     };
   }, [idViaje, myId]);
+
+  const mensajes = React.useMemo(() => {
+    if (!mensajesData) return [];
+    return mensajesData.map((msg: any) => ({
+      id: msg.id_mensaje.toString(),
+      texto: msg.contenido,
+      remitente: msg.id_emisor === myId ? "yo" : "otro",
+      nombre: msg.emisor?.nombre || "Usuario",
+    }));
+  }, [mensajesData, myId]);
 
   const checarEstadoViaje = async () => {
     try {
@@ -122,6 +118,7 @@ export default function ChatScreen({ navigation, route }: any) {
         contenido: mensajeEscrito,
       });
       setMensajeEscrito("");
+      queryClient.invalidateQueries({ queryKey: ["chat", "mensajes", idViaje] });
     } catch (error: any) {
       if (error?.code === "FORBIDDEN") {
         Alert.alert(

@@ -21,8 +21,9 @@ import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { getVehiculo } from "../../services/trip/tripService";
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc, BASE_URL } from "../../services/api/apiClient";
-import { useBackHandler } from "../../hooks/useBackHandler";
 import { disconnectSocket } from "../../services/socket";
+import { useConductorMode } from "../../context/ConductorModeContext";
+import { useBackHandler } from "../../hooks/useBackHandler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
@@ -30,7 +31,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [viajesComoConductor, setViajesComoConductor] = useState(0);
   const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
-  const [modoConductor, setModoConductor] = useState(false);
+  const { esConductorActivo, activarModoConductor, desactivarModoConductor } = useConductorMode();
   const [vehiculo, setVehiculo] = useState<any>(null);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
   const insets = useSafeAreaInsets();
@@ -91,22 +92,10 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
-    const cargarEstadoSwitch = async () => {
-      const guardado = await AsyncStorage.getItem("modo_conductor_activo");
-      if (guardado === "true" && user?.es_conductor) {
-        setModoConductor(true);
-      } else {
-        setModoConductor(false);
-      }
-    };
-    if (user) cargarEstadoSwitch();
-  }, [user]);
-
-  useEffect(() => {
-    if (modoConductor && !vehiculo) {
+    if (esConductorActivo && !vehiculo) {
       obtenerVehiculo();
     }
-  }, [modoConductor]);
+  }, [esConductorActivo]);
 
   const obtenerPerfil = async () => {
     try {
@@ -155,14 +144,12 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const handleModoConductor = async (value: boolean) => {
     if (value) {
       if (user?.es_conductor) {
-        setModoConductor(true);
-        await AsyncStorage.setItem("modo_conductor_activo", "true");
+        await activarModoConductor();
       } else {
         navigation.navigate("Licencia");
       }
     } else {
-      setModoConductor(false);
-      await AsyncStorage.setItem("modo_conductor_activo", "false");
+      await desactivarModoConductor();
     }
   };
 
@@ -611,7 +598,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               <Text className="text-base text-gray-700">Modo conductor</Text>
             </View>
             <Switch
-              value={modoConductor}
+              value={esConductorActivo}
               onValueChange={handleModoConductor}
               style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
               trackColor={{ false: "#d1d5db", true: "#3b82f6" }}
@@ -619,7 +606,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {modoConductor && (
+          {esConductorActivo && (
             <TouchableOpacity
               className="flex-row items-center justify-between py-4 border-b border-gray-100"
               onPress={() => setModalVisibleVehiculo(true)}

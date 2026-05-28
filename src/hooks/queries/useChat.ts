@@ -10,13 +10,21 @@ export const useMensajesNoLeidos = () =>
 export const useMisChats = () =>
   useQuery({
     queryKey: ["chat", "misChats"],
-    queryFn: () => orpc.chat.misChats(),
+    queryFn: async () => {
+      const data = await orpc.chat.misChats();
+      return data;
+    },
+    staleTime: 1000 * 15,
   });
 
 export const useMensajes = (chatId: number) =>
   useQuery({
     queryKey: ["chat", "mensajes", chatId],
-    queryFn: () => orpc.chat.getMensajes({ chatId }),
+    queryFn: async () => {
+      const data = await orpc.chat.getMensajes({ idViaje: chatId });
+      return data.mensajes ?? data; 
+    },
+    staleTime: 1000 * 10,
     enabled: !!chatId,
   });
 

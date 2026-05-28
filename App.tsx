@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { ConductorModeProvider } from './src/context/ConductorModeContext';
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -141,13 +142,15 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {isLoading ? (
-          <View className="flex-1 justify-center items-center bg-white">
-            <ActivityIndicator size="large" color="#1e3a8a" />
-          </View>
-        ) : (
-          renderScreen()
-        )}
+        <ConductorModeProvider>
+          {isLoading ? (
+            <View className="flex-1 justify-center items-center bg-white">
+              <ActivityIndicator size="large" color="#1e3a8a" />
+            </View>
+          ) : (
+            renderScreen()
+          )}
+        </ConductorModeProvider>
       </SafeAreaProvider>
     </QueryClientProvider>
   );

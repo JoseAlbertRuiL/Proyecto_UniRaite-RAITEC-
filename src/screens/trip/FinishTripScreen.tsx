@@ -21,6 +21,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
 
   const { data, isLoading } = useViajePorId(viajeIdParam || viajeParam?.id_viaje_pub);
   const viaje = viajeParam || data?.viaje;
+  const mostrarCargando = isLoading && !viaje;
 
   const [finalizando, setFinalizando] = useState(false);
 
@@ -62,7 +63,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const asientosTotales = Math.min(capacidadTotal, pasajerosCount + asientosDisponibles);
 
   return (
-    <ScreenWrapper hasFooter={false}>
+    <ScreenWrapper hasHeader={false} hasFooter={false}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
@@ -87,7 +88,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
         </View>
 
         <View className="px-6 py-8">
-          {isLoading ? (
+          {mostrarCargando ? (
             <View className="items-center justify-center py-20">
               <ActivityIndicator size="large" color="#1e3a8a" />
               <Text className="mt-4 text-gray-500">Cargando datos del viaje...</Text>

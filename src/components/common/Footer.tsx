@@ -2,10 +2,10 @@ import React from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgXml } from "react-native-svg";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePerfil } from "../../hooks/queries/usePerfil";
 import { useMensajesNoLeidos } from "../../hooks/queries/useChat";
 import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
+import { useConductorMode } from "../../context/ConductorModeContext";
 
 interface FooterProps {
   navigation: any;
@@ -20,21 +20,12 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { data: perfilData } = usePerfil();
   const { data: mensajesData } = useMensajesNoLeidos();
+  const { esConductorActivo } = useConductorMode();
 
   useSocketInvalidator();
 
   const mensajesNoLeidos = mensajesData?.total ?? 0;
   const perfil = perfilData?.user;
-  const modoConductorActivoRef = React.useRef(false);
-
-  React.useEffect(() => {
-    const checkModo = async () => {
-      const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
-      modoConductorActivoRef.current =
-        perfil?.es_conductor === true && modoGuardado === "true";
-    };
-    checkModo();
-  }, [perfil]);
 
   const verificarConductor = async () => {
     try {
@@ -96,7 +87,8 @@ const Footer: React.FC<FooterProps> = ({ navigation }) => {
         <Text className="text-xs text-gray-600">Chat</Text>
       </TouchableOpacity>
 
-      {modoConductorActivoRef.current && (
+      {/* Condición limpia y reactiva */}
+      {perfil?.es_conductor && esConductorActivo && (
         <TouchableOpacity className="items-center" onPress={verificarConductor}>
           <SvgXml xml={carSvg} width={24} height={24} fill="#6B7280" />
           <Text className="text-xs text-gray-600">Conducir</Text>
