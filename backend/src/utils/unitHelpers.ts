@@ -1,5 +1,6 @@
 export const esCorreoInstitucional = (correo: string): boolean => {
-  return correo.endsWith("@morelia.tecnm.mx");
+  //return correo.endsWith("@morelia.tecnm.mx");
+  return correo.endsWith("@gmail.com");
 };
 
 export const formatearMensajeChat = (
