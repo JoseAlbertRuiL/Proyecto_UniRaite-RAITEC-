@@ -22,7 +22,7 @@ const cancelarViajesExpirados = async (io: Server) => {
         viajes_activos: {
           none: {
             estado_trayecto: {
-              in: ['en_curso', 'finalizado'],
+              in: ['en_curso', 'finalizado', 'cancelado'],
             },
           },
         },
@@ -49,7 +49,40 @@ const cancelarViajesExpirados = async (io: Server) => {
           `(salida: ${viaje.fecha_hora_salida.toISOString()})`
         );
 
-        // Notificar a todos los pasajeros que solicitaron el viaje
+        // 1. Rechazar solicitudes pendientes del viaje
+        await prisma.solicitudes_viaje.updateMany({
+          where: {
+            id_viaje_pub: viaje.id_viaje_pub,
+            estado_solicitud: { in: ['pendiente', 'aceptada'] },
+          },
+          data: { estado_solicitud: 'rechazada' },
+        });
+
+        // 2. Crear registro en viajes_activos como cancelado
+        //    Esto evita que el cron vuelva a encontrar el viaje
+        await prisma.viajes_activos.create({
+          data: {
+            id_viaje_pub: viaje.id_viaje_pub,
+            hora_inicio_real: viaje.fecha_hora_salida,
+            hora_fin_real: new Date(),
+            estado_trayecto: 'cancelado',
+            historial_ruta: [],
+          },
+        });
+
+        // 3. Registrar en historial de auditoría
+        await prisma.historial_viajes.create({
+          data: {
+            id_viaje_pub: viaje.id_viaje_pub,
+            accion: 'cancelado',
+            motivo: 'El conductor no inició el viaje dentro de los 5 minutos de tolerancia.',
+            realizado_por: 'sistema',
+            id_usuario: viaje.conductor?.usuario?.id_usuario ?? 'sistema',
+            fecha_cambio: new Date(),
+          },
+        });
+
+        // 4. Notificar a los pasajeros
         for (const solicitud of viaje.solicitudes) {
           await prisma.notificaciones.create({
             data: {
@@ -59,10 +92,10 @@ const cancelarViajesExpirados = async (io: Server) => {
               tipo_notif:      'cancelacion',
               leido:           false,
               fecha_creacion:  new Date(),
+              id_viaje:        viaje.id_viaje_pub,
             },
           });
 
-          // WebSocket: notificación individual al pasajero
           io.emit('nueva_notificacion', {
             usuarioId: solicitud.id_pasajero,
             titulo:    'Viaje cancelado automáticamente',
@@ -71,7 +104,7 @@ const cancelarViajesExpirados = async (io: Server) => {
           });
         }
 
-        // Notificar al conductor
+        // 5. Notificar al conductor
         if (viaje.conductor?.usuario) {
           await prisma.notificaciones.create({
             data: {
@@ -93,19 +126,14 @@ const cancelarViajesExpirados = async (io: Server) => {
           });
         }
 
-        // Emitir evento global para que ambas pantallas recarguen
+        // 6. Emitir evento global para que ambas pantallas recarguen
         io.emit('viaje_cancelado', {
           viajeId:    viaje.id_viaje_pub,
           automatico: true,
           mensaje:    `El viaje a ${viaje.destino_texto} fue cancelado por inactividad.`,
         });
 
-        // Eliminar en cascada
-        await prisma.viajes_publicados.delete({
-          where: { id_viaje_pub: viaje.id_viaje_pub },
-        });
-
-        console.log(`✅ [CronJob] Viaje ${viaje.id_viaje_pub} eliminado correctamente`);
+        console.log(`✅ [CronJob] Viaje ${viaje.id_viaje_pub} cancelado correctamente`);
       } catch (errorViaje) {
         console.error(`❌ [CronJob] Error al cancelar viaje ${viaje.id_viaje_pub}:`, errorViaje);
       }
