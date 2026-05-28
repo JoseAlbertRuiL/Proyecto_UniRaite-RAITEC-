@@ -101,10 +101,15 @@ const ConducirScreen = ({ navigation }: any) => {
       const result = await orpc.viajes.iniciarViaje({ viajeId });
       if (result.success) {
         const viajeCompleto = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+        const viajeActivoId = result.viajeActivo?.id_viaje_activo;
+        if (!viajeActivoId) {
+          Alert.alert("Error", "No se pudo obtener el ID del viaje activo");
+          return;
+        }
 
         await iniciarTransmisionUbicacion(
           viajeId,
-          result.viajeActivo.id_viaje_activo,
+          viajeActivoId,
           viajeCompleto
         );
         Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
@@ -257,32 +262,31 @@ const ConducirScreen = ({ navigation }: any) => {
     if (socket) {
       const onNuevaSolicitud = (data: any) => {
         console.log("📢 Nueva solicitud recibida en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onSolicitudActualizada = (data: any) => {
         console.log("📢 Solicitud actualizada en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onViajeCancelado = (data: any) => {
         console.log("📢 Viaje cancelado en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onNuevoViajePublicado = (data: any) => {
-        // Solo actualiza si el viaje es del conductor actual
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onViajeFinalizado = (data: any) => {
         console.log("📢 Viaje finalizado en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onSolicitudCancelada = (data: any) => {
         console.log("📢 Solicitud cancelada en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       socket.on("nueva_solicitud", onNuevaSolicitud);
@@ -558,7 +562,9 @@ const ConducirScreen = ({ navigation }: any) => {
       <Footer navigation={navigation} />
       {liveMapViajeId && (() => {
         const viaje = viajesActivos.find((v) => v.id_viaje_pub === liveMapViajeId);
-        const pasajerosCoordenadas = (viaje?.solicitudes ?? [])
+        if (!viaje) return null;
+
+        const pasajerosCoordenadas = (viaje.solicitudes ?? [])
           .filter((s: any) => s.latitud_recogida && s.longitud_recogida)
           .map((s: any) => ({
             latitude: s.latitud_recogida,
@@ -573,8 +579,8 @@ const ConducirScreen = ({ navigation }: any) => {
             viajeId={liveMapViajeId}
             mode="conductor"
             pasajerosCoordenadas={pasajerosCoordenadas}
-            origen={viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined}
-            destino={viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined}
+            origen={{ lat: viaje.latitud_origen, lng: viaje.longitud_origen }}
+            destino={{ lat: viaje.latitud_destino, lng: viaje.longitud_destino }}
           />
         );
       })()}

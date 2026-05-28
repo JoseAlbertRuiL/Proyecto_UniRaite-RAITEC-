@@ -25,7 +25,7 @@ export const obtenerTodas = protectedProcedure.handler(async ({ context }) => {
     success: true,
     notificaciones: notificaciones.map((n) => ({
       ...n,
-      yaCalificado: n.viaje?.viajes_activos.some(va => 
+      yaCalificado: n.viaje?.viajes_activos?.some(va => 
         va.calificaciones.some(c => c.id_evaluador === context.user.id)
       ) ?? false
     })),

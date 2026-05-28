@@ -16,7 +16,10 @@ export const useViajesActivos = () =>
 export const useViajePorId = (viajeId: number | undefined) =>
   useQuery({
     queryKey: ["viajes", viajeId],
-    queryFn: () => orpc.viajes.porId({ viajeId: viajeId! }),
+    queryFn: () => {
+      if (viajeId === undefined) throw new Error("viajeId es requerido");
+      return orpc.viajes.porId({ viajeId });
+    },
     enabled: !!viajeId,
   });
 

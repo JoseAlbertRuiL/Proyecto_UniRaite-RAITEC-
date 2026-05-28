@@ -165,7 +165,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                             </Text>
                           </View>
                           <Text className="w-20 text-gray-900 font-semibold text-sm text-right">
-                            ${viaje.costo_estimado?.toFixed(2) ?? "0.00"}
+                            ${Number(viaje.costo_estimado).toFixed(2)}
                           </Text>
                         </View>
                       ))
@@ -183,7 +183,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                   <View className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl px-4 py-4 border border-green-200 flex-row justify-between items-center">
                     <View>
                       <Text className="text-green-900 font-bold text-base">TOTAL COBRADO</Text>
-                      <Text className="text-sm text-gray-500">{pasajerosCount} x ${viaje.costo_estimado?.toFixed(2) ?? "0.00"}</Text>
+                      <Text className="text-sm text-gray-500">{pasajerosCount} x ${Number(viaje.costo_estimado).toFixed(2)}</Text>
                     </View>
                     <Text className="text-green-600 font-bold text-2xl">${totalCobrado.toFixed(2)}</Text>
                   </View>

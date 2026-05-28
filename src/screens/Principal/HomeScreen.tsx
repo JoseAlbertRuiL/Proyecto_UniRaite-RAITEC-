@@ -167,7 +167,7 @@ const StartScreen = ({ navigation }: any) => {
             try {
               const resultado = await getViajePorId(viajeIdConSolicitud);
               if (resultado.success) viajeConSolicitud = resultado.viaje;
-            } catch {}
+            } catch (e) { console.error("Error al obtener viaje por ID:", e); }
           }
 
           if (viajeConSolicitud) {
@@ -359,7 +359,8 @@ const StartScreen = ({ navigation }: any) => {
       mapEncuentroRef.current?.animateToRegion(
         { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800
       );
-    } catch {
+    } catch (e) {
+      console.error("Error al obtener ubicación:", e);
       Alert.alert("Error", "No se pudo obtener tu ubicación.");
     }
   };
@@ -385,7 +386,8 @@ const StartScreen = ({ navigation }: any) => {
 
       setMapEncuentroVisible(false);
       Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
-    } catch {
+    } catch (e) {
+      console.error("Error al geocodificar:", e);
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
