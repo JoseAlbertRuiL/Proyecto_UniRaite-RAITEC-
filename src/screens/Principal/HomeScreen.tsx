@@ -251,6 +251,7 @@ const StartScreen = ({ navigation }: any) => {
           tieneSolicitud: true,
           estado: "pendiente",
           viajeId,
+          solicitudId: result.solicitud?.id_solicitud,
         });
         Alert.alert(
           "Solicitud enviada",
@@ -493,17 +494,20 @@ const StartScreen = ({ navigation }: any) => {
                 No hay viajes disponibles
               </Text>
             ) : (
-              viajes.map((viaje: any) => (
-                <DriverCard
-                  key={viaje.id_viaje_pub}
-                  viaje={viaje}
-                  onPress={handleSolicitarViaje}
-                  onVerPerfil={handleVerPerfil}
-                  onCancelar={handleCancelarSolicitud}
-                  onCancelarAceptada={handleCancelarAceptada}
-                  estadoSolicitud={null}
-                />
-              ))
+              viajes.map((viaje: any) => {
+                const esEsteViaje = solicitudActiva.tieneSolicitud && solicitudActiva.viajeId === viaje.id_viaje_pub;
+                return (
+                  <DriverCard
+                    key={viaje.id_viaje_pub}
+                    viaje={viaje}
+                    onPress={handleSolicitarViaje}
+                    onVerPerfil={handleVerPerfil}
+                    onCancelar={handleCancelarSolicitud}
+                    onCancelarAceptada={handleCancelarAceptada}
+                    estadoSolicitud={esEsteViaje ? solicitudActiva.estado : null}
+                  />
+                );
+              })
             )}
             {(solicitudActiva.estado === 'aceptada' || solicitudActiva.estado === 'en_curso') && (
               <TouchableOpacity
