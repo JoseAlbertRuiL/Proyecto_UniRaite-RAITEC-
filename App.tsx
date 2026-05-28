@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { connectSocket } from "./src/services/socket";
 import { ConductorModeProvider } from './src/context/ConductorModeContext';
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
@@ -69,6 +70,7 @@ export default function App() {
         const tokenGuardado = await AsyncStorage.getItem("token"); 
         
         if (tokenGuardado) {
+          await connectSocket();
           setScreen("Home");
         } else {
           setScreen("Login");
