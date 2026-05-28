@@ -1,5 +1,6 @@
 import "./global.css";
 import React, { useState } from "react";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
@@ -101,10 +102,14 @@ export default function App() {
     }
   };
 
+const queryClient = new QueryClient();
+
   // Un return limpio y seguro
   return (
-    <SafeAreaProvider>
-      {renderScreen()}
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        {renderScreen()}
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

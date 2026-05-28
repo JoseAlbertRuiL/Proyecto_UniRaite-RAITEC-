@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -27,12 +28,7 @@ type TabType = "activos" | "solicitudes";
 const ConducirScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("activos");
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  // const [transmitiendo, setTransmitiendo] = useState(false);
   const [viajeActivoId, setViajeActivoId] = useState<number | null>(null);
-  const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
   const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
   const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
@@ -43,25 +39,43 @@ const ConducirScreen = ({ navigation }: any) => {
   const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
 
+  const queryClient = useQueryClient();
+
+  const {
+    data: viajesActivos = [],
+    isLoading: cargandoViajes,
+    isRefetching: refrescandoViajes,
+    refetch: refetchViajes,
+  } = useQuery({
+    queryKey: ["viajesActivosConductor"],
+    queryFn: async () => {
+      const data = await orpc.viajes.activos();
+      return data.success ? (data.viajes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const {
+    data: solicitudes = [],
+    isLoading: cargandoSolicitudes,
+    isRefetching: refrescandoSolicitudes,
+    refetch: refetchSolicitudes,
+  } = useQuery({
+    queryKey: ["solicitudesRecibidas"],
+    queryFn: async () => {
+      const data = await orpc.solicitudes.recibidas();
+      return data.success ? (data.solicitudes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const cargando = cargandoViajes || cargandoSolicitudes;
+  const refrescando = refrescandoViajes || refrescandoSolicitudes;
+
   useBackHandler(navigation, "normal");
 
   const cargarDatos = async () => {
-    try {
-      const activosData = await orpc.viajes.activos();
-      if (activosData.success) {
-        setViajesActivos(activosData.viajes || []);
-      }
-
-      const solicitudesData = await orpc.solicitudes.recibidas();
-      if (solicitudesData.success) {
-        setSolicitudes(solicitudesData.solicitudes || []);
-      }
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
+    await Promise.all([refetchViajes(), refetchSolicitudes()]);
   };
 
   // Revisa si el id_viaje_pub actual existe dentro del arreglo de viajesActivos
@@ -234,7 +248,6 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   const onRefresh = () => {
-    setRefrescando(true);
     cargarDatos();
   };
 
