@@ -12,7 +12,8 @@ const crearNotificacion = async (
   usuarioId: string,
   titulo: string,
   cuerpo: string,
-  tipo: string
+  tipo: string,
+  idViaje?: number
 ) => {
   try {
     await prisma.notificaciones.create({
@@ -23,6 +24,7 @@ const crearNotificacion = async (
         tipo_notif: tipo,
         leido: false,
         fecha_creacion: new Date(),
+        id_viaje: idViaje,
       },
     });
   } catch (error) {
@@ -35,6 +37,13 @@ export const listarViajes = baseProcedure.handler(async () => {
   const viajes = await prisma.viajes_publicados.findMany({
     where: {
       asientos_disponibles: { gt: 0 },
+      viajes_activos: {
+        none: {
+          estado_trayecto: {
+            in: ['cancelado', 'finalizado'],
+          },
+        },
+      },
     },
     include: {
       conductor: {
@@ -57,7 +66,8 @@ export const listarViajes = baseProcedure.handler(async () => {
 
   const viajesConDatos = viajes.map((viaje: any) => ({
     ...viaje,
-    asientos_totales: viaje.conductor.capacidad_pasajeros,
+    asientos_ofrecidos: viaje.asientos_ofrecidos || viaje.capacidad_pasajeros,
+    asientos_ocupados: (viaje.asientos_ofrecidos || viaje.capacidad_pasajeros) - viaje.asientos_disponibles,
     conductor: {
       ...viaje.conductor,
       usuario: {
@@ -85,12 +95,12 @@ export const publicarViaje = protectedProcedure
       // ISO 8601 con zona horaria (ej. 2026-05-24T20:00:00.000Z)
       fechaHoraISO: z.string().datetime(),
       asientos: z.number().int().min(1),
-      // Precio entre $1 y $100 MXN, máximo 2 decimales
-      precio: z.number().positive().max(100).multipleOf(0.01),
+      // Precio entre $1 y $70 MXN, máximo 2 decimales
+      precio: z.number().positive().max(70).multipleOf(0.01),
     })
   )
   .handler(async ({ input, context }) => {
-    // 🔒 DEBOUNCE: Validar tiempo entre publicaciones
+    // DEBOUNCE: Validar tiempo entre publicaciones
     const ahora = Date.now();
     const ultimaPublicacion = ultimaPublicacionPorUsuario.get(context.user.id);
 
@@ -129,16 +139,50 @@ export const publicarViaje = protectedProcedure
       throw new ORPCError('NOT_FOUND', { message: 'Datos de conductor no encontrados' })
     }
 
-    const fechaHoraSalida = new Date(input.fechaHoraISO)
+    const fechaHoraSalida = new Date(input.fechaHoraISO);
 
-    // Segunda línea de defensa: validar que la hora de salida sea al menos 10 minutos en el futuro
-    const limiteMinimo = new Date(Date.now() + 10 * 60 * 1000)
+    // Validar que la hora de salida sea al menos 10 minutos en el futuro (Fast-fail)
+    const limiteMinimo = new Date(Date.now() + 10 * 60 * 1000);
     if (fechaHoraSalida < limiteMinimo) {
       throw new ORPCError('BAD_REQUEST', {
         message: 'La hora de salida debe ser al menos 10 minutos en el futuro',
-      })
+      });
     }
 
+    // Validar que no haya viajes empalmados (margen de 30 minutos)
+    const margenHoras = 30 * 60 * 1000; 
+    const rangoInicio = new Date(fechaHoraSalida.getTime() - margenHoras);
+    const rangoFin = new Date(fechaHoraSalida.getTime() + margenHoras);
+
+    const viajeEmpalmado = await prisma.viajes_publicados.findFirst({
+      where: {
+        id_licencia_conductor: conductor.id_licencia,
+        fecha_hora_salida: {
+          gte: rangoInicio, 
+          lte: rangoFin,    
+        },
+        viajes_activos: {
+          none: {
+            estado_trayecto: {
+              in: ['finalizado', 'cancelado']
+            }
+          }
+        }
+      },
+    });
+
+    if (viajeEmpalmado) {
+      const horaEmpalme = viajeEmpalmado.fecha_hora_salida.toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      throw new ORPCError('CONFLICT', {
+        message: `Ya tienes un viaje agendado a las ${horaEmpalme}. Debes cancelarlo o dejar un margen de 30 min.`,
+      });
+    }
+
+    // Si pasa ambas validaciones, creamos el viaje
     const nuevoViaje = await prisma.viajes_publicados.create({
       data: {
         id_licencia_conductor: conductor.id_licencia,
@@ -150,6 +194,7 @@ export const publicarViaje = protectedProcedure
         longitud_destino: input.longitud_destino,
         fecha_hora_salida: fechaHoraSalida,
         asientos_disponibles: input.asientos,
+        asientos_ofrecidos: input.asientos,
         costo_estimado: input.precio,
         es_recurrente: false,
 
@@ -159,7 +204,7 @@ export const publicarViaje = protectedProcedure
         vehiculo_placas: conductor.placas,
         capacidad_pasajeros: conductor.capacidad_pasajeros,
       },
-    })
+    });
 
     // Emitir evento WebSocket a todos los usuarios conectados
     if (io) {
@@ -195,7 +240,9 @@ export const obtenerViajesActivos = protectedProcedure
         },
         viajes_activos: {
           none: {
-            estado_trayecto: 'finalizado'
+            estado_trayecto: {
+              in: ['finalizado', 'cancelado']
+            }
           }
         }
       },
@@ -254,7 +301,9 @@ export const obtenerHistorialConductor = protectedProcedure
           {
             viajes_activos: {
               some: {
-                estado_trayecto: 'finalizado'
+                estado_trayecto: {
+                  in: ['finalizado', 'cancelado']
+                }
               }
             }
           }
@@ -274,7 +323,16 @@ export const obtenerHistorialConductor = protectedProcedure
               }
             }
           }
-        }
+        },
+        viajes_activos: {
+          orderBy: { id_viaje_activo: 'desc' },
+          take: 1,
+        },
+        historial: {
+          where: { accion: 'cancelado' },
+          orderBy: { fecha_cambio: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { fecha_hora_salida: 'desc' },
       take: 20
@@ -296,7 +354,9 @@ export const obtenerHistorialPasajero = protectedProcedure
             viaje: {
               viajes_activos: {
                 some: {
-                  estado_trayecto: 'finalizado'
+                  estado_trayecto: {
+                    in: ['finalizado', 'cancelado']
+                  }
                 }
               }
             }
@@ -319,7 +379,16 @@ export const obtenerHistorialPasajero = protectedProcedure
                   }
                 }
               }
-            }
+            },
+            viajes_activos: {
+              orderBy: { id_viaje_activo: 'desc' },
+              take: 1,
+            },
+            historial: {
+              where: { accion: 'cancelado' },
+              orderBy: { fecha_cambio: 'desc' },
+              take: 1,
+            },
           }
         }
       },
@@ -384,7 +453,8 @@ export const obtenerViajePorId = protectedProcedure
       success: true,
       viaje: {
         ...viaje,
-        asientos_totales: viaje.conductor.capacidad_pasajeros,
+        asientos_ofrecidos: viaje.asientos_ofrecidos || viaje.capacidad_pasajeros,
+        asientos_ocupados: (viaje.asientos_ofrecidos || viaje.capacidad_pasajeros) - viaje.asientos_disponibles,
         conductor: {
           ...viaje.conductor,
           usuario: {
@@ -421,6 +491,11 @@ export const iniciarViaje = protectedProcedure
       where: { id_viaje_pub: input.viajeId },
     });
     if (viajeActivoExistente) {
+      if (viajeActivoExistente.estado_trayecto === 'cancelado') {
+        throw new ORPCError('FORBIDDEN', {
+          message: 'Este viaje fue cancelado anteriormente. Publica uno nuevo para iniciar.',
+        })
+      }
       return { success: true, viajeActivo: viajeActivoExistente };
     }
 
@@ -439,7 +514,8 @@ export const iniciarViaje = protectedProcedure
         solicitud.id_pasajero,
         '¡El conductor está en camino!',
         `Tu viaje a ${viaje.destino_texto} ha comenzado.`,
-        'viaje_iniciado'
+        'viaje_iniciado',
+        viaje.id_viaje_pub
       );
 
       if (io) {
@@ -454,19 +530,22 @@ export const iniciarViaje = protectedProcedure
     return { success: true, viajeActivo };
   });
 
-// Cancelar un viaje (solo conductor)
+// Cancelar un viaje (solo conductor) — preserva registros y guarda auditoría
 export const cancelarViaje = protectedProcedure
-  .input(z.object({ viajeId: z.number() }))
+  .input(z.object({
+    viajeId: z.number(),
+    motivo: z.string().min(1, 'El motivo de cancelación es obligatorio'),
+  }))
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
       include: {
         conductor: { include: { usuario: true } },
+        viajes_activos: { where: { estado_trayecto: 'en_curso' } },
         solicitudes: {
-          select: {
-            id_pasajero: true
-          }
-        }
+          where: { estado_solicitud: { in: ['pendiente', 'aceptada'] } },
+          select: { id_pasajero: true, estado_solicitud: true },
+        },
       },
     })
 
@@ -478,53 +557,86 @@ export const cancelarViaje = protectedProcedure
       throw new ORPCError('FORBIDDEN', { message: 'No autorizado' })
     }
 
-    // NOTIFICACIÓN: Avisar a todos los pasajeros que solicitaron el viaje
+    // 1. Si el viaje está en curso, marcarlo como cancelado en viajes_activos.
+    //    Si no está en curso (nunca se inició), crear un registro de cancelación
+    //    para que el viaje deje de aparecer como activo.
+    const viajeActivoEnCurso = viaje.viajes_activos?.[0] ?? null
+    if (viajeActivoEnCurso) {
+      await prisma.viajes_activos.update({
+        where: { id_viaje_activo: viajeActivoEnCurso.id_viaje_activo },
+        data: {
+          estado_trayecto: 'cancelado',
+          hora_fin_real: new Date(),
+        },
+      })
+    } else {
+      await prisma.viajes_activos.create({
+        data: {
+          id_viaje_pub: input.viajeId,
+          hora_inicio_real: new Date(),
+          hora_fin_real: new Date(),
+          estado_trayecto: 'cancelado',
+          historial_ruta: [],
+        },
+      })
+    }
+
+    // 2. Restaurar asientos y rechazar solicitudes activas
+    const capacidadTotal = viaje.asientos_ofrecidos || viaje.capacidad_pasajeros;
+    await prisma.viajes_publicados.update({
+      where: { id_viaje_pub: input.viajeId },
+      data: { asientos_disponibles: capacidadTotal },
+    });
+
+    await prisma.solicitudes_viaje.updateMany({
+      where: {
+        id_viaje_pub: input.viajeId,
+        estado_solicitud: { in: ['pendiente', 'aceptada'] },
+      },
+      data: { estado_solicitud: 'rechazada' },
+    });
+
+    // 3. Registrar en el historial de auditoría
+    await prisma.historial_viajes.create({
+      data: {
+        id_viaje_pub: input.viajeId,
+        accion: 'cancelado',
+        motivo: input.motivo,
+        realizado_por: 'conductor',
+        id_usuario: context.user.id,
+        fecha_cambio: new Date(),
+      },
+    })
+
+    // 4. NOTIFICACIÓN: Avisar solo a pasajeros con solicitud pendiente o aceptada
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
+        if (solicitud.estado_solicitud === 'rechazada') continue;
         await crearNotificacion(
           solicitud.id_pasajero,
-          "Viaje cancelado",
-          `El viaje a ${viaje.destino_texto} ha sido cancelado por el conductor.`,
-          "cancelacion"
-        );
+          'Viaje cancelado',
+          `El viaje a ${viaje.destino_texto} fue cancelado por el conductor. Motivo: ${input.motivo}`,
+          'cancelacion',
+          viaje.id_viaje_pub
+        )
 
         if (io) {
           io.emit('nueva_notificacion', {
             usuarioId: solicitud.id_pasajero,
-            titulo: "Viaje cancelado",
-            cuerpo: `El viaje a ${viaje.destino_texto} ha sido cancelado.`,
-            tipo: "cancelacion"
-          });
+            titulo: 'Viaje cancelado',
+            cuerpo: `El viaje a ${viaje.destino_texto} fue cancelado. Motivo: ${input.motivo}`,
+            tipo: 'cancelacion',
+          })
         }
       }
     }
 
-    // Emitir evento WebSocket para actualizar listas
+    // 5. Emitir evento WebSocket para actualizar listas
     if (io) {
       io.emit('viaje_cancelado', { viajeId: input.viajeId })
     }
 
-    // 1. Eliminar mensajes del chat
-    await prisma.mensajes_chat.deleteMany({
-      where: { id_viaje_pub: input.viajeId },
-    })
-
-    // 2. Eliminar viajes activos
-    await prisma.viajes_activos.deleteMany({
-      where: { id_viaje_pub: input.viajeId },
-    })
-
-    // 3. Eliminar solicitudes relacionadas
-    await prisma.solicitudes_viaje.deleteMany({
-      where: { id_viaje_pub: input.viajeId },
-    })
-
-    // 4. Luego eliminar el viaje
-    await prisma.viajes_publicados.delete({
-      where: { id_viaje_pub: input.viajeId },
-    })
-
-    return { success: true, message: 'Viaje cancelado' }
+    return { success: true, message: 'Viaje cancelado. Se ha registrado el motivo en la auditoría.' }
   })
 
 // Finalizar un viaje (solo conductor) - Guarda en historial
@@ -605,18 +717,20 @@ export const finalizarViaje = protectedProcedure
     // 5. Notificar a pasajeros aceptados
     if (viaje.solicitudes && viaje.solicitudes.length > 0) {
       for (const solicitud of viaje.solicitudes) {
+
         await crearNotificacion(
           solicitud.id_pasajero,
           "Viaje finalizado",
           `El viaje a ${viaje.destino_texto} ha sido completado.`,
-          "finalizacion"
+          "finalizacion",
+          viaje.id_viaje_pub
         );
         if (io) {
           io.emit('nueva_notificacion', {
             usuarioId: solicitud.id_pasajero,
             titulo: "Viaje finalizado",
             cuerpo: `El viaje a ${viaje.destino_texto} ha sido completado.`,
-            tipo: "finalizacion"
+            tipo: "finalizacion",
           });
         }
       }
@@ -629,3 +743,9 @@ export const finalizarViaje = protectedProcedure
 
     return { success: true, message: 'Viaje finalizado y guardado en historial' };
   });
+
+// ─── Utilidades ──────────────────────────────────────────────────────────────
+
+export const serverTime = baseProcedure.handler(async () => {
+  return { serverTime: new Date().toISOString() }
+});

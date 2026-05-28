@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
-// 1. Obtener mensajes de un viaje
+// Obtener mensajes de un viaje
 export const getMensajes = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
   .handler(async ({ input, context }) => {
@@ -48,7 +48,7 @@ export const getMensajes = protectedProcedure
     return mensajes;
   });
 
-// 2. Enviar mensaje
+// Enviar mensaje
 export const enviarMensaje = protectedProcedure
   .input(z.object({
     id_viaje_pub: z.number(),
@@ -105,7 +105,7 @@ export const enviarMensaje = protectedProcedure
     return mensaje;
   });
 
-// 3. Obtener chats del usuario (Corregido: Solo muestra chats con match confirmado)
+// Obtener chats del usuario (Corregido: Solo muestra chats con match confirmado)
 export const misChats = protectedProcedure
   .handler(async ({ context }) => {
     const viajesConductor = await prisma.viajes_publicados.findMany({
@@ -172,10 +172,12 @@ export const misChats = protectedProcedure
 
       if (!viaje) continue;
 
-      const estaFinalizado = viaje.asientos_disponibles === 0;
+      
+      const viajeFinalizado = await prisma.viajes_activos.findFirst({
+      where: { id_viaje_pub: viajeId, estado_trayecto: 'finalizado' }
+    });
+    const estaFinalizado = !!viajeFinalizado;
 
-      // LÓGICA DE VISIBILIDAD MANTENIDA:
-      // Si no hay mensajes y el viaje ya terminó, se oculta (asumimos borrado)[cite: 4].
       if (!ultimoMensaje && estaFinalizado) {
         continue;
       }
@@ -199,10 +201,23 @@ export const misChats = protectedProcedure
     return { success: true, chats: chats.slice(0, 10), idUsuario: context.user.id };
   });
   
-// 4. Eliminar historial de chat
+// Eliminar historial de chat (solo conductor)
 export const eliminarHistorial = protectedProcedure
   .input(z.object({ idViaje: z.number() }))
-  .handler(async ({ input }) => {
+  .handler(async ({ input, context }) => {
+    const viaje = await prisma.viajes_publicados.findUnique({
+      where: { id_viaje_pub: input.idViaje },
+      include: { conductor: { include: { usuario: { select: { id_usuario: true } } } } },
+    });
+
+    if (!viaje) {
+      throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
+    }
+
+    if (viaje.conductor?.usuario?.id_usuario !== context.user.id) {
+      throw new ORPCError('FORBIDDEN', { message: 'Solo el conductor puede eliminar el historial del chat' });
+    }
+
     await prisma.mensajes_chat.deleteMany({
       where: {
         id_viaje_pub: input.idViaje
@@ -212,24 +227,31 @@ export const eliminarHistorial = protectedProcedure
     return { success: true, message: 'Historial eliminado correctamente' };
   });
 
-// 5. Obtener estado del viaje
+// Obtener estado del viaje
 export const getEstado = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
     const viaje = await prisma.viajes_publicados.findUnique({
       where: { id_viaje_pub: input.viajeId },
-      select: { asientos_disponibles: true }
+      select: { id_viaje_pub: true } // Ya no necesitamos los asientos aquí
     });
 
     if (!viaje) {
       throw new ORPCError('NOT_FOUND', { message: 'Viaje no encontrado' });
     }
 
-    const estado = viaje.asientos_disponibles > 0 ? 'activo' : 'finalizado';
+    // Buscamos si el viaje ya tiene un registro de que finalizó
+    const viajeActivo = await prisma.viajes_activos.findFirst({
+      where: { 
+        id_viaje_pub: input.viajeId, 
+        estado_trayecto: 'finalizado' 
+      }
+    });
+
+    const estado = viajeActivo ? 'finalizado' : 'activo';
     return { estado };
   });
-
-// 6. Contar mensajes no leídos del usuario
+// Contar mensajes no leídos del usuario
 export const contarMensajesNoLeidos = protectedProcedure
   .handler(async ({ context }) => {
     const viajesConductor = await prisma.viajes_publicados.findMany({

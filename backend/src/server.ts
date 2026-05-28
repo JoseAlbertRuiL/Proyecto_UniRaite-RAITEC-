@@ -4,12 +4,13 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import http from 'http'
+import jwt from 'jsonwebtoken'
 import { Server } from 'socket.io'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
-import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { iniciarCronJobs } from './services/cronJobs'
 
 require('dotenv').config()
 
@@ -24,7 +25,30 @@ const io = new Server(serverHttp, {
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
 
-// Guardar io para usarlo en otros archivos
+// ─── Helper: verificar acceso a chat ──────────────────────────────────────────
+const tieneAccesoChat = async (prisma: PrismaClient, userId: string, viajeId: number) => {
+  const viaje = await prisma.viajes_publicados.findUnique({
+    where: { id_viaje_pub: viajeId },
+    select: {
+      id_licencia_conductor: true,
+      conductor: { select: { usuario: { select: { id_usuario: true } } } },
+    },
+  });
+  if (!viaje) return false;
+
+  const esConductor = viaje.conductor?.usuario?.id_usuario === userId;
+  if (esConductor) return true;
+
+  const solicitud = await prisma.solicitudes_viaje.findFirst({
+    where: {
+      id_viaje_pub: viajeId,
+      id_pasajero: userId,
+      estado_solicitud: 'aceptada',
+    },
+  });
+  return !!solicitud;
+};
+
 export { io }
 
 // ─── Directorios de uploads ───────────────────────────────────────────────────
@@ -78,16 +102,16 @@ io.use(async (socket, next) => {
     if (!token) {
       return next(new Error('Token requerido'));
     }
-
+    
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
     const usuario = await prisma.usuarios.findUnique({
       where: { id_usuario: (decoded as any).id }
     });
-
+    
     if (!usuario) {
       return next(new Error('Usuario no encontrado'));
     }
-
+    
     (socket as any).user = usuario;
     next();
   } catch (error) {
@@ -99,25 +123,43 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
   console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
+  
+  socket.on('join_chat', async (chatId: string) => {
+    const user = (socket as any).user;
+    const viajeId = parseInt(chatId);
+    if (isNaN(viajeId)) return;
 
-  socket.on('join_chat', (chatId: string) => {
+    const puedeAcceder = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeAcceder) {
+      socket.emit('chat_error', 'No tienes acceso a este chat');
+      return;
+    }
     socket.join(`chat_${chatId}`);
     console.log(`📱 Usuario unido al chat ${chatId}`);
   });
-
+  
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
     const user = (socket as any).user;
+    const viajeId = parseInt(data.chatId);
+    if (isNaN(viajeId)) return;
+
+    const puedeEnviar = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeEnviar) {
+      socket.emit('chat_error', 'No tienes permiso para enviar mensajes en este chat');
+      return;
+    }
+
     try {
       const mensaje = await prisma.mensajes_chat.create({
         data: {
-          id_viaje_pub: parseInt(data.chatId),
+          id_viaje_pub: viajeId,
           id_emisor: user.id_usuario,
           contenido: data.message,
           fecha_envio: new Date(),
         },
         include: { emisor: { select: { nombre: true, foto_perfil: true } } }
       });
-
+      
       io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
     } catch (error) {
       console.error('Error al guardar mensaje:', error);
@@ -132,11 +174,11 @@ io.on('connection', (socket) => {
     lng: number;
   }) => {
     console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
-
+    
     const roomName = `viaje_${data.viajeId}`;
     const socketsEnRoom = await io.in(roomName).fetchSockets();
     console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
-
+    
     io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
       lng: data.lng,
@@ -175,7 +217,7 @@ io.on('connection', (socket) => {
   socket.on('leave_viaje', (viajeId: number) => {
     socket.leave(`viaje_${viajeId}`);
   });
-
+  
   socket.on('disconnect', () => {
     console.log('⚡ Usuario desconectado');
   });
@@ -197,67 +239,78 @@ const orpcHandler = new RPCHandler(router, {
 
 // ─── Rate Limiting implementado DENTRO del handler de oRPC ─────────────────────
 
-// Almacenamiento simple para rate limiting por IP
-const intentosPorIP = new Map<string, { count: number; firstAttempt: number }>();
+// Almacenamiento: fallos de login y fallos de registro
+const intentosLogin = new Map<string, { count: number; firstAttempt: number }>();
+const intentosRegistro = new Map<string, { count: number; firstAttempt: number }>();
 
-// Middleware de rate limiting para login
+// Middleware de rate limiting
 const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.log(`🟢 MIDDLEWARE EJECUTADO - URL: ${req.url}, METHOD: ${req.method}`);
+  // Filtrar solo las rutas que nos interesan proteger
+  const esLogin = req.url.includes('/login');
+  const esRegistro = req.url.includes('/register');
 
-  // Solo aplicar a rutas que contengan 'login'
-  if (!req.url.includes('/login')) {
-    console.log(`🟢 No es login, saltando...`);
+  if (!esLogin && !esRegistro) {
     return next();
   }
-
-  console.log(`🟢 ES LOGIN, aplicando rate limit...`);
-
+    
   // Obtener IP
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'unknown';
   const now = Date.now();
-  const intentos = intentosPorIP.get(ip);
+  
+  // Reglas específicas para login y registro
+  const mapaActual = esLogin ? intentosLogin : intentosRegistro;
+  const limiteIntentos = esLogin ? 30 : 15; // 30 intentos para login, 15 para registro
+  const tiempoCastigo = esLogin ? (15 * 60 * 1000) : (30 * 60 * 1000); // 15 mins para login, 30 mins para registro
 
-  console.log(`🔐 RateLimit - IP: ${ip}`);
+  const intentos = mapaActual.get(ip);
 
+  // Verificación de bloqueos
   if (intentos) {
-    // Si pasaron más de 15 minutos, reiniciar
-    if (now - intentos.firstAttempt > 15 * 60 * 1000) {
-      intentosPorIP.set(ip, { count: 1, firstAttempt: now });
-      console.log(`🔐 Reiniciando contador para IP: ${ip}`);
-      return next();
-    }
-
-    // Si tiene 5 o más intentos, bloquear
-    if (intentos.count >= 5) {
-      const minutosRestantes = Math.ceil((15 * 60 * 1000 - (now - intentos.firstAttempt)) / 60000);
+    if (now - intentos.firstAttempt > tiempoCastigo) {
+      // Ya pasó el tiempo de castigo, limpiamos su historial
+      mapaActual.delete(ip);
+    } else if (intentos.count >= limiteIntentos) {
+      // Sigue castigado: Bloqueamos la petición
+      const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
+      const accion = esLogin ? "iniciar sesión" : "registrarse";
+      
       console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
       return res.status(429).json({
         success: false,
-        message: `Demasiados intentos. Bloqueado por ${minutosRestantes} minutos.`
+        message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
       });
     }
-
-    // Incrementar contador
-    intentos.count++;
-    intentosPorIP.set(ip, intentos);
-    console.log(`🔐 Intento ${intentos.count}/5 para IP: ${ip}`);
-  } else {
-    intentosPorIP.set(ip, { count: 1, firstAttempt: now });
-    console.log(`🔐 Primer intento para IP: ${ip}`);
   }
 
+  // Interceptamos la respuesta final
+  res.on('finish', () => {
+    // Si falla (Error 400+)
+    if (res.statusCode >= 400) {
+      const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
+      actuales.count++;
+      mapaActual.set(ip, actuales);
+      console.log(`🔐 [RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
+    } 
+    // Si tiene éxito (200)
+    else if (res.statusCode >= 200 && res.statusCode < 300) {
+      mapaActual.delete(ip);
+      console.log(`🔐 [RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
+    }
+  });
+  
   next();
 };
 
-// Limpiar intentos viejos cada hora
+// Limpiador de basura
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, data] of intentosPorIP.entries()) {
-    if (now - data.firstAttempt > 15 * 60 * 1000) {
-      intentosPorIP.delete(ip);
-    }
+  for (const [ip, data] of intentosLogin.entries()) {
+    if (now - data.firstAttempt > 15 * 60 * 1000) intentosLogin.delete(ip);
   }
-}, 60 * 60 * 1000);
+  for (const [ip, data] of intentosRegistro.entries()) {
+    if (now - data.firstAttempt > 30 * 60 * 1000) intentosRegistro.delete(ip);
+  }
+}, 60 * 60 * 1000); // Se ejecuta cada hora para liberar RAM
 
 // Aplicar rate limit middleware ANTES del handler de oRPC
 app.use('/rpc', rateLimitMiddleware);
@@ -330,8 +383,9 @@ app.get('/health', (req, res) => {
 
 serverHttp.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Servidor en http://localhost:${PORT}`)
+  iniciarCronJobs(io);
   console.log(`oRPC    → /rpc/*`)
-  console.log(`Rate Limit → /rpc/login (5 intentos/15min)`)
+  console.log(`Rate Limit → Login (30 intentos/15min) | Registro (15 intentos/30min)`)
   console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
   console.log(`Health  → GET  /health`)
   console.log(`WebSocket Server corriendo en el mismo puerto`)

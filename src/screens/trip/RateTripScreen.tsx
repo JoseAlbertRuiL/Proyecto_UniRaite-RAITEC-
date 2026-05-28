@@ -11,7 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { orpc, BASE_URL } from "../../services/api/apiClient";
+import { orpc } from "../../services/api/apiClient";
 
 export default function RateTripScreen({ navigation, route }: any) {
   useBackHandler(navigation, "normal");
@@ -62,28 +62,17 @@ export default function RateTripScreen({ navigation, route }: any) {
         }
       }
 
-      const solicitudesResponse = await orpc.solicitudes.misSolicitudes();
-      if (solicitudesResponse.success && Array.isArray(solicitudesResponse.solicitudes)) {
-        const accepted = solicitudesResponse.solicitudes
-          .filter((s: any) => s.estado_solicitud === "aceptada" && s.viaje?.conductor?.usuario)
-          .sort(
-            (a: any, b: any) =>
-              new Date(b.viaje?.fecha_hora_salida).getTime() -
-              new Date(a.viaje?.fecha_hora_salida).getTime()
-          );
-
-        if (accepted.length > 0) {
-          const latest = accepted[0];
-          setTrip(latest.viaje);
-          setDriver(latest.viaje.conductor.usuario);
-          setLoading(false);
-          return;
-        }
+      const response = await orpc.calificaciones.obtenerPendiente();
+      if (response.success && response.viaje) {
+        setTrip(response.viaje);
+        setDriver(response.viaje.conductor?.usuario || response.viaje.conductor || null);
+        setLoading(false);
+        return;
       }
 
-      setError("No se encontraron datos de conductor o viaje.");
+      setError("No tienes viajes pendientes por calificar.");
     } catch (fetchError) {
-      console.error("Error cargando conductor para calificación:", fetchError);
+      console.log("DETALLE DEL ERROR:", fetchError);
       setError("Error al obtener datos del conductor.");
     } finally {
       setLoading(false);
@@ -95,13 +84,15 @@ export default function RateTripScreen({ navigation, route }: any) {
   }, []);
 
   const handleSubmit = async () => {
+    if (submitting) return;
+
     if (rating === 0) {
       Alert.alert("Atención", "Por favor selecciona una calificación antes de enviar.");
       return;
     }
 
     if (!trip?.id_viaje_pub) {
-      Alert.alert("Error", "No se encontró el ID del viaje.");
+      Alert.alert("Error", "No se encontró el ID del viaje a calificar.");
       return;
     }
 
@@ -130,7 +121,7 @@ export default function RateTripScreen({ navigation, route }: any) {
       const errorMsg = err?.message || "Error al guardar la calificación";
       Alert.alert("Error", errorMsg);
     } finally {
-      setSubmitting(false);
+      setTimeout(() => setSubmitting(false), 500); 
     }
   };
 
