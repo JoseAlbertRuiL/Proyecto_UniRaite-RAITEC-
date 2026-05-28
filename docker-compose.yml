@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: bakugan
+      POSTGRES_DB: UniRaite
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:bakugan@db:5432/UniRaite?schema=public
+      JWT_SECRET: lospicus2026
+      PORT: 3000
+    env_file:
+      - ./backend/.env.cloudinary
+    volumes:
+      - backend_uploads:/app/uploads
+
+volumes:
+  pgdata:
+  backend_uploads:

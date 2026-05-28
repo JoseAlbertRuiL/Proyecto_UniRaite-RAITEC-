@@ -97,9 +97,13 @@ export const enviarMensaje = protectedProcedure
       }
     });
 
-    const { io } = require('../../server');
-    if (io) {
-      io.to(`chat_${input.id_viaje_pub}`).emit('new_message', mensaje);
+    try {
+      const { io } = require('../../server');
+      if (io) {
+        io.to(`chat_${input.id_viaje_pub}`).emit('new_message', mensaje);
+      }
+    } catch (e) {
+      console.error('Error al emitir mensaje por socket:', e);
     }
 
     return mensaje;
@@ -306,9 +310,13 @@ export const marcarComoLeidos = protectedProcedure
       data: { leido: true }
     });
     
-    const { io } = require('../../server');
-    if (io) {
-      io.emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
+    try {
+      const { io } = require('../../server');
+      if (io) {
+        io.to(`chat_${input.viajeId}`).emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
+      }
+    } catch (e) {
+      console.error('Error al emitir mensajes leídos por socket:', e);
     }
     
     return { success: true };

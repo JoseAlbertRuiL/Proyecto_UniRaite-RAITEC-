@@ -193,7 +193,7 @@ io.on('connection', (socket) => {
         where: { id_viaje_activo: data.viajeActivoId },
       });
       if (viajeActivo) {
-        const historial = (viajeActivo.historial_ruta as any[]) || [];
+        const historial = Array.isArray(viajeActivo.historial_ruta) ? (viajeActivo.historial_ruta as any[]) : [];
         // Guardar cada 10 puntos para no saturar
         if (historial.length % 10 === 0) {
           historial.push({ lat: data.lat, lng: data.lng, ts: Date.now() });
@@ -381,7 +381,7 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
-serverHttp.listen(PORT, () => {
+serverHttp.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Servidor en http://localhost:${PORT}`)
   iniciarCronJobs(io);
   console.log(`oRPC    → /rpc/*`)

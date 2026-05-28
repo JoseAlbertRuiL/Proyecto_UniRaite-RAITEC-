@@ -137,7 +137,7 @@ export const useEnviarMensajeMutation = () => {
 export const useCalificarViajeMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (params: any) => orpc.calificaciones.calificar(params),
+    mutationFn: (params: any) => orpc.calificaciones.guardar(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calificaciones"] });
       queryClient.invalidateQueries({ queryKey: ["notificaciones"] });

@@ -10,7 +10,6 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
 import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
@@ -29,38 +28,50 @@ import {
 
 export default function ChatScreen({ navigation, route }: any) {
   const { idViaje = 1 } = route?.params || {};
-  const viajeIdNum = Number(idViaje);
-  const queryClient = useQueryClient();
+  const idViajeNum = Number(idViaje);
 
   useBackHandler(navigation, "normal");
 
+  const [mensajes, setMensajes] = useState<any[]>([]);
   const [mensajeEscrito, setMensajeEscrito] = useState("");
   const [estaFinalizado, setEstaFinalizado] = useState(false);
 
   const { data: perfilData } = usePerfil();
-  const { data: mensajesData, isLoading: loadingMensajes } = useMensajes(viajeIdNum);
+  const { data: mensajesData, isLoading: loadingMensajes, isError: errorMensajes } = useMensajes(idViajeNum);
 
   const myId = perfilData?.user?.id_usuario ?? null;
   const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (mensajesData) {
+      const formateados = mensajesData.map((msg: any) => ({
+        id: msg.id_mensaje.toString(),
+        texto: msg.contenido,
+        remitente: msg.id_emisor === myId ? "yo" : "otro",
+        nombre: msg.emisor?.nombre || "Usuario",
+      }));
+      setMensajes(formateados);
+    }
+  }, [mensajesData, myId]);
 
   useEffect(() => {
     const socket = getSocket();
 
     const unirseAlChat = () => {
       if (socket && socket.connected) {
-        joinChat(idViaje);
-        console.log(`📱 Unido (o re-unido) al chat del viaje ${idViaje}`);
+        joinChat(idViajeNum);
+        console.log(`📱 Unido (o re-unido) al chat del viaje ${idViajeNum}`);
       }
     };
 
     const inicializarChat = async () => {
       try {
-        await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
+        await orpc.chat.marcarComoLeidos({ viajeId: idViajeNum });
         await checarEstadoViaje();
-        unirseAlChat();
       } catch (error: any) {
         console.error("Error al inicializar el chat:", error);
       }
+      unirseAlChat();
     };
 
     if (myId) {
@@ -72,11 +83,15 @@ export default function ChatScreen({ navigation, route }: any) {
     }
 
     const handleNewMessage = (data: any) => {
-      console.log("🔥 [SOCKET] MENSAJE ENTRANTE:", data);
-      
-      if (data?.id_viaje_pub == viajeIdNum || data?.idViaje == viajeIdNum || !data) {
-        queryClient.invalidateQueries({ queryKey: ["chat", "mensajes", viajeIdNum] });
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
+      if (Number(data.id_viaje_pub) === idViajeNum && data.id_emisor !== myId) {
+        const nuevoMensaje = {
+          id: data.id_mensaje.toString(),
+          texto: data.contenido,
+          remitente: "otro",
+          nombre: data.emisor?.nombre || "Usuario",
+        };
+        setMensajes((prev) => [...prev, nuevoMensaje]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       }
     };
 
@@ -88,21 +103,11 @@ export default function ChatScreen({ navigation, route }: any) {
         socket.off("connect", unirseAlChat);
       }
     };
-  }, [idViaje, myId]);
-
-  const mensajes = React.useMemo(() => {
-    if (!mensajesData) return [];
-    return mensajesData.map((msg: any) => ({
-      id: msg.id_mensaje.toString(),
-      texto: msg.contenido,
-      remitente: msg.id_emisor === myId ? "yo" : "otro",
-      nombre: msg.emisor?.nombre || "Usuario",
-    }));
-  }, [mensajesData, myId]);
+  }, [idViajeNum, myId]);
 
   const checarEstadoViaje = async () => {
     try {
-      const data = await orpc.chat.getEstado({ viajeId: idViaje });
+      const data = await orpc.chat.getEstado({ viajeId: idViajeNum });
       if (data.estado === "finalizado") setEstaFinalizado(true);
     } catch (error) {
       console.error("Error al checar estado:", error);
@@ -112,14 +117,28 @@ export default function ChatScreen({ navigation, route }: any) {
   const enviarMensaje = async () => {
     if (mensajeEscrito.trim() === "" || estaFinalizado) return;
 
+    const texto = mensajeEscrito;
+    setMensajeEscrito("");
+
+    // --- LÓGICA OPTIMISTA DEL OTRO EQUIPO ---
+    const mensajeTemp = {
+      id: `temp-${Date.now()}`,
+      texto,
+      remitente: "yo",
+      nombre: perfilData?.user?.nombre || "Yo",
+    };
+
+    setMensajes((prev) => [...prev, mensajeTemp]);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
     try {
       await orpc.chat.enviarMensaje({
-        id_viaje_pub: idViaje,
-        contenido: mensajeEscrito,
+        id_viaje_pub: idViajeNum, // ✅ Usamos el número
+        contenido: texto,
       });
-      setMensajeEscrito("");
-      queryClient.invalidateQueries({ queryKey: ["chat", "mensajes", idViaje] });
     } catch (error: any) {
+      // Si falla, borramos el mensaje temporal
+      setMensajes((prev) => prev.filter((m) => m.id !== mensajeTemp.id));
       if (error?.code === "FORBIDDEN") {
         Alert.alert(
           "Acceso Denegado",
@@ -148,6 +167,15 @@ export default function ChatScreen({ navigation, route }: any) {
       </View>
     );
   };
+
+  if (errorMensajes && mensajes.length === 0) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white px-6">
+        <Text className="text-red-500 text-lg font-bold mb-2">Error al cargar mensajes</Text>
+        <Text className="text-gray-500 text-center">No se pudieron cargar los mensajes. Intenta de nuevo.</Text>
+      </View>
+    );
+  }
 
   if (loadingMensajes && mensajes.length === 0) {
     return (

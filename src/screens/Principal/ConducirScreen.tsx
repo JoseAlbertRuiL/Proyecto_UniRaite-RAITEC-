@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -7,21 +8,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  StatusBar,
   Modal,
   TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from 'expo-location';
+import { orpc } from "../../services/api/apiClient";
 import { getSocket } from "../../services/socket";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { useViajesActivos } from "../../hooks/queries/useViajes";
-import { useSolicitudesRecibidas } from "../../hooks/queries/useSolicitudes";
-import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
-import {
-  useIniciarViajeMutation,
-  useResponderSolicitudMutation,
-  useCancelarViajeMutation,
-} from "../../hooks/mutations/useTripMutations";
 import EmergencyButton from "../../components/EmergencyButton";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import Header from "../../components/common/Header";
@@ -42,31 +37,55 @@ const ConducirScreen = ({ navigation }: any) => {
   const [cancelandoViajeId, setCancelandoViajeId] = useState<number | null>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const destinoAlertado = useRef<boolean>(false);
+  // const locationInterval = useRef<any>(null);
+
+  const {
+    data: viajesActivos = [],
+    isLoading: cargandoViajes,
+    isRefetching: refrescandoViajes,
+    refetch: refetchViajes,
+  } = useQuery({
+    queryKey: ["viajes", "activos", "conductor"],
+    queryFn: async () => {
+      const data = await orpc.viajes.activos();
+      return data.success ? (data.viajes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const {
+    data: solicitudes = [],
+    isLoading: cargandoSolicitudes,
+    isRefetching: refrescandoSolicitudes,
+    refetch: refetchSolicitudes,
+  } = useQuery({
+    queryKey: ["solicitudes", "recibidas", "conductor"],
+    queryFn: async () => {
+      const data = await orpc.solicitudes.recibidas();
+      return data.success ? (data.solicitudes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const cargando = cargandoViajes || cargandoSolicitudes;
+  const refrescando = refrescandoViajes || refrescandoSolicitudes;
 
   useBackHandler(navigation, "normal");
-  useSocketInvalidator();
 
-  const { data: activosData, isLoading: loadingActivos, refetch: refetchActivos } = useViajesActivos();
-  const { data: solicitudesData, isLoading: loadingSolicitudes, refetch: refetchSolicitudes } = useSolicitudesRecibidas();
-
-  const iniciarViajeMutation = useIniciarViajeMutation();
-  const responderSolicitudMutation = useResponderSolicitudMutation();
-  const cancelarViajeMutation = useCancelarViajeMutation();
-
-  const viajesActivos = activosData?.viajes || [];
-  const solicitudes = solicitudesData?.solicitudes || [];
-  const cargando = loadingActivos || loadingSolicitudes;
+  const cargarDatos = async () => {
+    await Promise.all([refetchViajes(), refetchSolicitudes()]);
+  };
 
   // Revisa si el id_viaje_pub actual existe dentro del arreglo de viajesActivos
   const esViajeActivo = (idViajePub: number) => {
     if (!Array.isArray(viajesActivos) || viajesActivos.length === 0) return false;
-
-    const viajeActual = viajesActivos.find((v: any) => v.id_viaje_pub === idViajePub);
+    
+    const viajeActual = viajesActivos.find((v) => v.id_viaje_pub === idViajePub);
     return viajeActual?.viajes_activos && viajeActual.viajes_activos.length > 0;
   };
 
   const handleIniciarViaje = async (viajeId: number) => {
-    const viaje = viajesActivos.find((v: any) => v.id_viaje_pub === viajeId);
+    const viaje = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
 
     const pasajerosAceptados = (viaje?.solicitudes ?? []).length;
     if (pasajerosAceptados === 0) {
@@ -77,25 +96,28 @@ const ConducirScreen = ({ navigation }: any) => {
       return;
     }
 
-    iniciarViajeMutation.mutate(
-      { viajeId },
-      {
-        onSuccess: async (result: any) => {
-          if (result.success) {
-            const viajeCompleto = viajesActivos.find((v: any) => v.id_viaje_pub === viajeId);
-            await iniciarTransmisionUbicacion(
-              viajeId,
-              result.viajeActivo.id_viaje_activo,
-              viajeCompleto
-            );
-            Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
-          }
-        },
-        onError: (error: any) => {
-          Alert.alert("Error", error?.message || "No se pudo iniciar el viaje");
-        },
+    console.log(`Intentando iniciar el viaje con ID: ${viajeId}`);
+    try {
+      const result = await orpc.viajes.iniciarViaje({ viajeId });
+      if (result.success) {
+        const viajeCompleto = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+        const viajeActivoId = result.viajeActivo?.id_viaje_activo;
+        if (!viajeActivoId) {
+          Alert.alert("Error", "No se pudo obtener el ID del viaje activo");
+          return;
+        }
+
+        await iniciarTransmisionUbicacion(
+          viajeId,
+          viajeActivoId,
+          viajeCompleto
+        );
+        Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
+        await cargarDatos();
       }
-    );
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo iniciar el viaje");
+    }
   };
 
   const iniciarTransmisionUbicacion = async (viajeId: number, viajeActivoId: number, viaje?: any) => {
@@ -107,7 +129,7 @@ const ConducirScreen = ({ navigation }: any) => {
       Alert.alert("Permiso requerido", "Necesitas dar permiso de ubicación para transmitir.");
       return;
     }
-
+    
     socket.emit('join_viaje', viajeId);
     setTransmitiendo(viajeId);
     destinoAlertado.current = false;
@@ -126,6 +148,7 @@ const ConducirScreen = ({ navigation }: any) => {
             lat: latitude,
             lng: longitude,
           });
+          console.log(`📡 Ubicación emitida: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
         }
 
         if (
@@ -137,6 +160,8 @@ const ConducirScreen = ({ navigation }: any) => {
             latitude, longitude,
             viaje.latitud_destino, viaje.longitud_destino
           );
+
+          console.log(`📏 Distancia al destino: ${Math.round(distancia)}m`);
 
           if (distancia <= 150) {
             destinoAlertado.current = true;
@@ -174,25 +199,21 @@ const ConducirScreen = ({ navigation }: any) => {
   const ejecutarCancelacion = async () => {
     if (!cancelandoViajeId || !motivoCancelacion.trim()) return;
 
-    cancelarViajeMutation.mutate(
-      {
+    try {
+      const result = await orpc.viajes.cancelar({
         viajeId: cancelandoViajeId,
         motivo: motivoCancelacion.trim(),
-      },
-      {
-        onSuccess: (result: any) => {
-          if (result.success) {
-            setShowCancelModal(false);
-            setCancelandoViajeId(null);
-            setMotivoCancelacion("");
-            Alert.alert("Viaje cancelado", "Se ha registrado el motivo en la auditoría.");
-          }
-        },
-        onError: (error: any) => {
-          Alert.alert("Error", error.message || "No se pudo cancelar el viaje");
-        },
+      });
+      if (result.success) {
+        setShowCancelModal(false);
+        setCancelandoViajeId(null);
+        setMotivoCancelacion("");
+        Alert.alert("Viaje cancelado", "Se ha registrado el motivo en la auditoría.");
+        cargarDatos();
       }
-    );
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo cancelar el viaje");
+    }
   };
 
   const calcularDistanciaMetros = (
@@ -210,33 +231,81 @@ const ConducirScreen = ({ navigation }: any) => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const responderSolicitud = (
+  const responderSolicitud = async (
     solicitudId: number,
     viajeId: number,
     estado: "aceptada" | "rechazada",
   ) => {
-    responderSolicitudMutation.mutate(
-      { solicitudId, estado },
-      {
-        onSuccess: (result: any) => {
-          if (result.success) {
-            Alert.alert(
-              "Éxito",
-              `Solicitud ${estado === "aceptada" ? "aceptada" : "rechazada"}`,
-            );
-          }
-        },
-        onError: (error: any) => {
-          Alert.alert("Error", error.message || "No se pudo procesar la solicitud");
-        },
+    try {
+      const result = await orpc.solicitudes.responder({ solicitudId, estado });
+      if (result.success) {
+        Alert.alert(
+          "Éxito",
+          `Solicitud ${estado === "aceptada" ? "aceptada" : "rechazada"}`,
+        );
+        cargarDatos();
       }
-    );
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo procesar la solicitud");
+    }
   };
 
   const onRefresh = () => {
-    refetchActivos();
-    refetchSolicitudes();
+    cargarDatos();
   };
+
+  // Configurar WebSocket para recibir actualizaciones
+  useEffect(() => {
+    cargarDatos();
+
+    const socket = getSocket();
+    if (socket) {
+      const onNuevaSolicitud = (data: any) => {
+        console.log("📢 Nueva solicitud recibida en Conducir:", data);
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      const onSolicitudActualizada = (data: any) => {
+        console.log("📢 Solicitud actualizada en Conducir:", data);
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      const onViajeCancelado = (data: any) => {
+        console.log("📢 Viaje cancelado en Conducir:", data);
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      const onNuevoViajePublicado = (data: any) => {
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      const onViajeFinalizado = (data: any) => {
+        console.log("📢 Viaje finalizado en Conducir:", data);
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      const onSolicitudCancelada = (data: any) => {
+        console.log("📢 Solicitud cancelada en Conducir:", data);
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
+      };
+
+      socket.on("nueva_solicitud", onNuevaSolicitud);
+      socket.on("solicitud_actualizada", onSolicitudActualizada);
+      socket.on("solicitud_cancelada", onSolicitudCancelada);
+      socket.on("viaje_cancelado", onViajeCancelado);
+      socket.on("nuevo_viaje", onNuevoViajePublicado);
+      socket.on("viaje_finalizado", onViajeFinalizado);
+
+      return () => {
+        socket.off("nueva_solicitud", onNuevaSolicitud);
+        socket.off("solicitud_actualizada", onSolicitudActualizada);
+        socket.off("solicitud_cancelada", onSolicitudCancelada);
+        socket.off("viaje_cancelado", onViajeCancelado);
+        socket.off("nuevo_viaje", onNuevoViajePublicado);
+        socket.off("viaje_finalizado", onViajeFinalizado);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -302,9 +371,11 @@ const ConducirScreen = ({ navigation }: any) => {
         </View>
       </View>
 
+      {/* Botones de acción */}
       <View className="flex-row justify-end mt-3 pt-3 border-t border-gray-100">
         {isActive && (
           <>
+            {/* Botón Iniciar Viaje */}
             {!esViajeActivo(viaje.id_viaje_pub) ? (
               <TouchableOpacity
                 className="bg-green-600 rounded-lg px-4 py-2 mr-2"
@@ -328,7 +399,7 @@ const ConducirScreen = ({ navigation }: any) => {
                 esViajeActivo(viaje.id_viaje_pub) ? "bg-orange-500" : "bg-gray-400 opacity-70"
               }`}
               disabled={!esViajeActivo(viaje.id_viaje_pub)}
-
+              
               onPress={() => {
                 destinoAlertado.current = true;
                 locationSub.current?.remove();
@@ -337,7 +408,7 @@ const ConducirScreen = ({ navigation }: any) => {
                 setTransmitiendo(null);
                 navigation.navigate("FinishTrip", {
                   viajeId: viaje.id_viaje_pub,
-                  viaje,
+                  viaje, 
                 });
               }}
             >
@@ -384,7 +455,7 @@ const ConducirScreen = ({ navigation }: any) => {
   );
 
   const renderContent = () => {
-    if (cargando && !loadingActivos) {
+    if (cargando && !refrescando) {
       return (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color="#1e3a8a" />
@@ -412,7 +483,7 @@ const ConducirScreen = ({ navigation }: any) => {
           </View>
         );
       }
-      return viajesActivos.map((viaje: any) =>
+      return viajesActivos.map((viaje) =>
         renderViajeCard(viaje, false, undefined, true),
       );
     }
@@ -428,7 +499,7 @@ const ConducirScreen = ({ navigation }: any) => {
           </View>
         );
       }
-      return solicitudes.map((solicitud: any) => (
+      return solicitudes.map((solicitud) => (
         <View key={solicitud.id_solicitud}>
           {renderViajeCard(
             solicitud.viaje,
@@ -473,7 +544,7 @@ const ConducirScreen = ({ navigation }: any) => {
       <ScrollView
         className="flex-1 px-4 pt-4"
         refreshControl={
-          <RefreshControl refreshing={cargando} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} />
         }
       >
         {renderContent()}
@@ -490,8 +561,10 @@ const ConducirScreen = ({ navigation }: any) => {
 
       <Footer navigation={navigation} />
       {liveMapViajeId && (() => {
-        const viaje = viajesActivos.find((v: any) => v.id_viaje_pub === liveMapViajeId);
-        const pasajerosCoordenadas = (viaje?.solicitudes ?? [])
+        const viaje = viajesActivos.find((v) => v.id_viaje_pub === liveMapViajeId);
+        if (!viaje) return null;
+
+        const pasajerosCoordenadas = (viaje.solicitudes ?? [])
           .filter((s: any) => s.latitud_recogida && s.longitud_recogida)
           .map((s: any) => ({
             latitude: s.latitud_recogida,
@@ -506,12 +579,13 @@ const ConducirScreen = ({ navigation }: any) => {
             viajeId={liveMapViajeId}
             mode="conductor"
             pasajerosCoordenadas={pasajerosCoordenadas}
-            origen={viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined}
-            destino={viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined}
+            origen={{ lat: viaje.latitud_origen, lng: viaje.longitud_origen }}
+            destino={{ lat: viaje.latitud_destino, lng: viaje.longitud_destino }}
           />
         );
       })()}
 
+      {/* Modal de cancelación con motivo */}
       <Modal
         visible={showCancelModal}
         transparent

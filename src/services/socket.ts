@@ -17,6 +17,7 @@ export const connectSocket = async (): Promise<Socket | null> => {
   
   socket.on('connect', () => {
     console.log('🔌 Conectado al WebSocket');
+    registerPendingNewMessage();
   });
   
   socket.on('disconnect', () => {
@@ -64,14 +65,28 @@ export const sendMessage = (chatId: number, message: string, receiverId: string)
   }
 };
 
+let newMessageCallback: ((data: any) => void) | null = null;
+
+const registerPendingNewMessage = (): void => {
+  if (socket && newMessageCallback) {
+    socket.off('new_message', newMessageCallback);
+    socket.on('new_message', newMessageCallback);
+  }
+};
+
 export const onNewMessage = (callback: (data: any) => void): void => {
+  newMessageCallback = callback;
   if (socket) {
+    socket.off('new_message', callback);
     socket.on('new_message', callback);
   }
 };
 
 export const offNewMessage = (): void => {
-  if (socket) {
-    socket.off('new_message');
+  if (socket && newMessageCallback) {
+    socket.off('new_message', newMessageCallback);
   }
+  newMessageCallback = null;
 };
+
+export { registerPendingNewMessage };
