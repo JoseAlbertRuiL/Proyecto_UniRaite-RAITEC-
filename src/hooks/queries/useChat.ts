@@ -16,7 +16,7 @@ export const useMisChats = () =>
 export const useMensajes = (chatId: number) =>
   useQuery({
     queryKey: ["chat", "mensajes", chatId],
-    queryFn: () => orpc.chat.getMensajes({ chatId }),
+    queryFn: () => orpc.chat.getMensajes({ idViaje: chatId }),
     enabled: !!chatId,
   });
 

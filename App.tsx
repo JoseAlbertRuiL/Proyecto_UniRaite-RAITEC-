@@ -85,7 +85,7 @@ export default function App() {
 
   const navigation = {
     navigate: (name: string, params?: any) => {
-      if (params) setRoute({ params });
+      setRoute(params ? { params } : {});
       if (name === "Register") setScreen("Register");
       if (name === "Login") setScreen("Login");
       if (name === "Home") setScreen("Home");

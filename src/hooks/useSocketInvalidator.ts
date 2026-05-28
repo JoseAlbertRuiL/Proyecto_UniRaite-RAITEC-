@@ -4,12 +4,8 @@ import { getSocket } from "../services/socket";
 
 export const useSocketInvalidator = () => {
   const queryClient = useQueryClient();
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
     const socket = getSocket();
     if (!socket) return;
 
@@ -17,25 +13,27 @@ export const useSocketInvalidator = () => {
       keys.forEach((k) => queryClient.invalidateQueries({ queryKey: k }));
     };
 
-    socket.on("nueva_solicitud", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("solicitud_actualizada", () =>
-      invalidate(["solicitudes"], ["viajes"])
-    );
-    socket.on("solicitud_cancelada", () =>
-      invalidate(["solicitudes"], ["viajes"])
-    );
-    socket.on("nuevo_viaje", () => invalidate(["viajes"]));
-    socket.on("viaje_cancelado", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("viaje_iniciado", () => invalidate(["viajes"]));
-    socket.on("viaje_finalizado", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("nueva_notificacion", () => invalidate(["notificaciones"]));
-    socket.on("new_message", () => invalidate(["chat"]));
-    socket.on("mensajes_leidos", () => invalidate(["chat"]));
+    const handlers = {
+      nueva_solicitud: () => invalidate(["viajes"], ["solicitudes"]),
+      solicitud_actualizada: () => invalidate(["solicitudes"], ["viajes"]),
+      solicitud_cancelada: () => invalidate(["solicitudes"], ["viajes"]),
+      nuevo_viaje: () => invalidate(["viajes"]),
+      viaje_cancelado: () => invalidate(["viajes"], ["solicitudes"]),
+      viaje_iniciado: () => invalidate(["viajes"]),
+      viaje_finalizado: () => invalidate(["viajes"], ["solicitudes"]),
+      nueva_notificacion: () => invalidate(["notificaciones"]),
+      new_message: () => invalidate(["chat"]),
+      mensajes_leidos: () => invalidate(["chat"]),
+    };
+
+    Object.entries(handlers).forEach(([event, handler]) => {
+      socket.on(event, handler);
+    });
+
+    return () => {
+      Object.entries(handlers).forEach(([event, handler]) => {
+        socket.off(event, handler);
+      });
+    };
   }, [queryClient]);
 };

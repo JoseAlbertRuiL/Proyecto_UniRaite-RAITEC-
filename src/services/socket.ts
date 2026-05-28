@@ -64,14 +64,18 @@ export const sendMessage = (chatId: number, message: string, receiverId: string)
   }
 };
 
+let newMessageCallback: ((data: any) => void) | null = null;
+
 export const onNewMessage = (callback: (data: any) => void): void => {
   if (socket) {
+    newMessageCallback = callback;
     socket.on('new_message', callback);
   }
 };
 
 export const offNewMessage = (): void => {
-  if (socket) {
-    socket.off('new_message');
+  if (socket && newMessageCallback) {
+    socket.off('new_message', newMessageCallback);
+    newMessageCallback = null;
   }
 };

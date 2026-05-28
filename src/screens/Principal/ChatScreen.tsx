@@ -36,7 +36,7 @@ export default function ChatScreen({ navigation, route }: any) {
   const [estaFinalizado, setEstaFinalizado] = useState(false);
 
   const { data: perfilData } = usePerfil();
-  const { data: mensajesData, isLoading: loadingMensajes } = useMensajes(idViaje);
+  const { data: mensajesData, isLoading: loadingMensajes, isError: errorMensajes } = useMensajes(idViaje);
 
   const myId = perfilData?.user?.id_usuario ?? null;
   const flatListRef = useRef<FlatList>(null);
@@ -67,10 +67,10 @@ export default function ChatScreen({ navigation, route }: any) {
       try {
         await orpc.chat.marcarComoLeidos({ viajeId: idViaje });
         await checarEstadoViaje();
-        unirseAlChat();
       } catch (error: any) {
         console.error("Error al inicializar el chat:", error);
       }
+      unirseAlChat();
     };
 
     if (myId) {
@@ -82,11 +82,11 @@ export default function ChatScreen({ navigation, route }: any) {
     }
 
     const handleNewMessage = (data: any) => {
-      if (data.id_viaje_pub === idViaje) {
+      if (data.id_viaje_pub === idViaje && data.id_emisor !== myId) {
         const nuevoMensaje = {
           id: data.id_mensaje.toString(),
           texto: data.contenido,
-          remitente: data.id_emisor === myId ? "yo" : "otro",
+          remitente: "otro",
           nombre: data.emisor?.nombre || "Usuario",
         };
         setMensajes((prev) => [...prev, nuevoMensaje]);
@@ -116,13 +116,26 @@ export default function ChatScreen({ navigation, route }: any) {
   const enviarMensaje = async () => {
     if (mensajeEscrito.trim() === "" || estaFinalizado) return;
 
+    const texto = mensajeEscrito;
+    setMensajeEscrito("");
+
+    const mensajeTemp = {
+      id: `temp-${Date.now()}`,
+      texto,
+      remitente: "yo",
+      nombre: perfilData?.user?.nombre || "Yo",
+    };
+
+    setMensajes((prev) => [...prev, mensajeTemp]);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
     try {
       await orpc.chat.enviarMensaje({
         id_viaje_pub: idViaje,
-        contenido: mensajeEscrito,
+        contenido: texto,
       });
-      setMensajeEscrito("");
     } catch (error: any) {
+      setMensajes((prev) => prev.filter((m) => m.id !== mensajeTemp.id));
       if (error?.code === "FORBIDDEN") {
         Alert.alert(
           "Acceso Denegado",
@@ -151,6 +164,15 @@ export default function ChatScreen({ navigation, route }: any) {
       </View>
     );
   };
+
+  if (errorMensajes && mensajes.length === 0) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white px-6">
+        <Text className="text-red-500 text-lg font-bold mb-2">Error al cargar mensajes</Text>
+        <Text className="text-gray-500 text-center">No se pudieron cargar los mensajes. Intenta de nuevo.</Text>
+      </View>
+    );
+  }
 
   if (loadingMensajes && mensajes.length === 0) {
     return (

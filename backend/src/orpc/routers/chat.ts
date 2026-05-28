@@ -308,7 +308,7 @@ export const marcarComoLeidos = protectedProcedure
     
     const { io } = require('../../server');
     if (io) {
-      io.emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
+      io.to(`chat_${input.viajeId}`).emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
     }
     
     return { success: true };
