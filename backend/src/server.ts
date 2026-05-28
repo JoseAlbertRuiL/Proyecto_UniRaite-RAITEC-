@@ -255,10 +255,14 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
-serverHttp.listen(PORT, () => {
-  console.log(`Servidor en http://localhost:${PORT}`)
-  console.log(`oRPC    → /rpc/*`)
-  console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
-  console.log(`Health  → GET  /health`)
-  console.log(`WebSocket Server corriendo en el mismo puerto`)
-})
+export { app, serverHttp }
+
+if (process.env.NODE_ENV !== 'test') {
+  serverHttp.listen(PORT, () => {
+    console.log(`Servidor en http://localhost:${PORT}`)
+    console.log(`oRPC    → /rpc/*`)
+    console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
+    console.log(`Health  → GET  /health`)
+    console.log(`WebSocket Server corriendo en el mismo puerto`)
+  })
+}
