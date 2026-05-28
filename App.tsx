@@ -1,10 +1,7 @@
 import "./global.css";
-import React, { useState, useEffect } from "react";
-import { View, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -24,16 +21,6 @@ import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 import FinishTripScreen from "./src/screens/trip/FinishTripScreen";
 import RateTripScreen from "./src/screens/trip/RateTripScreen";
 import HistoryScreen from "./src/screens/Principal/HistoryScreen";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 30,
-      retry: 2,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 type ScreenName =
   | "Login"
@@ -60,28 +47,6 @@ type ScreenName =
 export default function App() {
   const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({});
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const verificarSesion = async () => {
-      try {
-        const tokenGuardado = await AsyncStorage.getItem("token"); 
-        
-        if (tokenGuardado) {
-          setScreen("Home");
-        } else {
-          setScreen("Login");
-        }
-      } catch (error) {
-        console.error("Error al leer el token de sesión:", error);
-        setScreen("Login");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    verificarSesion();
-  }, []);
 
   const navigation = {
     navigate: (name: string, params?: any) => {
@@ -137,17 +102,13 @@ export default function App() {
     }
   };
 
+const queryClient = new QueryClient();
+
   // Un return limpio y seguro
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        {isLoading ? (
-          <View className="flex-1 justify-center items-center bg-white">
-            <ActivityIndicator size="large" color="#1e3a8a" />
-          </View>
-        ) : (
-          renderScreen()
-        )}
+        {renderScreen()}
       </SafeAreaProvider>
     </QueryClientProvider>
   );

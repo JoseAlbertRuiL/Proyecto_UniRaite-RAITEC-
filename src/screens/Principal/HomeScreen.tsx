@@ -167,7 +167,7 @@ const StartScreen = ({ navigation }: any) => {
             try {
               const resultado = await getViajePorId(viajeIdConSolicitud);
               if (resultado.success) viajeConSolicitud = resultado.viaje;
-            } catch {}
+            } catch (e) { console.error("Error al obtener viaje por ID:", e); }
           }
 
           if (viajeConSolicitud) {
@@ -251,6 +251,7 @@ const StartScreen = ({ navigation }: any) => {
           tieneSolicitud: true,
           estado: "pendiente",
           viajeId,
+          solicitudId: result.solicitud?.id_solicitud,
         });
         Alert.alert(
           "Solicitud enviada",
@@ -358,7 +359,8 @@ const StartScreen = ({ navigation }: any) => {
       mapEncuentroRef.current?.animateToRegion(
         { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800
       );
-    } catch {
+    } catch (e) {
+      console.error("Error al obtener ubicación:", e);
       Alert.alert("Error", "No se pudo obtener tu ubicación.");
     }
   };
@@ -384,7 +386,8 @@ const StartScreen = ({ navigation }: any) => {
 
       setMapEncuentroVisible(false);
       Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
-    } catch {
+    } catch (e) {
+      console.error("Error al geocodificar:", e);
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
@@ -493,17 +496,20 @@ const StartScreen = ({ navigation }: any) => {
                 No hay viajes disponibles
               </Text>
             ) : (
-              viajes.map((viaje: any) => (
-                <DriverCard
-                  key={viaje.id_viaje_pub}
-                  viaje={viaje}
-                  onPress={handleSolicitarViaje}
-                  onVerPerfil={handleVerPerfil}
-                  onCancelar={handleCancelarSolicitud}
-                  onCancelarAceptada={handleCancelarAceptada}
-                  estadoSolicitud={null}
-                />
-              ))
+              viajes.map((viaje: any) => {
+                const esEsteViaje = solicitudActiva.tieneSolicitud && solicitudActiva.viajeId === viaje.id_viaje_pub;
+                return (
+                  <DriverCard
+                    key={viaje.id_viaje_pub}
+                    viaje={viaje}
+                    onPress={handleSolicitarViaje}
+                    onVerPerfil={handleVerPerfil}
+                    onCancelar={handleCancelarSolicitud}
+                    onCancelarAceptada={handleCancelarAceptada}
+                    estadoSolicitud={esEsteViaje ? solicitudActiva.estado : null}
+                  />
+                );
+              })
             )}
             {(solicitudActiva.estado === 'aceptada' || solicitudActiva.estado === 'en_curso') && (
               <TouchableOpacity

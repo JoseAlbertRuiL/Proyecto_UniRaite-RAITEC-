@@ -2,40 +2,54 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getSocket } from "../services/socket";
 
+const DEBOUNCE_MS = 2000;
+
 export const useSocketInvalidator = () => {
   const queryClient = useQueryClient();
-  const initialized = useRef(false);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-
     const socket = getSocket();
     if (!socket) return;
 
-    const invalidate = (...keys: string[][]) => {
-      keys.forEach((k) => queryClient.invalidateQueries({ queryKey: k }));
+    const debouncedInvalidate = (...keys: string[][]) => {
+      keys.forEach((k) => {
+        const keyStr = JSON.stringify(k);
+        const existing = timersRef.current.get(keyStr);
+        if (existing) clearTimeout(existing);
+        timersRef.current.set(
+          keyStr,
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: k });
+            timersRef.current.delete(keyStr);
+          }, DEBOUNCE_MS)
+        );
+      });
     };
 
-    socket.on("nueva_solicitud", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("solicitud_actualizada", () =>
-      invalidate(["solicitudes"], ["viajes"])
-    );
-    socket.on("solicitud_cancelada", () =>
-      invalidate(["solicitudes"], ["viajes"])
-    );
-    socket.on("nuevo_viaje", () => invalidate(["viajes"]));
-    socket.on("viaje_cancelado", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("viaje_iniciado", () => invalidate(["viajes"]));
-    socket.on("viaje_finalizado", () =>
-      invalidate(["viajes"], ["solicitudes"])
-    );
-    socket.on("nueva_notificacion", () => invalidate(["notificaciones"]));
-    socket.on("new_message", () => invalidate(["chat"]));
-    socket.on("mensajes_leidos", () => invalidate(["chat"]));
+    const handlers = {
+      nueva_solicitud: () => debouncedInvalidate(["viajes"], ["solicitudes"]),
+      solicitud_actualizada: () => debouncedInvalidate(["solicitudes"], ["viajes"]),
+      solicitud_cancelada: () => debouncedInvalidate(["solicitudes"], ["viajes"]),
+      nuevo_viaje: () => debouncedInvalidate(["viajes"]),
+      viaje_cancelado: () => debouncedInvalidate(["viajes"], ["solicitudes"]),
+      viaje_iniciado: () => debouncedInvalidate(["viajes"]),
+      viaje_finalizado: () => debouncedInvalidate(["viajes"], ["solicitudes"]),
+      nueva_notificacion: () => debouncedInvalidate(["notificaciones"]),
+      new_message: () => debouncedInvalidate(["chat"]),
+      mensajes_leidos: () => debouncedInvalidate(["chat"]),
+    };
+
+    Object.entries(handlers).forEach(([event, handler]) => {
+      socket.on(event, handler);
+    });
+
+    return () => {
+      Object.entries(handlers).forEach(([event, handler]) => {
+        socket.off(event, handler);
+      });
+      timersRef.current.forEach((timer) => clearTimeout(timer));
+      timersRef.current.clear();
+    };
   }, [queryClient]);
 };
