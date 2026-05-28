@@ -19,8 +19,9 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const viajeParam = route?.params?.viaje;
   const viajeIdParam = route?.params?.viajeId;
 
-  const { data, isLoading } = useViajePorId(viajeIdParam || viajeParam?.id_viaje_pub);
+  const { data, isLoading: isQueryLoading } = useViajePorId(viajeIdParam || viajeParam?.id_viaje_pub);
   const viaje = viajeParam || data?.viaje;
+  const isLoading = !viaje && isQueryLoading;
 
   const [finalizando, setFinalizando] = useState(false);
 

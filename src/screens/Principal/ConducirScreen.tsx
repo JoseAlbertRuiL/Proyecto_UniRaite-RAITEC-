@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -39,15 +39,13 @@ const ConducirScreen = ({ navigation }: any) => {
   const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
 
-  const queryClient = useQueryClient();
-
   const {
     data: viajesActivos = [],
     isLoading: cargandoViajes,
     isRefetching: refrescandoViajes,
     refetch: refetchViajes,
   } = useQuery({
-    queryKey: ["viajesActivosConductor"],
+    queryKey: ["viajes", "activos", "conductor"],
     queryFn: async () => {
       const data = await orpc.viajes.activos();
       return data.success ? (data.viajes || []) : [];
@@ -61,7 +59,7 @@ const ConducirScreen = ({ navigation }: any) => {
     isRefetching: refrescandoSolicitudes,
     refetch: refetchSolicitudes,
   } = useQuery({
-    queryKey: ["solicitudesRecibidas"],
+    queryKey: ["solicitudes", "recibidas", "conductor"],
     queryFn: async () => {
       const data = await orpc.solicitudes.recibidas();
       return data.success ? (data.solicitudes || []) : [];
