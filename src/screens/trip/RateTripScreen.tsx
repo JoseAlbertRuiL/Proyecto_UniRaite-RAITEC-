@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { useViajePorId } from "../../hooks/queries/useViajes";
@@ -19,6 +20,8 @@ export default function RateTripScreen({ navigation, route }: any) {
   useBackHandler(navigation, "normal");
   const [rating, setRating] = useState(4);
   const [comment, setComment] = useState("");
+
+  const queryClient = useQueryClient();
 
   const viajeId = route?.params?.viajeId;
   const { data: viajeData, isLoading: loadingViaje } = useViajePorId(viajeId);
@@ -69,13 +72,16 @@ export default function RateTripScreen({ navigation, route }: any) {
       {
         onSuccess: (response: any) => {
           if (response.success) {
+            queryClient.invalidateQueries({ queryKey: ["notificaciones"] });
+            queryClient.invalidateQueries({ queryKey: ["calificacionPendiente"] });
+
             Alert.alert(
               "¡Gracias!",
               `Tu calificación de ${rating} ⭐ ha sido guardada exitosamente.`,
               [
                 {
                   text: "OK",
-                  onPress: () => navigation.navigate("Home"),
+                  onPress: () => navigation.goBack(),
                 },
               ]
             );
@@ -95,7 +101,7 @@ export default function RateTripScreen({ navigation, route }: any) {
         <View className="flex-row items-center justify-center p-4 relative">
           <TouchableOpacity
             className="absolute left-4 p-2"
-            onPress={() => navigation?.navigate("Home")}
+            onPress={() => navigation?.goBack()}
           >
             <Text className="text-slate-600 text-lg font-bold">✕</Text>
           </TouchableOpacity>

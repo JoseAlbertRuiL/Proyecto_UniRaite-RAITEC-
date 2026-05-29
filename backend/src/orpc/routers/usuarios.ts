@@ -250,13 +250,102 @@ export const actualizarPerfil = protectedProcedure
 
 // PUT /api/usuarios/actualizar-carrera
 export const actualizarCarrera = protectedProcedure
-  .input(z.object({ carrera: z.string().min(1) }))
+  .input(z.object({ 
+    carrera: z.string().min(1),
+    foto_credencial: z.string().min(1, { message: 'Se requiere una nueva foto de credencial para validar el cambio' })
+  }))
   .handler(async ({ input, context }) => {
-    await prisma.usuarios.update({
-      where: { id_usuario: context.user.id },
-      data: { carrera: input.carrera },
-    })
-    return { success: true, message: 'Carrera actualizada' }
+    
+    // Obtener datos actuales del usuario para comparar
+    const usuarioActual = await prisma.usuarios.findUnique({
+      where: { id_usuario: context.user.id }
+    });
+
+    if (!usuarioActual) {
+      throw new ORPCError('NOT_FOUND', { message: 'Usuario no encontrado en el sistema.' });
+    }
+
+    const rutaCredencial = path.join(process.cwd(), 'uploads', 'credentials', input.foto_credencial);
+
+    if (!fs.existsSync(rutaCredencial)) {
+      throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de la nueva credencial en el servidor' });
+    }
+
+    console.log('Validando nueva credencial con IA para cambio de carrera...');
+    const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
+
+    // Validar institución
+    if (!txtCredencial.includes('TECNOLOGICONACIONALDEMEXICO') && !txtCredencial.includes('INSTITUTOTECNOLOGICODEMORELIA')) {
+      fs.unlinkSync(rutaCredencial);
+      throw new ORPCError('BAD_REQUEST', { message: 'El documento no parece ser una credencial oficial del ITM.' });
+    }
+
+    // Validar nombre del usuario autenticado
+    const nombreNorm = normalizarTexto(usuarioActual.nombre);
+    const paternoNorm = normalizarTexto(usuarioActual.apellido_paterno);
+    const maternoNorm = usuarioActual.apellido_materno ? normalizarTexto(usuarioActual.apellido_materno) : '';
+
+    if (!txtCredencial.includes(nombreNorm) || !txtCredencial.includes(paternoNorm) || (maternoNorm && !txtCredencial.includes(maternoNorm))) {
+      fs.unlinkSync(rutaCredencial);
+      throw new ORPCError('BAD_REQUEST', { message: 'El nombre en la credencial no coincide con el tuyo.' });
+    }
+
+    // Validar número de control
+    const numControlNorm = normalizarTexto(usuarioActual.num_control);
+    if (!txtCredencial.includes(numControlNorm)) {
+      fs.unlinkSync(rutaCredencial);
+      throw new ORPCError('BAD_REQUEST', { message: 'El número de control en la credencial no coincide con el de tu cuenta.' });
+    }
+
+    // Validar nueva carrera seleccionada
+    const palabrasIgnoradas = ['EN', 'DE', 'LA', 'EL', 'Y', 'INGENIERIA', 'LICENCIATURA', 'MAESTRIA', 'DOCTORADO', 'ING', 'LIC', 'CIENCIAS'];
+    const palabrasClave = input.carrera
+      .split(' ')
+      .map(palabra => normalizarTexto(palabra))
+      .filter(palabra => palabra.length > 2 && !palabrasIgnoradas.includes(palabra));
+    const carreraValida = palabrasClave.every(palabra => txtCredencial.includes(palabra));
+
+    if (!carreraValida) {
+      fs.unlinkSync(rutaCredencial);
+      throw new ORPCError('BAD_REQUEST', { message: 'La nueva carrera seleccionada no coincide con el documento presentado.' });
+    }
+
+    let urlSeguraNube: string;
+    try {
+      console.log('Subiendo nueva credencial a Cloudinary...');
+      urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
+      fs.unlinkSync(rutaCredencial);
+    } catch (error) {
+      if (fs.existsSync(rutaCredencial)) fs.unlinkSync(rutaCredencial);
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Error al subir la imagen a la nube' });
+    }
+
+    // Ejecutar actualización en la base de datos con registro de auditoría
+    try {
+      await prisma.$transaction([
+        prisma.historial_cambios_perfil.create({
+          data: {
+            id_usuario: context.user.id,
+            campo_modificado: 'carrera',
+            valor_anterior: usuarioActual.carrera || 'N/A',
+            valor_nuevo: input.carrera,
+            foto_evidencia: urlSeguraNube,
+          },
+        }),
+        prisma.usuarios.update({
+          where: { id_usuario: context.user.id },
+          data: { 
+            carrera: input.carrera,
+            foto_credencial: urlSeguraNube // Guardamos la credencial más reciente
+          },
+        })
+      ]);
+    } catch (error) {
+      console.error('Error en la transacción de actualización de carrera:', error);
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de carrera de manera segura.' });
+    }
+
+    return { success: true, message: 'Carrera actualizada y validada exitosamente' }
   })
 
 // PUT /api/usuarios/actualizar-contacto-emergencia

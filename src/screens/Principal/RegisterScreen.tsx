@@ -72,7 +72,7 @@ const RegisterScreen = ({ navigation }: any) => {
       }
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
-        aspect: [1, 1],
+        ...(tipo === "perfil" ? { aspect: [1, 1] as [number, number] } : {}),
         quality: 0.6,
       });
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -95,7 +95,7 @@ const RegisterScreen = ({ navigation }: any) => {
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
-        aspect: [1, 1],
+        ...(tipo === "perfil" ? { aspect: [1, 1] as [number, number] } : {}),
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets[0]) {

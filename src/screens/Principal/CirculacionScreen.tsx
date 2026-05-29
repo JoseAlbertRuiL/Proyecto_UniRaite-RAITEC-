@@ -54,7 +54,6 @@ const CirculacionScreen = ({ navigation, route }: any) => {
     }
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [16, 9],
       quality: 0.6,
     });
     if (!result.canceled) setFotoCirculacion(result.assets[0].uri);

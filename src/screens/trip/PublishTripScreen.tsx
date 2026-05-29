@@ -120,11 +120,13 @@ const PublishTripScreen = ({ navigation }: any) => {
     if (serverTimeData) {
       const serverDate = new Date(serverTimeData.serverTime);
       serverTimeRef.current = serverDate;
-      setDate(serverDate);
+
+      const defaultDate = new Date(serverDate.getTime() + 15 * 60 * 1000);
+      setDate(defaultDate);
       setForm((prev) => ({
         ...prev,
-        fecha: formatFecha(serverDate),
-        hora: formatHora(serverDate),
+        fecha: formatFecha(defaultDate),
+        hora: formatHora(defaultDate),
       }));
       setServerTimeLoaded(true);
     }

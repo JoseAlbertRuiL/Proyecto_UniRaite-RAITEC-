@@ -68,20 +68,31 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   // NUEVO ESTADO: Controla el modal de opciones de foto
   const [modalOpcionesCredencialVisible, setModalOpcionesCredencialVisible] = useState(false);
 
-  // Lista de carreras
+  // Lista de carreras completa
   const carreras = [
-    "Bioquímica",
-    "Biomédica",
-    "Eléctrica",
-    "Electrónica",
-    "Industrial",
-    "Mecánica",
-    "Mecatrónica",
-    "Materiales",
-    "Gestión Empresarial",
-    "Sistemas Computacionales",
-    "Tecnologías de la Información y Comunicaciones",
-    "Informática",
+    { label: "Ing. Biomédica", value: "Ingeniería Biomédica" },
+    { label: "Ing. Bioquímica", value: "Ingeniería Bioquímica" },
+    { label: "Ing. Ciberseguridad", value: "Ingeniería en Ciberseguridad" },
+    { label: "Ing. Eléctrica", value: "Ingeniería Eléctrica" },
+    { label: "Ing. Electrónica", value: "Ingeniería Electrónica" },
+    { label: "Ing. Gestión Empresarial", value: "Ingeniería en Gestión Empresarial" },
+    { label: "Ing. Industrial", value: "Ingeniería Industrial" },
+    { label: "Ing. Materiales", value: "Ingeniería en Materiales" },
+    { label: "Ing. Mecánica", value: "Ingeniería Mecánica" },
+    { label: "Ing. Mecatrónica", value: "Ingeniería Mecatrónica" },
+    { label: "Ing. Semiconductores", value: "Ingeniería en Semiconductores" },
+    { label: "Ing. Sistemas Computacionales", value: "Ingeniería en Sistemas Computacionales" },
+    { label: "Ing. Tecnologías de la Inf. y Com.", value: "Ingeniería en Tecnologías de la Información y Comunicaciones" },
+    { label: "Administración", value: "Licenciatura en Administración" },
+    { label: "Contador Público", value: "Contador Público" },
+    { label: "Mtría. Ciencias: Eléctrica", value: "Maestría en Ciencias en Ingeniería Eléctrica" },
+    { label: "Mtría. Ciencias: Electrónica", value: "Maestría en Ciencias en Ingeniería Electrónica" },
+    { label: "Mtría. Ciencias: Metalurgia", value: "Maestría en Ciencias en Metalurgia" },
+    { label: "Mtría. Economía Social", value: "Maestría en Economía Social y Solidaria" },
+    { label: "Mtría. Ingeniería Administrativa", value: "Maestría en Ingeniería Administrativa" },
+    { label: "Mtría. Sistemas Computacionales", value: "Maestría en Sistemas Computacionales" },
+    { label: "Doc. Ciencias de la Ingeniería", value: "Doctorado en Ciencias de la Ingeniería" },
+    { label: "Doc. Ciencias: Eléctrica", value: "Doctorado en Ciencias en Ingeniería Eléctrica" }
   ];
 
   useBackHandler(navigation, "normal");
@@ -159,6 +170,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       {
         text: "Cerrar sesión",
         onPress: async () => {
+          await desactivarModoConductor();
+
           await logout();
           await disconnectSocket();
 
@@ -316,15 +329,30 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       return;
     }
 
+    if (!nuevaFotoCredencial) {
+      Alert.alert("Error", "Debes subir una foto actualizada de tu credencial escolar para validar la carrera.");
+      return;
+    }
+
     try {
-      const result = await orpc.usuarios.actualizarCarrera({ carrera });
+      setUploadingCredencial(true);
+      const filenameCredencial = await subirCredencialAlServidor(nuevaFotoCredencial);
+
+      const result = await orpc.usuarios.actualizarCarrera({ 
+        carrera,
+        foto_credencial: filenameCredencial
+      });
+
       if (result.success) {
-        Alert.alert("Éxito", "Carrera actualizada correctamente");
+        Alert.alert("Éxito", "Carrera actualizada y validada correctamente");
         setModalCarreraVisible(false);
+        setNuevaFotoCredencial(null);
         obtenerPerfil();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo actualizar la carrera");
+      Alert.alert("Error", error.message || "No se pudo actualizar o validar tu identidad");
+    } finally {
+      setUploadingCredencial(false);
     }
   };
 
@@ -606,7 +634,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {esConductorActivo && (
+          {(esConductorActivo && user?.es_conductor) && (
             <TouchableOpacity
               className="flex-row items-center justify-between py-4 border-b border-gray-100"
               onPress={() => setModalVisibleVehiculo(true)}
@@ -775,42 +803,66 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
       {/* Modal cambiar carrera con Picker */}
       <Modal visible={modalCarreraVisible} transparent animationType="slide">
-        <View className="flex-1 justify-center bg-black/50 px-6">
-          <View className="bg-white p-5 rounded-2xl">
-            <Text className="text-lg font-semibold mb-4 text-center">
-              Cambiar carrera
-            </Text>
-            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={carrera}
-                onValueChange={(itemValue) => setCarrera(itemValue)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center bg-black/50 px-6">
+            <View className="bg-white p-5 rounded-2xl">
+              <Text className="text-lg font-semibold mb-4 text-center">
+                Cambiar carrera
+              </Text>
+              
+              <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden mb-4">
+                <Picker
+                  selectedValue={carrera}
+                  onValueChange={(itemValue) => setCarrera(itemValue)}
+                >
+                  <Picker.Item label="Selecciona tu carrera" value="" />
+                  {carreras.map((carr) => (
+                    <Picker.Item key={carr.value} label={carr.label} value={carr.value} />
+                  ))}
+                </Picker>
+              </View>
+
+              {/* Botón para la credencial */}
+              <TouchableOpacity 
+                onPress={() => setModalOpcionesCredencialVisible(true)} 
+                className="bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 mb-4 items-center"
               >
-                <Picker.Item label="Selecciona tu carrera" value="" />
-                {carreras.map((carr) => (
-                  <Picker.Item key={carr} label={carr} value={carr} />
-                ))}
-              </Picker>
-            </View>
-            <View className="flex-row justify-between mt-4">
-              <TouchableOpacity
-                onPress={() => setModalCarreraVisible(false)}
-                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Cancelar
-                </Text>
+                {nuevaFotoCredencial ? (
+                  <Text className="text-green-600 font-semibold">✓ Credencial lista</Text>
+                ) : (
+                  <Text className="text-gray-600">📷 Subir nueva credencial escolar *</Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={cambiarCarrera}
-                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Guardar
-                </Text>
-              </TouchableOpacity>
+
+              <View className="flex-row justify-between">
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalCarreraVisible(false);
+                    setNuevaFotoCredencial(null);
+                  }}
+                  className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+                  disabled={uploadingCredencial}
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cambiarCarrera}
+                  className={`flex-1 py-3 rounded-xl ml-2 ${uploadingCredencial ? "bg-gray-400" : "bg-blue-900"}`}
+                  disabled={uploadingCredencial}
+                >
+                  <Text className="text-white font-semibold text-center">
+                    {uploadingCredencial ? "Validando..." : "Guardar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Modal opciones foto de credencial */}
