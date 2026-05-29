@@ -2,8 +2,7 @@
  * ScreenWrapper
  *
  * Envoltorio estándar para todas las pantallas de la app.
- * Gestiona automáticamente el inset de SafeArea inferior.
- * NOTA: El inset superior (top) lo manejan los Headers individualmente.
+ * Gestiona automáticamente el inset de SafeArea inferior y superior.
  */
 import React from "react";
 import { View, StyleSheet, StatusBar } from "react-native";
@@ -12,8 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 interface ScreenWrapperProps {
   children: React.ReactNode;
   hasFooter?: boolean;
+  hasHeader?: boolean;
   backgroundColor?: string;
-  // Agregamos opciones para controlar la barra de estado globalmente
   statusBarColor?: string;
   barStyle?: "default" | "light-content" | "dark-content";
 }
@@ -21,9 +20,10 @@ interface ScreenWrapperProps {
 export default function ScreenWrapper({
   children,
   hasFooter = false,
+  hasHeader = true,
   backgroundColor = "white",
-  statusBarColor = "#1e3a8a", // Azul por defecto
-  barStyle = "light-content", // Íconos blancos por defecto
+  statusBarColor = "#1e3a8a", 
+  barStyle = "light-content", 
 }: ScreenWrapperProps) {
   const insets = useSafeAreaInsets();
 
@@ -34,10 +34,10 @@ export default function ScreenWrapper({
         {
           backgroundColor,
           paddingBottom: hasFooter ? 0 : insets.bottom,
+          paddingTop: hasHeader ? 0 : insets.top, 
         },
       ]}
     >
-      {/* 🚀 Centralizamos el StatusBar aquí para no repetirlo en cada pantalla */}
       <StatusBar barStyle={barStyle} backgroundColor={statusBarColor} />
       {children}
     </View>

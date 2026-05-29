@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import UserIcon from "../../icons/userIcon";
 import NotificationIcon from "../../icons/notificationIcon";
-import { orpc } from "../../services/api/apiClient";
-import { getSocket } from "../../services/socket";
+import { useNotificaciones } from "../../hooks/queries/useNotificaciones";
 
 interface HeaderProps {
   navigation: any;
@@ -14,50 +12,20 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
   const insets = useSafeAreaInsets();
-  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState(0);
+  const { data } = useNotificaciones();
 
-  const cargarNotificacionesNoLeidas = async () => {
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) return;
-
-      const data = await orpc.notificaciones.obtenerTodas();
-      if (data.success && data.notificaciones) {
-        const noLeidas = data.notificaciones.filter(
-          (n: any) => !n.leido,
-        ).length;
-        setNotificacionesNoLeidas(noLeidas);
-      }
-    } catch (error) {
-      console.error("Error al cargar notificaciones:", error);
-    }
-  };
-
-  useEffect(() => {
-    cargarNotificacionesNoLeidas();
-
-    const socket = getSocket();
-    if (socket) {
-      const onNuevaNotificacion = (data: any) => {
-        cargarNotificacionesNoLeidas();
-      };
-
-      socket.on("nueva_notificacion", onNuevaNotificacion);
-
-      return () => {
-        socket.off("nueva_notificacion", onNuevaNotificacion);
-      };
-    }
-  }, []);
+  const notificaciones = data?.notificaciones ?? [];
+  const notificacionesNoLeidas = notificaciones.filter(
+    (n: any) => !n.leido,
+  ).length;
 
   return (
     <View
       className="flex-row justify-between items-center px-4 bg-blue-900"
-      style={{ paddingTop: insets.top + 12, paddingBottom: 12 }} 
+      style={{ paddingTop: insets.top + 12, paddingBottom: 12 }}
     >
-      {/* Logo izquierda */}
       <TouchableOpacity
-        className="w-8 h-8 rounded-full items-center justify-center" 
+        className="w-8 h-8 rounded-full items-center justify-center"
         onPress={() => navigation.navigate("Start")}
       >
         <Image
@@ -67,15 +35,11 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
         />
       </TouchableOpacity>
 
-      {/* Título centrado */}
       <Text className="text-white text-sm font-bold">{title}</Text>
 
-      {/* Contenedor derecho */}
       <View className="flex-row gap-2">
-        
-        {/* Botón notificaciones con contador */}
         <TouchableOpacity
-          className="w-8 h-8 bg-white rounded-full items-center justify-center relative" 
+          className="w-8 h-8 bg-white rounded-full items-center justify-center relative"
           onPress={() => navigation.navigate("Notificaciones")}
         >
           <NotificationIcon />
@@ -88,14 +52,12 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
           )}
         </TouchableOpacity>
 
-        {/* Botón usuario/perfil */}
         <TouchableOpacity
-          className="w-8 h-8 bg-white rounded-full items-center justify-center" 
+          className="w-8 h-8 bg-white rounded-full items-center justify-center"
           onPress={() => navigation.navigate("ConfigP")}
         >
           <UserIcon />
         </TouchableOpacity>
-        
       </View>
     </View>
   );

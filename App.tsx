@@ -1,6 +1,11 @@
 import "./global.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { View, ActivityIndicator } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+import { ConductorModeProvider } from './src/context/ConductorModeContext';
+import { useSesion } from "./src/hooks/useSesion";
 import LoginScreen from "./src/screens/Principal/LoginScreen";
 import RegisterScreen from "./src/screens/Principal/RegisterScreen";
 import HomeScreen from "./src/screens/Principal/HomeScreen";
@@ -20,6 +25,16 @@ import NotificacionesScreen from "./src/screens/Principal/NotificacionesScreen";
 import FinishTripScreen from "./src/screens/trip/FinishTripScreen";
 import RateTripScreen from "./src/screens/trip/RateTripScreen";
 import HistoryScreen from "./src/screens/Principal/HistoryScreen";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 30,
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 type ScreenName =
   | "Login"
@@ -44,32 +59,25 @@ type ScreenName =
   | "History";
 
 export default function App() {
+  const { isCargando, pantallaInicial } = useSesion();
   const [screen, setScreen] = useState<ScreenName>("Login");
   const [route, setRoute] = useState<any>({});
+  
+  useEffect(() => {
+    if (!isCargando) {
+      setScreen(pantallaInicial);
+    }
+  }, [isCargando, pantallaInicial]);
 
   const navigation = {
     navigate: (name: string, params?: any) => {
       if (params) setRoute({ params });
-      if (name === "Register") setScreen("Register");
-      if (name === "Login") setScreen("Login");
-      if (name === "Home") setScreen("Home");
-      if (name === "Forget") setScreen("Forget");
-      if (name === "Code") setScreen("Code");
-      if (name === "ConfigP") setScreen("ConfigP");
-      if (name === "ChangePassword") setScreen("ChangePassword");
-      if (name === "Map") setScreen("Map");
-      if (name === "Chat") setScreen("Chat");
-      if (name === "Licencia") setScreen("Licencia");
-      if (name === "Circulacion") setScreen("Circulacion");
-      if (name === "PublicarViaje") setScreen("PublicarViaje");
-      if (name === "ChatHistory") setScreen("ChatHistory");
-      if (name === "PerfilPublico") setScreen("PerfilPublico");
-      if (name === "Conducir") setScreen("Conducir");
-      if (name === "Notificaciones") setScreen("Notificaciones");
-      if (name === "FinishTrip") setScreen("FinishTrip");
-      if (name === "RateTrip") setScreen("RateTrip");
-      if (name === "History") setScreen("History");
-      if (name === "Start") setScreen("Home");
+      
+      if (name === "Start") {
+        setScreen("Home");
+      } else {
+        setScreen(name as ScreenName);
+      }
     },
     goBack: () => setScreen("Home"),
   } as any;
@@ -103,8 +111,18 @@ export default function App() {
 
   // Un return limpio y seguro
   return (
-    <SafeAreaProvider>
-      {renderScreen()}
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <ConductorModeProvider>
+          {isCargando ? (
+            <View className="flex-1 justify-center items-center bg-white">
+              <ActivityIndicator size="large" color="#1e3a8a" />
+            </View>
+          ) : (
+            renderScreen()
+          )}
+        </ConductorModeProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

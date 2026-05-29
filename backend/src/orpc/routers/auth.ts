@@ -8,6 +8,7 @@ import fs from 'fs'
 import { baseProcedure } from '../middleware'
 import { prisma } from '../context'
 import cloudinary from '../../services/cloudinaryService'
+import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService'
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -228,9 +229,53 @@ export const register = baseProcedure
       const rutaCredencial = path.join(process.cwd(), 'uploads', 'credentials', input.foto_credencial);
       
       if (fs.existsSync(rutaCredencial)) {
-        console.log('Subiendo credencial a Cloudinary...');
-        urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
-        fs.unlinkSync(rutaCredencial); // Borramos el archivo local
+        console.log('Validando credencial con IA...');
+        try {
+          const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
+
+          // Validar la estructura básica de la credencial (ITM)
+          if (!txtCredencial.includes('TECNOLOGICONACIONALDEMEXICO') && !txtCredencial.includes('INSTITUTOTECNOLOGICODEMORELIA')) {
+            throw new ORPCError('BAD_REQUEST', { message: 'El documento no parece ser una credencial oficial del ITM.' });
+          }
+
+          // Validar que el nombre coincida con la credencial
+          const nombreNorm = normalizarTexto(input.nombre);
+          const paternoNorm = normalizarTexto(input.apellido_paterno);
+          const maternoNorm = input.apellido_materno ? normalizarTexto(input.apellido_materno) : '';
+
+          if (!txtCredencial.includes(nombreNorm) || !txtCredencial.includes(paternoNorm) || (maternoNorm && !txtCredencial.includes(maternoNorm))) {
+            throw new ORPCError('BAD_REQUEST', { message: 'El nombre en la credencial no coincide con los datos ingresados.' });
+          }
+
+          // Validar que el número de control se encuentre explícitamente en la credencial
+          const numControlNorm = normalizarTexto(input.num_control);
+          if (!txtCredencial.includes(numControlNorm)) {
+            throw new ORPCError('BAD_REQUEST', { message: 'El número de control no coincide con el registrado en la credencial.' });
+          }
+
+          // Validar que la carrera seleccionada coincida con la credencial
+          if (input.carrera) {
+            const palabrasIgnoradas = ['EN', 'DE', 'LA', 'EL', 'Y', 'INGENIERIA', 'LICENCIATURA', 'MAESTRIA', 'DOCTORADO', 'ING', 'LIC', 'CIENCIAS'];
+            const palabrasClave = input.carrera
+              .split(' ')
+              .map(palabra => normalizarTexto(palabra))
+              .filter(palabra => palabra.length > 2 && !palabrasIgnoradas.includes(palabra));
+            const carreraValida = palabrasClave.every(palabra => txtCredencial.includes(palabra));
+
+            if (!carreraValida) {
+              throw new ORPCError('BAD_REQUEST', { message: 'La carrera seleccionada no coincide con el documento presentado.' });
+            }
+          }
+
+          console.log('Validación completa y exitosa. Subiendo credencial a Cloudinary...');
+          urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
+          fs.unlinkSync(rutaCredencial);
+
+        } catch (error: any) {
+          // Si falla la validación, borramos el archivo local
+          if (fs.existsSync(rutaCredencial)) fs.unlinkSync(rutaCredencial);
+          throw new ORPCError('BAD_REQUEST', { message: error.message || 'Error al validar la credencial con IA' });
+        }
       }
     }
 

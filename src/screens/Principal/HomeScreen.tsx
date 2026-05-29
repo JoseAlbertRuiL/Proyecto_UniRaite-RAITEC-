@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   Alert,
   ActivityIndicator,
   RefreshControl,
@@ -18,9 +18,8 @@ import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
 import LiveMapModal from "../../components/LiveMapModal";
-import { getPerfil, getUsuarioById } from "../../services/auth/authService";
-import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from "react-native-maps";
+import { getUsuarioById } from "../../services/auth/authService";
+import MapView, { Marker, MapPressEvent } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { filtrarViajesCercanos } from "../../services/map/mapService";
@@ -32,197 +31,153 @@ import {
   getViajePorId,
   cancelarSolicitud,
 } from "../../services/trip/tripService";
-import { BASE_URL } from "../../services/api/apiClient";
+import { usePerfil } from "../../hooks/queries/usePerfil";
+import { useViajesDisponibles } from "../../hooks/queries/useViajes";
+import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import { getSocket } from "../../services/socket";
 
 const StartScreen = ({ navigation }: any) => {
   const [viajes, setViajes] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [perfilSeleccionado, setPerfilSeleccionado] = useState<any>(null);
   const [cargandoPerfil, setCargandoPerfil] = useState(false);
   const [esConductorActivo, setEsConductorActivo] = useState(false);
-  const [puntoEncuentro,    setPuntoEncuentro]    = useState<{ latitude: number; longitude: number; texto: string } | null>(null);
+  const [puntoEncuentro, setPuntoEncuentro] = useState<{ latitude: number; longitude: number; texto: string } | null>(null);
   const [mapEncuentroVisible, setMapEncuentroVisible] = useState(false);
-  const [markerTemp,          setMarkerTemp]          = useState<{ latitude: number; longitude: number } | null>(null);
-  const [geocodingLoad,       setGeocodingLoad]       = useState(false);
+  const [markerTemp, setMarkerTemp] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [geocodingLoad, setGeocodingLoad] = useState(false);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
   const mapEncuentroRef = useRef<MapView>(null);
-  const [estadosSolicitudes, setEstadosSolicitudes] = useState<{
-    [key: number]: string;
-  }>({});
   const [solicitudActiva, setSolicitudActiva] = useState<{
     tieneSolicitud: boolean;
     estado: string | null;
     viajeId?: number;
     solicitudId?: number;
   }>({ tieneSolicitud: false, estado: null });
-
   const [coordsRecogidaBD, setCoordsRecogidaBD] = useState<{
     latitude: number; longitude: number;
   } | null>(null);
+  const [modalCancelarVisible, setModalCancelarVisible] = useState(false);
+  const [modalMotivoVisible, setModalMotivoVisible] = useState(false);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [viajeACancelar, setViajeACancelar] = useState<number | null>(null);
 
   useBackHandler(navigation, "main");
+  useSocketInvalidator();
 
-  const verificarSolicitudActiva = async () => {
-    try {
-      const result = await obtenerSolicitudesActivas();
-      if (
-        result.success &&
-        result.solicitudes.length > 0
-      ) {
-        const solicitud = result.solicitudes[0];
-
-        if (solicitud.estado_solicitud === 'rechazada') {
-          setSolicitudActiva({ tieneSolicitud: false, estado: null });
-          setCoordsRecogidaBD(null);
-          return;
-        }
-
-        const viajesActivos = solicitud.viaje?.viajes_activos;
-        const tieneViajeActivo = Array.isArray(viajesActivos) && viajesActivos.length > 0;
-
-        setSolicitudActiva({
-          tieneSolicitud: true,
-          estado: tieneViajeActivo ? 'en_curso' : solicitud.estado_solicitud,
-          viajeId: solicitud.id_viaje_pub,
-          solicitudId: solicitud.id_solicitud,
-        });
-
-        if (solicitud.latitud_recogida && solicitud.longitud_recogida) {
-          setCoordsRecogidaBD(
-            {
-              latitude: solicitud.latitud_recogida,
-              longitude: solicitud.longitud_recogida,
-            }
-          );
-        }
-      } else {
-        setSolicitudActiva({ tieneSolicitud: false, estado: null });
-        setCoordsRecogidaBD(null);
-      }
-    } catch (error) {
-      console.log("Error al verificar solicitud activa:", error);
-    }
-  };
+  const { data: perfilData, isLoading: cargandoPerfilData } = usePerfil();
+  const { data: viajesData, isLoading: cargandoViajes, refetch: refetchViajes } = useViajesDisponibles();
 
   const verificarModoCondutor = async (perfil: any) => {
     const modoGuardado = await AsyncStorage.getItem("modo_conductor_activo");
     const activo = perfil?.es_conductor === true && modoGuardado === "true";
     setEsConductorActivo(activo);
 
-    // Si era conductor activo, limpiar punto de encuentro guardado
     if (activo) {
       await AsyncStorage.removeItem("punto_encuentro");
       setPuntoEncuentro(null);
     } else {
-      // Cargar punto de encuentro guardado si existe
       const guardado = await AsyncStorage.getItem("punto_encuentro");
       if (guardado) setPuntoEncuentro(JSON.parse(guardado));
     }
   };
 
-  const cargarEstadosSolicitudes = async (viajesLista: any[]) => {
-    const nuevosEstados: { [key: number]: string } = {};
-    for (const viaje of viajesLista) {
-      try {
-        const estado = await obtenerEstadoSolicitud(viaje.id_viaje_pub);
-        if (estado) {
-          nuevosEstados[viaje.id_viaje_pub] = estado;
-        }
-      } catch (error) {
-        // No hay solicitud para este viaje
-      }
-    }
-    setEstadosSolicitudes(nuevosEstados);
-  };
+  // Procesar viajes cada vez que cambien los datos
+  useEffect(() => {
+    const procesarViajes = async () => {
+      if (!viajesData?.success || !perfilData?.user) return;
 
-  const cargarViajes = async () => {
-    try {
-      const perfilData = await getPerfil();
-      if (!perfilData || !perfilData.user) {
-        navigation.navigate("Login");
-        return;
-      }
+      const perfil = perfilData.user;
+      await verificarModoCondutor(perfil);
 
-      await verificarModoCondutor(perfilData.user);
+      const usuarioActualId = perfil.id_usuario;
+      let viajesFiltrados = viajesData.viajes.filter(
+        (viaje: any) =>
+          viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
+      );
 
-      const usuarioActualId = perfilData.user?.id_usuario;
-      const viajesData = await listarViajes();
+      if (!esConductorActivo) {
+        const solicitudActivaData = await obtenerSolicitudesActivas();
+        const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
+        const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
+        const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
 
-      if (viajesData && viajesData.success) {
-        let viajesFiltrados = viajesData.viajes.filter(
-          (viaje: any) =>
-            viaje.conductor?.usuario?.id_usuario !== usuarioActualId,
-        );
-
-        if (!esConductorActivo) {
-          const solicitudActivaData = await obtenerSolicitudesActivas();
-          const solicitudReciente = solicitudActivaData?.solicitudes?.[0] ?? null;
-          const viajeIdConSolicitud = solicitudReciente?.id_viaje_pub ?? null;
-          const estadoSolicitudReciente = solicitudReciente?.estado_solicitud ?? null;
-
-          const tieneActivaPendienteOAceptada =
-            estadoSolicitudReciente === 'pendiente' || estadoSolicitudReciente === 'aceptada';
-
-          let viajesConSolicitudActiva: any[] = [];
-
-          if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
-            let viajeConSolicitud = viajesFiltrados.find(
-              (v: any) => v.id_viaje_pub === viajeIdConSolicitud
-            );
-
-            if (!viajeConSolicitud) {
-              try {
-                const resultado = await getViajePorId(viajeIdConSolicitud);
-                if (resultado.success) viajeConSolicitud = resultado.viaje;
-              } catch {
-              }
+        if (solicitudReciente && estadoSolicitudReciente !== 'rechazada') {
+          const viajeActivo = solicitudReciente.viaje?.viajes_activos?.[0] ?? null;
+          if (viajeActivo?.estado_trayecto !== 'cancelado') {
+            setSolicitudActiva({
+              tieneSolicitud: true,
+              estado: viajeActivo ? 'en_curso' : estadoSolicitudReciente,
+              viajeId: solicitudReciente.id_viaje_pub,
+              solicitudId: solicitudReciente.id_solicitud,
+            });
+            if (solicitudReciente.latitud_recogida && solicitudReciente.longitud_recogida) {
+              setCoordsRecogidaBD({
+                latitude: solicitudReciente.latitud_recogida,
+                longitude: solicitudReciente.longitud_recogida,
+              });
             }
-
-            if (viajeConSolicitud) {
-              viajesConSolicitudActiva = [viajeConSolicitud];
-            }
-          }
-
-          const viajesSinSolicitud = tieneActivaPendienteOAceptada && viajeIdConSolicitud
-            ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
-            : viajesFiltrados;
-          
-          const guardado = await AsyncStorage.getItem("punto_encuentro");
-          let viajesCercanos: any[] = [];
-
-          if (guardado && estadoSolicitudReciente !== 'aceptada') {
-            const punto = JSON.parse(guardado);
-
-            viajesCercanos = filtrarViajesCercanos(
-              viajesSinSolicitud,
-              punto.latitude,
-              punto.longitude,
-              0.5
-            );            
           } else {
-            viajesCercanos = [];
+            setSolicitudActiva({ tieneSolicitud: false, estado: null });
+            setCoordsRecogidaBD(null);
           }
-          viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
         } else {
-          viajesFiltrados = [];
+          setSolicitudActiva({ tieneSolicitud: false, estado: null });
+          setCoordsRecogidaBD(null);
         }
 
-        setViajes(viajesFiltrados);
-        await cargarEstadosSolicitudes(viajesFiltrados);
-        await verificarSolicitudActiva();
+        const tieneActivaPendienteOAceptada =
+          estadoSolicitudReciente === 'pendiente' || estadoSolicitudReciente === 'aceptada';
+
+        let viajesConSolicitudActiva: any[] = [];
+
+        if (viajeIdConSolicitud && tieneActivaPendienteOAceptada) {
+          let viajeConSolicitud = viajesFiltrados.find(
+            (v: any) => v.id_viaje_pub === viajeIdConSolicitud
+          );
+
+          if (!viajeConSolicitud) {
+            try {
+              const resultado = await getViajePorId(viajeIdConSolicitud);
+              if (resultado.success) viajeConSolicitud = resultado.viaje;
+            } catch (e) { console.error("Error al obtener viaje por ID:", e); }
+          }
+
+          if (viajeConSolicitud) {
+            viajesConSolicitudActiva = [viajeConSolicitud];
+          }
+        }
+
+        const viajesSinSolicitud = tieneActivaPendienteOAceptada && viajeIdConSolicitud
+          ? viajesFiltrados.filter((v: any) => v.id_viaje_pub !== viajeIdConSolicitud)
+          : viajesFiltrados;
+
+        const guardado = await AsyncStorage.getItem("punto_encuentro");
+        let viajesCercanos: any[] = [];
+
+        if (guardado && estadoSolicitudReciente !== 'aceptada') {
+          const punto = JSON.parse(guardado);
+          viajesCercanos = filtrarViajesCercanos(
+            viajesSinSolicitud,
+            punto.latitude,
+            punto.longitude,
+            0.5
+          );
+        } else {
+          viajesCercanos = [];
+        }
+        viajesFiltrados = [...viajesConSolicitudActiva, ...viajesCercanos];
+      } else {
+        viajesFiltrados = [];
       }
-    } catch (error) {
-      console.error("Error:", error);
-      navigation.navigate("Login");
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
-  };
+
+      setViajes(viajesFiltrados);
+    };
+
+    procesarViajes();
+  }, [viajesData, perfilData, esConductorActivo]);
 
   const handleVerPerfil = async (usuarioId: string) => {
     setCargandoPerfil(true);
@@ -260,17 +215,17 @@ const StartScreen = ({ navigation }: any) => {
       const guardado = await AsyncStorage.getItem("punto_encuentro");
       const coords = guardado ? JSON.parse(guardado) : null;
       const result = await solicitarViaje(
-      viajeId,
+        viajeId,
         coords
           ? { latitud_recogida: coords.latitude, longitud_recogida: coords.longitude }
           : undefined
       );
       if (result?.success) {
-        setEstadosSolicitudes((prev) => ({ ...prev, [viajeId]: "pendiente" }));
         setSolicitudActiva({
           tieneSolicitud: true,
           estado: "pendiente",
           viajeId,
+          solicitudId: result.solicitud?.id_solicitud,
         });
         Alert.alert(
           "Solicitud enviada",
@@ -299,11 +254,6 @@ const StartScreen = ({ navigation }: any) => {
           onPress: async () => {
             try {
               await cancelarSolicitud(solicitudActiva.solicitudId!);
-              setEstadosSolicitudes((prev) => {
-                const updated = { ...prev };
-                delete updated[viajeId];
-                return updated;
-              });
               setSolicitudActiva({
                 tieneSolicitud: false,
                 estado: null,
@@ -311,7 +261,7 @@ const StartScreen = ({ navigation }: any) => {
                 solicitudId: undefined,
               });
               setCoordsRecogidaBD(null);
-              await cargarViajes();
+              refetchViajes();
               Alert.alert(
                 "Solicitud cancelada",
                 "Tu solicitud ha sido cancelada exitosamente"
@@ -328,6 +278,42 @@ const StartScreen = ({ navigation }: any) => {
     );
   };
 
+  const handleCancelarAceptada = (viajeId: number) => {
+    setViajeACancelar(viajeId);
+    setModalCancelarVisible(true);
+  };
+
+  const handleConfirmarCancelacion = () => {
+    setModalCancelarVisible(false);
+    setMotivoCancelacion("");
+    setModalMotivoVisible(true);
+  };
+
+  const handleEnviarCancelacion = async () => {
+    if (!viajeACancelar || !solicitudActiva.solicitudId) {
+      Alert.alert("Error", "No se encontró la solicitud a cancelar");
+      return;
+    }
+
+    try {
+      await cancelarSolicitud(solicitudActiva.solicitudId, motivoCancelacion || undefined);
+      setSolicitudActiva({
+        tieneSolicitud: false,
+        estado: null,
+        viajeId: undefined,
+        solicitudId: undefined,
+      });
+      setCoordsRecogidaBD(null);
+      setModalMotivoVisible(false);
+      setMotivoCancelacion("");
+      setViajeACancelar(null);
+      refetchViajes();
+      Alert.alert("Viaje cancelado", "Has cancelado tu participación en el viaje.");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "No se pudo cancelar el viaje");
+    }
+  };
+
   const abrirMapaEncuentro = () => {
     setMarkerTemp(
       puntoEncuentro
@@ -341,13 +327,14 @@ const StartScreen = ({ navigation }: any) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") return;
-      const loc    = await Location.getCurrentPositionAsync({});
+      const loc = await Location.getCurrentPositionAsync({});
       const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
       setMarkerTemp(coords);
       mapEncuentroRef.current?.animateToRegion(
         { ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800
       );
-    } catch {
+    } catch (e) {
+      console.error("Error al obtener ubicación:", e);
       Alert.alert("Error", "No se pudo obtener tu ubicación.");
     }
   };
@@ -360,20 +347,21 @@ const StartScreen = ({ navigation }: any) => {
     setGeocodingLoad(true);
     try {
       const resultados = await Location.reverseGeocodeAsync(markerTemp);
-      const r      = resultados[0];
+      const r = resultados[0];
       const partes = [r?.street, r?.streetNumber, r?.district, r?.city].filter(Boolean);
-      const texto  = partes.length > 0
+      const texto = partes.length > 0
         ? partes.join(", ")
         : `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
 
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
       await AsyncStorage.setItem("punto_encuentro", JSON.stringify(punto));
-      await cargarViajes();
-      
+      refetchViajes();
+
       setMapEncuentroVisible(false);
       Alert.alert("Punto guardado", `Te recogerán en: ${texto}`);
-    } catch {
+    } catch (e) {
+      console.error("Error al geocodificar:", e);
       const texto = `${markerTemp.latitude.toFixed(5)}, ${markerTemp.longitude.toFixed(5)}`;
       const punto = { ...markerTemp, texto };
       setPuntoEncuentro(punto);
@@ -386,72 +374,10 @@ const StartScreen = ({ navigation }: any) => {
 
   const onRefresh = () => {
     setRefrescando(true);
-    cargarViajes();
+    refetchViajes().finally(() => setRefrescando(false));
   };
 
-  // Configurar WebSocket y polling para actualizaciones
-  useEffect(() => {
-    cargarViajes();
-
-    // Polling: recargar cada 30 segundos para actualizar viajes expirados
-    const interval = setInterval(() => {
-      console.log("🔄 Polling: recargando viajes...");
-      cargarViajes();
-    }, 30000);
-
-    const socket = getSocket();
-    if (socket) {
-      const onSolicitudActualizada = (data: any) => {
-        console.log("📢 Solicitud actualizada en tiempo real:", data);
-        cargarViajes();
-      };
-
-      const onNuevaSolicitud = (data: any) => {
-        console.log("📢 Nueva solicitud en tiempo real:", data);
-        cargarViajes();
-      };
-
-      const onNuevoViaje = (data: any) => {
-        console.log("📢 Nuevo viaje disponible:", data);
-        cargarViajes();
-      };
-
-      const onViajeCancelado = (data: any) => {
-        console.log("📢 Viaje cancelado:", data);
-        cargarViajes();
-      };
-
-      const onViajeIniciado = (data: any) => {
-        console.log("📢 Viaje iniciado:", data);
-        cargarViajes();
-      };
-
-      const onSolicitudCancelada = (data: any) => {
-        console.log("📢 Solicitud cancelada:", data);
-        cargarViajes();
-      };
-
-      socket.on("solicitud_actualizada", onSolicitudActualizada);
-      socket.on("nueva_solicitud", onNuevaSolicitud);
-      socket.on("nuevo_viaje", onNuevoViaje);
-      socket.on("viaje_cancelado", onViajeCancelado);
-      socket.on("viaje_iniciado", onViajeIniciado);
-      socket.on("solicitud_cancelada", onSolicitudCancelada);
-
-      return () => {
-        clearInterval(interval);
-        socket.off("solicitud_actualizada", onSolicitudActualizada);
-        socket.off("nueva_solicitud", onNuevaSolicitud);
-        socket.off("nuevo_viaje", onNuevoViaje);
-        socket.off("viaje_cancelado", onViajeCancelado);
-        socket.off("viaje_iniciado", onViajeIniciado);
-        socket.off("solicitud_cancelada", onSolicitudCancelada);
-      };
-    }
-
-    return () => clearInterval(interval);
-  }, []);
-
+  // Socket events para join/leave viaje room
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -463,7 +389,6 @@ const StartScreen = ({ navigation }: any) => {
         solicitudActiva.viajeId
       ) {
         socket.emit('join_viaje', solicitudActiva.viajeId);
-        console.log('🗺️ Pasajero unido (o re-unido) al viaje', solicitudActiva.viajeId);
       }
     };
 
@@ -477,6 +402,8 @@ const StartScreen = ({ navigation }: any) => {
       }
     };
   }, [solicitudActiva.viajeId, solicitudActiva.estado]);
+
+  const cargando = cargandoPerfilData || cargandoViajes;
 
   return (
     <ScreenWrapper hasFooter={true}>
@@ -543,20 +470,21 @@ const StartScreen = ({ navigation }: any) => {
                 No hay viajes disponibles
               </Text>
             ) : (
-              viajes.map((viaje: any) => (
-                <DriverCard
-                  key={viaje.id_viaje_pub}
-                  viaje={viaje}
-                  onPress={handleSolicitarViaje}
-                  onVerPerfil={handleVerPerfil}
-                  onCancelar={handleCancelarSolicitud}
-                  estadoSolicitud={
-                    estadosSolicitudes[viaje.id_viaje_pub] || null
-                  }
-                />
-              ))
+              viajes.map((viaje: any) => {
+                const esEsteViaje = solicitudActiva.tieneSolicitud && solicitudActiva.viajeId === viaje.id_viaje_pub;
+                return (
+                  <DriverCard
+                    key={viaje.id_viaje_pub}
+                    viaje={viaje}
+                    onPress={handleSolicitarViaje}
+                    onVerPerfil={handleVerPerfil}
+                    onCancelar={handleCancelarSolicitud}
+                    onCancelarAceptada={handleCancelarAceptada}
+                    estadoSolicitud={esEsteViaje ? solicitudActiva.estado : null}
+                  />
+                );
+              })
             )}
-            {/* Botón para abrir mapa en vivo — solo si hay viaje aceptado */}
             {(solicitudActiva.estado === 'aceptada' || solicitudActiva.estado === 'en_curso') && (
               <TouchableOpacity
                 className="bg-blue-900 rounded-xl py-3 px-6 mb-4 flex-row items-center justify-center"
@@ -576,8 +504,7 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-      
-      {/* Modal mapa punto de encuentro */}
+
       <Modal visible={mapEncuentroVisible} animationType="slide">
         <View style={{ flex: 1 }}>
           <MapView
@@ -593,7 +520,6 @@ const StartScreen = ({ navigation }: any) => {
             {markerTemp && <Marker coordinate={markerTemp} />}
           </MapView>
 
-          {/* Instrucción flotante */}
           <View
             style={{
               position: "absolute", top: 16, left: 16, right: 16,
@@ -605,7 +531,6 @@ const StartScreen = ({ navigation }: any) => {
             </Text>
           </View>
 
-          {/* Botones inferiores */}
           <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
             <TouchableOpacity
               onPress={centrarEnUbicacion}
@@ -639,7 +564,6 @@ const StartScreen = ({ navigation }: any) => {
         </View>
       </Modal>
 
-      {/* Modal de perfil flotante */}
       <Modal
         animationType="fade"
         transparent={true}
@@ -716,6 +640,80 @@ const StartScreen = ({ navigation }: any) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalCancelarVisible}
+        onRequestClose={() => setModalCancelarVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+          activeOpacity={1}
+          onPress={() => setModalCancelarVisible(false)}
+        >
+          <View className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <Text className="text-lg font-bold text-gray-900 text-center mb-2">
+              ¿Estás seguro que quieres cancelar el viaje?
+            </Text>
+            <Text className="text-sm text-gray-500 text-center mb-6">
+              El conductor será notificado de tu cancelación.
+            </Text>
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                className="flex-1 bg-gray-100 rounded-xl py-3 items-center"
+                onPress={() => setModalCancelarVisible(false)}
+              >
+                <Text className="text-gray-700 font-semibold">No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="flex-1 bg-red-500 rounded-xl py-3 items-center"
+                onPress={handleConfirmarCancelacion}
+              >
+                <Text className="text-white font-semibold">Sí</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalMotivoVisible}
+        onRequestClose={() => setModalMotivoVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-center items-center px-6"
+          activeOpacity={1}
+          onPress={() => setModalMotivoVisible(false)}
+        >
+          <View className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <Text className="text-lg font-bold text-gray-900 text-center mb-2">
+              Cuéntanos el motivo
+            </Text>
+            <Text className="text-sm text-gray-500 text-center mb-4">
+              ¿Por qué cancelaste el viaje? (opcional)
+            </Text>
+            <TextInput
+              className="border border-gray-300 rounded-xl p-3 text-gray-900 mb-4"
+              placeholder="Escribe aquí el motivo..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              numberOfLines={3}
+              value={motivoCancelacion}
+              onChangeText={setMotivoCancelacion}
+            />
+            <TouchableOpacity
+              className="bg-blue-900 rounded-xl py-3 items-center"
+              onPress={handleEnviarCancelacion}
+            >
+              <Text className="text-white font-semibold">Enviar cancelación</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <Footer navigation={navigation} />
 
       <LiveMapModal
@@ -723,14 +721,12 @@ const StartScreen = ({ navigation }: any) => {
         onClose={() => setLiveMapVisible(false)}
         viajeId={solicitudActiva.viajeId!}
         mode="pasajero"
-        puntoEncuentro=
-        {
+        puntoEncuentro={
           coordsRecogidaBD ??
           (puntoEncuentro
           ? { latitude: puntoEncuentro.latitude, longitude: puntoEncuentro.longitude }
           : null)
         }
-
         origen={(() => {
           const viaje = viajes.find((v) => v.id_viaje_pub === solicitudActiva.viajeId);
           return viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined;

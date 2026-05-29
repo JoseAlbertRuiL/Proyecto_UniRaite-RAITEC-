@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   ActivityIndicator,
   FlatList,
-  StatusBar,
   RefreshControl,
   TouchableOpacity,
 } from "react-native";
@@ -12,68 +11,32 @@ import Header from "../../components/common/Header";
 import Footer from "../../components/common/Footer";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import DriverCard from "../../components/driverCard";
-import { orpc } from "../../services/api/apiClient";
+import { useHistorialPasajero, useHistorialConductor } from "../../hooks/queries/useViajes";
+import { useSocketInvalidator } from "../../hooks/useSocketInvalidator";
 import { useBackHandler } from "../../hooks/useBackHandler";
-import { getSocket } from "../../services/socket";
 
 const HistoryScreen = ({ navigation }: any) => {
   useBackHandler(navigation, "normal");
-  
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viajes, setViajes] = useState<any[]>([]);
+  useSocketInvalidator();
+
+  const { data: dataPasajero, isLoading: loadingPasajero, refetch: refetchPasajero } = useHistorialPasajero();
+  const { data: dataConductor, isLoading: loadingConductor, refetch: refetchConductor } = useHistorialConductor();
   const [filtro, setFiltro] = useState<"todos" | "pasajero" | "conductor">("todos");
 
-  const fetchHistorial = async () => {
-    try {
-      const [resPasajero, resConductor] = await Promise.all([
-        orpc.viajes.historialPasajero(),
-        orpc.viajes.historialConductor(),
-      ]);
+  const isLoading = loadingPasajero || loadingConductor;
 
-      let combinados = [];
-
-      if (resPasajero.success) {
-        combinados.push(...resPasajero.viajes.map((v: any) => ({ ...v, rol: "pasajero" })));
-      }
-      
-      if (resConductor.success) {
-        combinados.push(...resConductor.viajes.map((v: any) => ({ ...v, rol: "conductor" })));
-      }
-
-      // Ordenar del más reciente al más viejo
-      combinados.sort((a, b) => new Date(b.fecha_hora_salida).getTime() - new Date(a.fecha_hora_salida).getTime());
-      
-      setViajes(combinados);
-    } catch (error) {
-      console.error("Error al obtener historial:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHistorial();
-
-    const socket = getSocket();
-    if (socket) {
-      const onViajeFinalizado = (data: any) => {
-        console.log("📢 Viaje finalizado en History:", data);
-        fetchHistorial();
-      };
-
-      socket.on("viaje_finalizado", onViajeFinalizado);
-
-      return () => {
-        socket.off("viaje_finalizado", onViajeFinalizado);
-      };
-    }
-  }, []);
+  let viajes: any[] = [];
+  if (dataPasajero?.success) {
+    viajes.push(...dataPasajero.viajes.map((v: any) => ({ ...v, rol: "pasajero" })));
+  }
+  if (dataConductor?.success) {
+    viajes.push(...dataConductor.viajes.map((v: any) => ({ ...v, rol: "conductor" })));
+  }
+  viajes.sort((a, b) => new Date(b.fecha_hora_salida).getTime() - new Date(a.fecha_hora_salida).getTime());
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchHistorial();
+    refetchPasajero();
+    refetchConductor();
   };
 
   const viajesFiltrados = viajes.filter(v => filtro === "todos" || v.rol === filtro);
@@ -103,7 +66,7 @@ const HistoryScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#1e3a8a" />
           <Text className="mt-4 text-gray-500">Cargando historial...</Text>
@@ -114,7 +77,7 @@ const HistoryScreen = ({ navigation }: any) => {
           keyExtractor={(item, index) => `historial-${item.id_viaje_pub}-${index}`}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
           }
           ListEmptyComponent={
             <View className="items-center justify-center py-10 mt-10">
@@ -124,13 +87,17 @@ const HistoryScreen = ({ navigation }: any) => {
             </View>
           }
           renderItem={({ item }) => {
-            const capacidadTotal = item.conductor?.capacidad_pasajeros ?? 4;
-            // Usar pasajeros_confirmados si existe, si no calcular desde asientos_disponibles
-            const pasajerosOcupados = typeof (item as any).pasajeros_confirmados === "number"
-              ? (item as any).pasajeros_confirmados
-              : (typeof item.asientos_disponibles === "number"
-                  ? Math.max(0, capacidadTotal - item.asientos_disponibles)
-                  : 0);
+            const capacidadPasajeros = item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4;
+            const asientosOfrecidos = item.asientos_ofrecidos > 0
+              ? item.asientos_ofrecidos
+              : (item.capacidad_pasajeros ?? item.conductor?.capacidad_pasajeros ?? 4);
+            const asientosOcupados = item.pasajeros_confirmados != null
+              ? item.pasajeros_confirmados
+              : Math.max(0, asientosOfrecidos - item.asientos_disponibles);
+
+            const estadoViaje = item.viajes_activos?.[0]?.estado_trayecto;
+            const motivoCancelacion = item.historial?.[0]?.motivo;
+            const esCancelado = estadoViaje === 'cancelado';
 
             return (
               <View className="mb-4 relative">
@@ -142,10 +109,14 @@ const HistoryScreen = ({ navigation }: any) => {
                 <DriverCard
                   viaje={{
                     ...item,
-                    asientos_totales: capacidadTotal,
-                    asientos_ocupados: pasajerosOcupados,
+                    asientos_ofrecidos: asientosOfrecidos,
+                    asientos_ocupados: asientosOcupados,
+                    capacidad_pasajeros: capacidadPasajeros,
                     conductor: {
                       ...item.conductor,
+                      modelo: item.vehiculo_modelo ?? item.conductor?.modelo,
+                      color: item.vehiculo_color ?? item.conductor?.color,
+                      placas: item.vehiculo_placas ?? item.conductor?.placas,
                       usuario: {
                         ...item.conductor.usuario,
                         total_viajes: item.conductor.usuario.viajes_completados || 0,
@@ -154,7 +125,8 @@ const HistoryScreen = ({ navigation }: any) => {
                   }}
                   onPress={() => {}}
                   onVerPerfil={(id) => navigation.navigate("PerfilPublico", { usuarioId: id })}
-                  estadoSolicitud="completado"
+                  estadoSolicitud={esCancelado ? "cancelado" : "completado"}
+                  motivo={motivoCancelacion}
                 />
               </View>
             );

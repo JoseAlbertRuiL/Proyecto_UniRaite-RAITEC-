@@ -2,13 +2,8 @@
 
 # env
 .env
-.env.cloudinary
 google-key.json
 app.json
-
-backend/.env
-backend/.env.cloudinary
-backend/google-key.json
 
 
 # dependencies
@@ -59,3 +54,4 @@ backend/.env
 backend/.env
 backend/.env
 backend/.env
+env

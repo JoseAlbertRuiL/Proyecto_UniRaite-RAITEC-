@@ -4,12 +4,13 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import http from 'http'
+import jwt from 'jsonwebtoken'
 import { Server } from 'socket.io'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
-import jwt from 'jsonwebtoken'
 import { PrismaClient } from '@prisma/client'
+import { iniciarCronJobs } from './services/cronJobs'
 
 require('dotenv').config()
 
@@ -24,7 +25,30 @@ const io = new Server(serverHttp, {
 const prisma = new PrismaClient()
 const PORT = process.env.PORT || 3000
 
-// Guardar io para usarlo en otros archivos
+// ─── Helper: verificar acceso a chat ──────────────────────────────────────────
+const tieneAccesoChat = async (prisma: PrismaClient, userId: string, viajeId: number) => {
+  const viaje = await prisma.viajes_publicados.findUnique({
+    where: { id_viaje_pub: viajeId },
+    select: {
+      id_licencia_conductor: true,
+      conductor: { select: { usuario: { select: { id_usuario: true } } } },
+    },
+  });
+  if (!viaje) return false;
+
+  const esConductor = viaje.conductor?.usuario?.id_usuario === userId;
+  if (esConductor) return true;
+
+  const solicitud = await prisma.solicitudes_viaje.findFirst({
+    where: {
+      id_viaje_pub: viajeId,
+      id_pasajero: userId,
+      estado_solicitud: 'aceptada',
+    },
+  });
+  return !!solicitud;
+};
+
 export { io }
 
 // ─── Directorios de uploads ───────────────────────────────────────────────────
@@ -100,17 +124,35 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
   
-  socket.on('join_chat', (chatId: string) => {
+  socket.on('join_chat', async (chatId: string) => {
+    const user = (socket as any).user;
+    const viajeId = parseInt(chatId);
+    if (isNaN(viajeId)) return;
+
+    const puedeAcceder = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeAcceder) {
+      socket.emit('chat_error', 'No tienes acceso a este chat');
+      return;
+    }
     socket.join(`chat_${chatId}`);
     console.log(`📱 Usuario unido al chat ${chatId}`);
   });
   
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
     const user = (socket as any).user;
+    const viajeId = parseInt(data.chatId);
+    if (isNaN(viajeId)) return;
+
+    const puedeEnviar = await tieneAccesoChat(prisma, user.id_usuario, viajeId);
+    if (!puedeEnviar) {
+      socket.emit('chat_error', 'No tienes permiso para enviar mensajes en este chat');
+      return;
+    }
+
     try {
       const mensaje = await prisma.mensajes_chat.create({
         data: {
-          id_viaje_pub: parseInt(data.chatId),
+          id_viaje_pub: viajeId,
           id_emisor: user.id_usuario,
           contenido: data.message,
           fecha_envio: new Date(),
@@ -151,7 +193,7 @@ io.on('connection', (socket) => {
         where: { id_viaje_activo: data.viajeActivoId },
       });
       if (viajeActivo) {
-        const historial = (viajeActivo.historial_ruta as any[]) || [];
+        const historial = Array.isArray(viajeActivo.historial_ruta) ? (viajeActivo.historial_ruta as any[]) : [];
         // Guardar cada 10 puntos para no saturar
         if (historial.length % 10 === 0) {
           historial.push({ lat: data.lat, lng: data.lng, ts: Date.now() });
@@ -195,18 +237,102 @@ const orpcHandler = new RPCHandler(router, {
   ],
 })
 
+// ─── Rate Limiting implementado DENTRO del handler de oRPC ─────────────────────
+
+// Almacenamiento: fallos de login y fallos de registro
+const intentosLogin = new Map<string, { count: number; firstAttempt: number }>();
+const intentosRegistro = new Map<string, { count: number; firstAttempt: number }>();
+
+// Middleware de rate limiting
+const rateLimitMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Filtrar solo las rutas que nos interesan proteger
+  const esLogin = req.url.includes('/login');
+  const esRegistro = req.url.includes('/register');
+
+  if (!esLogin && !esRegistro) {
+    return next();
+  }
+    
+  // Obtener IP
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0] || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  
+  // Reglas específicas para login y registro
+  const mapaActual = esLogin ? intentosLogin : intentosRegistro;
+  const limiteIntentos = esLogin ? 30 : 15; // 30 intentos para login, 15 para registro
+  const tiempoCastigo = esLogin ? (15 * 60 * 1000) : (30 * 60 * 1000); // 15 mins para login, 30 mins para registro
+
+  const intentos = mapaActual.get(ip);
+
+  // Verificación de bloqueos
+  if (intentos) {
+    if (now - intentos.firstAttempt > tiempoCastigo) {
+      // Ya pasó el tiempo de castigo, limpiamos su historial
+      mapaActual.delete(ip);
+    } else if (intentos.count >= limiteIntentos) {
+      // Sigue castigado: Bloqueamos la petición
+      const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
+      const accion = esLogin ? "iniciar sesión" : "registrarse";
+      
+      console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
+      return res.status(429).json({
+        success: false,
+        message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
+      });
+    }
+  }
+
+  // Interceptamos la respuesta final
+  res.on('finish', () => {
+    // Si falla (Error 400+)
+    if (res.statusCode >= 400) {
+      const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
+      actuales.count++;
+      mapaActual.set(ip, actuales);
+      console.log(`🔐 [RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
+    } 
+    // Si tiene éxito (200)
+    else if (res.statusCode >= 200 && res.statusCode < 300) {
+      mapaActual.delete(ip);
+      console.log(`🔐 [RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
+    }
+  });
+  
+  next();
+};
+
+// Limpiador de basura
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of intentosLogin.entries()) {
+    if (now - data.firstAttempt > 15 * 60 * 1000) intentosLogin.delete(ip);
+  }
+  for (const [ip, data] of intentosRegistro.entries()) {
+    if (now - data.firstAttempt > 30 * 60 * 1000) intentosRegistro.delete(ip);
+  }
+}, 60 * 60 * 1000); // Se ejecuta cada hora para liberar RAM
+
+// Aplicar rate limit middleware ANTES del handler de oRPC
+app.use('/rpc', rateLimitMiddleware);
+
+// oRPC handler principal
 app.use('/rpc', async (req, res, next) => {
-  console.log('📡 Petición recibida en /rpc:', req.method, req.url)
+  console.log('📡 Petición recibida en /rpc:', req.method, req.url);
   const { matched } = await orpcHandler.handle(req, res, {
     prefix: '/rpc',
     context: { headers: req.headers },
-  })
-  if (!matched) next()
-})
+  });
+  if (!matched) next();
+});
 
 // Upload foto de perfil
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
   res.json({ foto_perfil: req.file?.filename || null });
+});
+
+// Upload foto de credencial
+app.post('/upload/credentials', upload.single('foto_credencial'), (req, res) => {
+  res.json({ foto_credencial: req.file?.filename || null });
 });
 
 // ─── Rutas de upload (Express + Multer) ──────────────────────────────────────
@@ -255,6 +381,7 @@ app.get('/health', (req, res) => {
 
 // ─── Arranque ─────────────────────────────────────────────────────────────────
 
+<<<<<<< HEAD
 export { app, serverHttp }
 
 if (process.env.NODE_ENV !== 'test') {
@@ -266,3 +393,14 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`WebSocket Server corriendo en el mismo puerto`)
   })
 }
+=======
+serverHttp.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`Servidor en http://localhost:${PORT}`)
+  iniciarCronJobs(io);
+  console.log(`oRPC    → /rpc/*`)
+  console.log(`Rate Limit → Login (30 intentos/15min) | Registro (15 intentos/30min)`)
+  console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
+  console.log(`Health  → GET  /health`)
+  console.log(`WebSocket Server corriendo en el mismo puerto`)
+})
+>>>>>>> origin/RamaCompleta

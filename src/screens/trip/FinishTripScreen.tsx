@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { useBackHandler } from "../../hooks/useBackHandler";
+import { useViajePorId } from "../../hooks/queries/useViajes";
 import { orpc } from "../../services/api/apiClient";
 
 const MAX_PASAJEROS = 4;
@@ -18,52 +19,19 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const viajeParam = route?.params?.viaje;
   const viajeIdParam = route?.params?.viajeId;
 
-  const [viaje, setViaje] = useState<any>(viajeParam || null);
-  const [loading, setLoading] = useState(!viajeParam);
+  const { data, isLoading } = useViajePorId(viajeIdParam || viajeParam?.id_viaje_pub);
+  const viaje = viajeParam || data?.viaje;
+  const mostrarCargando = isLoading && !viaje;
+
   const [finalizando, setFinalizando] = useState(false);
 
   useBackHandler(navigation, "main");
-
-  const fetchViaje = async () => {
-  try {
-    setLoading(true);
-
-    const viajeId = viajeIdParam || viajeParam?.id_viaje_pub;
-
-    if (!viajeId) {
-      console.log("No hay viajeId");
-      return;
-    }
-
-    const response = await orpc.viajes.porId({ viajeId });
-
-    if (response.success) {
-      setViaje(response.viaje);
-    } else {
-      setViaje(null);
-    }
-  } catch (error) {
-    console.error("Error al cargar viaje:", error);
-    setViaje(null);
-  } finally {
-    setLoading(false);
-  }
-};
-
-  useEffect(() => {
-  console.log("PARAMS:", route?.params);
-
-  if (!viajeParam && viajeIdParam) {
-    fetchViaje();
-  }
-}, [viajeParam, viajeIdParam]);
 
   const handleFinalizarViaje = async () => {
     const viajeId = viajeIdParam || viaje?.id_viaje_pub;
 
     if (!viajeId) {
       console.log("No hay viajeId");
-      setLoading(false); //  importante
       return;
     }
 
@@ -84,9 +52,6 @@ const FinishTripScreen = ({ navigation, route }: any) => {
     }
   };
 
-  // const [driverRating, setDriverRating] = useState<number>(0);
-  // const [ratingSaved, setRatingSaved] = useState(false);
-
   const acceptedPassengers = Array.isArray(viaje?.solicitudes)
     ? viaje.solicitudes
     : [];
@@ -97,19 +62,8 @@ const FinishTripScreen = ({ navigation, route }: any) => {
   const asientosDisponibles = viaje?.asientos_disponibles ?? 0;
   const asientosTotales = Math.min(capacidadTotal, pasajerosCount + asientosDisponibles);
 
-  // const handleSaveDriverRating = () => {
-  //   if (driverRating === 0) {
-  //     Alert.alert("Atención", "Selecciona una calificación antes de guardar.");
-  //     return;
-  //   }
-  //   setRatingSaved(true);
-  //   Alert.alert("¡Listo!", "Tu calificación de pasajeros ha sido registrada.");
-  // };
-
-
   return (
-    
-    <ScreenWrapper hasFooter={false}>
+    <ScreenWrapper hasHeader={false} hasFooter={false}>
       <StatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
@@ -134,7 +88,7 @@ const FinishTripScreen = ({ navigation, route }: any) => {
         </View>
 
         <View className="px-6 py-8">
-          {loading ? (
+          {mostrarCargando ? (
             <View className="items-center justify-center py-20">
               <ActivityIndicator size="large" color="#1e3a8a" />
               <Text className="mt-4 text-gray-500">Cargando datos del viaje...</Text>
@@ -235,44 +189,6 @@ const FinishTripScreen = ({ navigation, route }: any) => {
                   </View>
                 </View>
               </View>
-
-              {/**
-              <View className="bg-white rounded-2xl shadow-sm mb-8 overflow-hidden border border-gray-100">
-                <View className="bg-gradient-to-r from-yellow-50 to-yellow-100 px-6 py-4 border-b border-gray-200">
-                  <Text className="text-yellow-900 font-bold text-base">⭐ CALIFICACIÓN</Text>
-                </View>
-                <View className="p-6">
-                  <Text className="text-gray-600 text-sm mb-4 text-center">
-                    Califica la experiencia con tus pasajeros antes de finalizar.
-                  </Text>
-                  <View className="flex-row justify-center gap-2 mb-4">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity
-                        key={star}
-                        className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center border border-gray-200"
-                        onPress={() => {
-                          setDriverRating(star);
-                          setRatingSaved(false);
-                        }}
-                      >
-                        <Text className={`text-lg ${star <= driverRating ? "text-yellow-500" : "text-gray-400"}`}>
-                          ★
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <TouchableOpacity
-                    onPress={handleSaveDriverRating}
-                    className={`w-full rounded-2xl py-3 ${ratingSaved ? "bg-green-500" : "bg-blue-600"}`}
-                  >
-                    <Text className="text-white font-semibold text-center">
-                      {ratingSaved ? "Calificación guardada" : "Guardar calificación"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              */}
 
               <View className="mb-6">
                 <TouchableOpacity

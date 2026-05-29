@@ -21,8 +21,9 @@ import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { getVehiculo } from "../../services/trip/tripService";
 import { getPerfil, logout } from "../../services/auth/authService";
 import { orpc, BASE_URL } from "../../services/api/apiClient";
-import { useBackHandler } from "../../hooks/useBackHandler";
 import { disconnectSocket } from "../../services/socket";
+import { useConductorMode } from "../../context/ConductorModeContext";
+import { useBackHandler } from "../../hooks/useBackHandler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ConfigPerfilScreen = ({ navigation }: any) => {
@@ -30,7 +31,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const [viajesComoConductor, setViajesComoConductor] = useState(0);
   const [viajesComoPasajero, setViajesComoPasajero] = useState(0);
   const [modalFotoVisible, setModalFotoVisible] = useState(false);
-  const [modoConductor, setModoConductor] = useState(false);
+  const { esConductorActivo, activarModoConductor, desactivarModoConductor } = useConductorMode();
   const [vehiculo, setVehiculo] = useState<any>(null);
   const [modalVisibleVehiculo, setModalVisibleVehiculo] = useState(false);
   const insets = useSafeAreaInsets();
@@ -59,21 +60,39 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
   // Estado para foto de perfil
   const [uploadingFoto, setUploadingFoto] = useState(false);
+ 
+  // Estados para la credencial
+  const [nuevaFotoCredencial, setNuevaFotoCredencial] = useState<string | null>(null);
+  const [uploadingCredencial, setUploadingCredencial] = useState(false);
+  
+  // NUEVO ESTADO: Controla el modal de opciones de foto
+  const [modalOpcionesCredencialVisible, setModalOpcionesCredencialVisible] = useState(false);
 
-  // Lista de carreras
+  // Lista de carreras completa
   const carreras = [
-    "Bioquímica",
-    "Biomédica",
-    "Eléctrica",
-    "Electrónica",
-    "Industrial",
-    "Mecánica",
-    "Mecatrónica",
-    "Materiales",
-    "Gestión Empresarial",
-    "Sistemas Computacionales",
-    "Tecnologías de la Información y Comunicaciones",
-    "Informática",
+    { label: "Ing. Biomédica", value: "Ingeniería Biomédica" },
+    { label: "Ing. Bioquímica", value: "Ingeniería Bioquímica" },
+    { label: "Ing. Ciberseguridad", value: "Ingeniería en Ciberseguridad" },
+    { label: "Ing. Eléctrica", value: "Ingeniería Eléctrica" },
+    { label: "Ing. Electrónica", value: "Ingeniería Electrónica" },
+    { label: "Ing. Gestión Empresarial", value: "Ingeniería en Gestión Empresarial" },
+    { label: "Ing. Industrial", value: "Ingeniería Industrial" },
+    { label: "Ing. Materiales", value: "Ingeniería en Materiales" },
+    { label: "Ing. Mecánica", value: "Ingeniería Mecánica" },
+    { label: "Ing. Mecatrónica", value: "Ingeniería Mecatrónica" },
+    { label: "Ing. Semiconductores", value: "Ingeniería en Semiconductores" },
+    { label: "Ing. Sistemas Computacionales", value: "Ingeniería en Sistemas Computacionales" },
+    { label: "Ing. Tecnologías de la Inf. y Com.", value: "Ingeniería en Tecnologías de la Información y Comunicaciones" },
+    { label: "Administración", value: "Licenciatura en Administración" },
+    { label: "Contador Público", value: "Contador Público" },
+    { label: "Mtría. Ciencias: Eléctrica", value: "Maestría en Ciencias en Ingeniería Eléctrica" },
+    { label: "Mtría. Ciencias: Electrónica", value: "Maestría en Ciencias en Ingeniería Electrónica" },
+    { label: "Mtría. Ciencias: Metalurgia", value: "Maestría en Ciencias en Metalurgia" },
+    { label: "Mtría. Economía Social", value: "Maestría en Economía Social y Solidaria" },
+    { label: "Mtría. Ingeniería Administrativa", value: "Maestría en Ingeniería Administrativa" },
+    { label: "Mtría. Sistemas Computacionales", value: "Maestría en Sistemas Computacionales" },
+    { label: "Doc. Ciencias de la Ingeniería", value: "Doctorado en Ciencias de la Ingeniería" },
+    { label: "Doc. Ciencias: Eléctrica", value: "Doctorado en Ciencias en Ingeniería Eléctrica" }
   ];
 
   useBackHandler(navigation, "normal");
@@ -84,22 +103,10 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
-    const cargarEstadoSwitch = async () => {
-      const guardado = await AsyncStorage.getItem("modo_conductor_activo");
-      if (guardado === "true" && user?.es_conductor) {
-        setModoConductor(true);
-      } else {
-        setModoConductor(false);
-      }
-    };
-    if (user) cargarEstadoSwitch();
-  }, [user]);
-
-  useEffect(() => {
-    if (modoConductor && !vehiculo) {
+    if (esConductorActivo && !vehiculo) {
       obtenerVehiculo();
     }
-  }, [modoConductor]);
+  }, [esConductorActivo]);
 
   const obtenerPerfil = async () => {
     try {
@@ -148,14 +155,12 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
   const handleModoConductor = async (value: boolean) => {
     if (value) {
       if (user?.es_conductor) {
-        setModoConductor(true);
-        await AsyncStorage.setItem("modo_conductor_activo", "true");
+        await activarModoConductor();
       } else {
         navigation.navigate("Licencia");
       }
     } else {
-      setModoConductor(false);
-      await AsyncStorage.setItem("modo_conductor_activo", "false");
+      await desactivarModoConductor();
     }
   };
 
@@ -165,6 +170,8 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       {
         text: "Cerrar sesión",
         onPress: async () => {
+          await desactivarModoConductor();
+
           await logout();
           await disconnectSocket();
 
@@ -182,25 +189,103 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
     ]);
   };
 
+  const tomarFotoCredencial = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso", "Necesitamos acceso a la cámara");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+      base64: false,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setNuevaFotoCredencial(result.assets[0].uri);
+    }
+    setModalOpcionesCredencialVisible(false); // Cerramos el menú
+  };
+
+  const elegirDeGaleriaCredencial = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permiso", "Necesitamos acceso a la galería");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0].uri) {
+      setNuevaFotoCredencial(result.assets[0].uri);
+    }
+    setModalOpcionesCredencialVisible(false); // Cerramos el menú
+  };
+
+  const subirCredencialAlServidor = async (uri: string) => {
+    const formData = new FormData();
+    const fileExtension = uri.split(".").pop() || "jpg";
+    const fileName = `credencial_${Date.now()}.${fileExtension}`;
+    const mimeType = fileExtension === "jpg" ? "image/jpeg" : `image/${fileExtension}`;
+
+    formData.append("foto_credencial", {
+      uri: uri,
+      type: mimeType,
+      name: fileName,
+    } as any);
+
+    const token = await AsyncStorage.getItem("token");
+    // NOTA: Asegúrate de que el endpoint corresponda a tu API express donde guardas temporalmente
+    const response = await fetch(`${BASE_URL}/upload/credentials`, { 
+      method: "POST",
+      body: formData,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Error al subir credencial temporal");
+    
+    // Suponemos que el endpoint Express devuelve { foto_credencial: 'nombre_del_archivo.jpg' }
+    return data.foto_credencial; 
+  };
+
   const cambiarNombre = async () => {
     if (!nombre || !apellidoPaterno) {
       Alert.alert("Error", "Nombre y apellido paterno son obligatorios");
       return;
     }
 
+    if (!nuevaFotoCredencial) {
+      Alert.alert("Error", "Debes subir una foto actualizada de tu credencial escolar para validar el cambio.");
+      return;
+    }
+
     try {
+      setUploadingCredencial(true);
+      // Subir la imagen temporalmente mediante Express
+      const filenameCredencial = await subirCredencialAlServidor(nuevaFotoCredencial);
+
       const result = await orpc.usuarios.actualizarPerfil({
         nombre,
         apellido_paterno: apellidoPaterno,
         apellido_materno: apellidoMaterno,
+        foto_credencial: filenameCredencial
       });
+
       if (result.success) {
         Alert.alert("Éxito", "Datos actualizados correctamente");
         setModalNombreVisible(false);
+        setNuevaFotoCredencial(null);
         obtenerPerfil();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo actualizar");
+      Alert.alert("Error", error.message || "No se pudo actualizar o validar tu identidad");
+    } finally {
+      setUploadingCredencial(false);
     }
   };
 
@@ -244,15 +329,30 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
       return;
     }
 
+    if (!nuevaFotoCredencial) {
+      Alert.alert("Error", "Debes subir una foto actualizada de tu credencial escolar para validar la carrera.");
+      return;
+    }
+
     try {
-      const result = await orpc.usuarios.actualizarCarrera({ carrera });
+      setUploadingCredencial(true);
+      const filenameCredencial = await subirCredencialAlServidor(nuevaFotoCredencial);
+
+      const result = await orpc.usuarios.actualizarCarrera({ 
+        carrera,
+        foto_credencial: filenameCredencial
+      });
+
       if (result.success) {
-        Alert.alert("Éxito", "Carrera actualizada correctamente");
+        Alert.alert("Éxito", "Carrera actualizada y validada correctamente");
         setModalCarreraVisible(false);
+        setNuevaFotoCredencial(null);
         obtenerPerfil();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo actualizar la carrera");
+      Alert.alert("Error", error.message || "No se pudo actualizar o validar tu identidad");
+    } finally {
+      setUploadingCredencial(false);
     }
   };
 
@@ -526,7 +626,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               <Text className="text-base text-gray-700">Modo conductor</Text>
             </View>
             <Switch
-              value={modoConductor}
+              value={esConductorActivo}
               onValueChange={handleModoConductor}
               style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
               trackColor={{ false: "#d1d5db", true: "#3b82f6" }}
@@ -534,7 +634,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
             />
           </View>
 
-          {modoConductor && (
+          {(esConductorActivo && user?.es_conductor) && (
             <TouchableOpacity
               className="flex-row items-center justify-between py-4 border-b border-gray-100"
               onPress={() => setModalVisibleVehiculo(true)}
@@ -605,6 +705,19 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
                 placeholder="Apellido materno (opcional)"
                 className="border border-gray-300 rounded-xl px-4 py-3 mb-4"
               />
+
+              {/* Botón para la credencial */}
+              <TouchableOpacity 
+                onPress={() => setModalOpcionesCredencialVisible(true)} 
+                className="bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 mb-4 items-center"
+              >
+                {nuevaFotoCredencial ? (
+                  <Text className="text-green-600 font-semibold">✓ Credencial lista</Text>
+                ) : (
+                  <Text className="text-gray-600">📷 Subir nueva credencial escolar *</Text>
+                )}
+              </TouchableOpacity>
+
               <View className="flex-row justify-between">
                 <TouchableOpacity
                   onPress={() => setModalNombreVisible(false)}
@@ -690,42 +803,110 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
 
       {/* Modal cambiar carrera con Picker */}
       <Modal visible={modalCarreraVisible} transparent animationType="slide">
-        <View className="flex-1 justify-center bg-black/50 px-6">
-          <View className="bg-white p-5 rounded-2xl">
-            <Text className="text-lg font-semibold mb-4 text-center">
-              Cambiar carrera
-            </Text>
-            <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden">
-              <Picker
-                selectedValue={carrera}
-                onValueChange={(itemValue) => setCarrera(itemValue)}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <View className="flex-1 justify-center bg-black/50 px-6">
+            <View className="bg-white p-5 rounded-2xl">
+              <Text className="text-lg font-semibold mb-4 text-center">
+                Cambiar carrera
+              </Text>
+              
+              <View className="border border-gray-300 rounded-xl bg-gray-50 overflow-hidden mb-4">
+                <Picker
+                  selectedValue={carrera}
+                  onValueChange={(itemValue) => setCarrera(itemValue)}
+                >
+                  <Picker.Item label="Selecciona tu carrera" value="" />
+                  {carreras.map((carr) => (
+                    <Picker.Item key={carr.value} label={carr.label} value={carr.value} />
+                  ))}
+                </Picker>
+              </View>
+
+              {/* Botón para la credencial */}
+              <TouchableOpacity 
+                onPress={() => setModalOpcionesCredencialVisible(true)} 
+                className="bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 mb-4 items-center"
               >
-                <Picker.Item label="Selecciona tu carrera" value="" />
-                {carreras.map((carr) => (
-                  <Picker.Item key={carr} label={carr} value={carr} />
-                ))}
-              </Picker>
-            </View>
-            <View className="flex-row justify-between mt-4">
-              <TouchableOpacity
-                onPress={() => setModalCarreraVisible(false)}
-                className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Cancelar
-                </Text>
+                {nuevaFotoCredencial ? (
+                  <Text className="text-green-600 font-semibold">✓ Credencial lista</Text>
+                ) : (
+                  <Text className="text-gray-600">📷 Subir nueva credencial escolar *</Text>
+                )}
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={cambiarCarrera}
-                className="flex-1 bg-blue-900 py-3 rounded-xl ml-2"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Guardar
-                </Text>
-              </TouchableOpacity>
+
+              <View className="flex-row justify-between">
+                <TouchableOpacity
+                  onPress={() => {
+                    setModalCarreraVisible(false);
+                    setNuevaFotoCredencial(null);
+                  }}
+                  className="flex-1 bg-gray-400 py-3 rounded-xl mr-2"
+                  disabled={uploadingCredencial}
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={cambiarCarrera}
+                  className={`flex-1 py-3 rounded-xl ml-2 ${uploadingCredencial ? "bg-gray-400" : "bg-blue-900"}`}
+                  disabled={uploadingCredencial}
+                >
+                  <Text className="text-white font-semibold text-center">
+                    {uploadingCredencial ? "Validando..." : "Guardar"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal opciones foto de credencial */}
+      <Modal
+        visible={modalOpcionesCredencialVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalOpcionesCredencialVisible(false)}
+      >
+        <TouchableOpacity
+          className="flex-1 bg-black/50 justify-end"
+          activeOpacity={1}
+          onPress={() => setModalOpcionesCredencialVisible(false)}
+        >
+          <View className="bg-white rounded-t-3xl p-6">
+            <Text className="text-lg font-bold text-center mb-4">
+              Foto de credencial
+            </Text>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 border-b border-gray-100"
+              onPress={tomarFotoCredencial}
+            >
+              <Text className="text-2xl mr-3">📷</Text>
+              <Text className="text-base text-gray-700">Tomar foto</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 border-b border-gray-100"
+              onPress={elegirDeGaleriaCredencial}
+            >
+              <Text className="text-2xl mr-3">🖼️</Text>
+              <Text className="text-base text-gray-700">Elegir de galería</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center py-4 mt-2"
+              onPress={() => setModalOpcionesCredencialVisible(false)}
+            >
+              <Text className="text-2xl mr-3"></Text>
+              <Text className="text-base text-red-500">Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Modal foto perfil */}

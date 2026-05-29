@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -8,6 +9,8 @@ import {
   RefreshControl,
   Alert,
   StatusBar,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from 'expo-location';
@@ -25,68 +28,52 @@ type TabType = "activos" | "solicitudes";
 const ConducirScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<TabType>("activos");
-  const [cargando, setCargando] = useState(true);
-  const [refrescando, setRefrescando] = useState(false);
-  // const [transmitiendo, setTransmitiendo] = useState(false);
   const [viajeActivoId, setViajeActivoId] = useState<number | null>(null);
-  const [solicitudes, setSolicitudes] = useState<any[]>([]);
-  const [viajesActivos, setViajesActivos] = useState<any[]>([]);
   const [transmitiendo, setTransmitiendo] = useState<number | null>(null);
   const [liveMapViajeId, setLiveMapViajeId] = useState<number | null>(null);
   const [liveMapVisible, setLiveMapVisible] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [motivoCancelacion, setMotivoCancelacion] = useState("");
+  const [cancelandoViajeId, setCancelandoViajeId] = useState<number | null>(null);
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
 
+  const {
+    data: viajesActivos = [],
+    isLoading: cargandoViajes,
+    isRefetching: refrescandoViajes,
+    refetch: refetchViajes,
+  } = useQuery({
+    queryKey: ["viajes", "activos", "conductor"],
+    queryFn: async () => {
+      const data = await orpc.viajes.activos();
+      return data.success ? (data.viajes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const {
+    data: solicitudes = [],
+    isLoading: cargandoSolicitudes,
+    isRefetching: refrescandoSolicitudes,
+    refetch: refetchSolicitudes,
+  } = useQuery({
+    queryKey: ["solicitudes", "recibidas", "conductor"],
+    queryFn: async () => {
+      const data = await orpc.solicitudes.recibidas();
+      return data.success ? (data.solicitudes || []) : [];
+    },
+    refetchInterval: 10000,
+  });
+
+  const cargando = cargandoViajes || cargandoSolicitudes;
+  const refrescando = refrescandoViajes || refrescandoSolicitudes;
+
   useBackHandler(navigation, "normal");
 
   const cargarDatos = async () => {
-    try {
-      const activosData = await orpc.viajes.activos();
-      const todosActivos = activosData.viajes || [];
-
-      if (activosData.success) {
-        const ahora = new Date();
-
-        const expirados = todosActivos.filter((viaje: any) => {
-          const haIniciado = viaje.viajes_activos?.length > 0;
-          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
-          return !haIniciado && fechaPasada;
-        });
-
-        if (expirados.length > 0) {
-          Promise.allSettled(
-            expirados.map((v: any) =>
-              orpc.viajes.cancelar({ viajeId: v.id_viaje_pub })
-            )
-          ).then((results) => {
-            const cancelados = results.filter((r) => r.status === 'fulfilled').length;
-            if (cancelados > 0) {
-              console.log(`🗑️ ${cancelados} viaje(s) expirado(s) cancelado(s) automáticamente`);
-              // Refrescar para que desaparezcan de la lista
-              cargarDatos();
-            }
-          });
-        }
-        
-        const vigentes = todosActivos.filter((viaje: any) => {
-          const haIniciado = viaje.viajes_activos?.length > 0;
-          const fechaPasada = new Date(viaje.fecha_hora_salida) < ahora;
-          return haIniciado || !fechaPasada;
-        });
-
-        setViajesActivos(vigentes);
-      }
-
-      const solicitudesData = await orpc.solicitudes.recibidas();
-      if (solicitudesData.success)
-        setSolicitudes(solicitudesData.solicitudes || []);
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-    } finally {
-      setCargando(false);
-      setRefrescando(false);
-    }
+    await Promise.all([refetchViajes(), refetchSolicitudes()]);
   };
 
   // Revisa si el id_viaje_pub actual existe dentro del arreglo de viajesActivos
@@ -114,10 +101,15 @@ const ConducirScreen = ({ navigation }: any) => {
       const result = await orpc.viajes.iniciarViaje({ viajeId });
       if (result.success) {
         const viajeCompleto = viajesActivos.find((v) => v.id_viaje_pub === viajeId);
+        const viajeActivoId = result.viajeActivo?.id_viaje_activo;
+        if (!viajeActivoId) {
+          Alert.alert("Error", "No se pudo obtener el ID del viaje activo");
+          return;
+        }
 
         await iniciarTransmisionUbicacion(
           viajeId,
-          result.viajeActivo.id_viaje_activo,
+          viajeActivoId,
           viajeCompleto
         );
         Alert.alert("¡Viaje iniciado!", "Compartiendo tu ubicación con los pasajeros.");
@@ -198,32 +190,30 @@ const ConducirScreen = ({ navigation }: any) => {
     setTransmitiendo(null);
   };
 
-  const cancelarViaje = async (viajeId: number) => {
-    Alert.alert(
-      "Cancelar viaje",
-      "¿Estás seguro de que deseas cancelar este viaje?",
-      [
-        {
-          text: "Sí, cancelar",
-          onPress: async () => {
-            try {
-              const result = await orpc.viajes.cancelar({ viajeId });
-              if (result.success) {
-                Alert.alert("Éxito", "Viaje cancelado correctamente");
-                cargarDatos();
-              }
-            } catch (error: any) {
-              Alert.alert(
-                "Error",
-                error.message || "No se pudo cancelar el viaje",
-              );
-            }
-          },
-          style: "destructive",
-        },
-        { text: "No", style: "cancel" },
-      ],
-    );
+  const abrirModalCancelacion = (viajeId: number) => {
+    setCancelandoViajeId(viajeId);
+    setMotivoCancelacion("");
+    setShowCancelModal(true);
+  };
+
+  const ejecutarCancelacion = async () => {
+    if (!cancelandoViajeId || !motivoCancelacion.trim()) return;
+
+    try {
+      const result = await orpc.viajes.cancelar({
+        viajeId: cancelandoViajeId,
+        motivo: motivoCancelacion.trim(),
+      });
+      if (result.success) {
+        setShowCancelModal(false);
+        setCancelandoViajeId(null);
+        setMotivoCancelacion("");
+        Alert.alert("Viaje cancelado", "Se ha registrado el motivo en la auditoría.");
+        cargarDatos();
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "No se pudo cancelar el viaje");
+    }
   };
 
   const calcularDistanciaMetros = (
@@ -261,7 +251,6 @@ const ConducirScreen = ({ navigation }: any) => {
   };
 
   const onRefresh = () => {
-    setRefrescando(true);
     cargarDatos();
   };
 
@@ -273,32 +262,31 @@ const ConducirScreen = ({ navigation }: any) => {
     if (socket) {
       const onNuevaSolicitud = (data: any) => {
         console.log("📢 Nueva solicitud recibida en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onSolicitudActualizada = (data: any) => {
         console.log("📢 Solicitud actualizada en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onViajeCancelado = (data: any) => {
         console.log("📢 Viaje cancelado en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onNuevoViajePublicado = (data: any) => {
-        // Solo actualiza si el viaje es del conductor actual
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onViajeFinalizado = (data: any) => {
         console.log("📢 Viaje finalizado en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       const onSolicitudCancelada = (data: any) => {
         console.log("📢 Solicitud cancelada en Conducir:", data);
-        cargarDatos();
+        cargarDatos().catch(e => console.error("Error al recargar datos:", e));
       };
 
       socket.on("nueva_solicitud", onNuevaSolicitud);
@@ -378,7 +366,7 @@ const ConducirScreen = ({ navigation }: any) => {
         <View className="flex-row items-center">
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-700">
-            {viaje.asientos_disponibles} lugares
+            {(viaje.solicitudes?.length ?? 0)}/{viaje.asientos_ofrecidos ?? viaje.capacidad_pasajeros ?? '?'} ocupados
           </Text>
         </View>
       </View>
@@ -407,7 +395,11 @@ const ConducirScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              className="bg-orange-500 rounded-lg px-4 py-2 mr-2"
+              className={`rounded-lg px-4 py-2 mr-2 ${
+                esViajeActivo(viaje.id_viaje_pub) ? "bg-orange-500" : "bg-gray-400 opacity-70"
+              }`}
+              disabled={!esViajeActivo(viaje.id_viaje_pub)}
+              
               onPress={() => {
                 destinoAlertado.current = true;
                 locationSub.current?.remove();
@@ -417,15 +409,14 @@ const ConducirScreen = ({ navigation }: any) => {
                 navigation.navigate("FinishTrip", {
                   viajeId: viaje.id_viaje_pub,
                   viaje, 
-                })
-              }
-            }
+                });
+              }}
             >
               <Text className="text-white font-semibold text-sm">Finalizar</Text>
             </TouchableOpacity>
             <TouchableOpacity
               className="bg-red-500 rounded-lg px-4 py-2 mr-2"
-              onPress={() => cancelarViaje(viaje.id_viaje_pub)}
+              onPress={() => abrirModalCancelacion(viaje.id_viaje_pub)}
             >
               <Text className="text-white font-semibold text-sm">Cancelar</Text>
             </TouchableOpacity>
@@ -571,7 +562,9 @@ const ConducirScreen = ({ navigation }: any) => {
       <Footer navigation={navigation} />
       {liveMapViajeId && (() => {
         const viaje = viajesActivos.find((v) => v.id_viaje_pub === liveMapViajeId);
-        const pasajerosCoordenadas = (viaje?.solicitudes ?? [])
+        if (!viaje) return null;
+
+        const pasajerosCoordenadas = (viaje.solicitudes ?? [])
           .filter((s: any) => s.latitud_recogida && s.longitud_recogida)
           .map((s: any) => ({
             latitude: s.latitud_recogida,
@@ -586,11 +579,55 @@ const ConducirScreen = ({ navigation }: any) => {
             viajeId={liveMapViajeId}
             mode="conductor"
             pasajerosCoordenadas={pasajerosCoordenadas}
-            origen={viaje ? { lat: viaje.latitud_origen, lng: viaje.longitud_origen } : undefined}
-            destino={viaje ? { lat: viaje.latitud_destino, lng: viaje.longitud_destino } : undefined}
+            origen={{ lat: viaje.latitud_origen, lng: viaje.longitud_origen }}
+            destino={{ lat: viaje.latitud_destino, lng: viaje.longitud_destino }}
           />
         );
       })()}
+
+      {/* Modal de cancelación con motivo */}
+      <Modal
+        visible={showCancelModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/50">
+          <View className="bg-white rounded-2xl w-5/6 p-6">
+            <Text className="text-lg font-bold text-gray-800 mb-2">
+              Cancelar viaje
+            </Text>
+            <Text className="text-sm text-gray-500 mb-4">
+              Indica el motivo de la cancelación. Esta información quedará registrada en la auditoría del viaje.
+            </Text>
+
+            <TextInput
+              className="border border-gray-300 rounded-xl p-3 text-base mb-4 min-h-[80px]"
+              placeholder="Escribe el motivo..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              value={motivoCancelacion}
+              onChangeText={setMotivoCancelacion}
+            />
+
+            <View className="flex-row justify-end gap-3">
+              <TouchableOpacity
+                className="px-5 py-3 rounded-xl bg-gray-200"
+                onPress={() => setShowCancelModal(false)}
+              >
+                <Text className="text-gray-700 font-semibold">Volver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                className={`px-5 py-3 rounded-xl ${motivoCancelacion.trim() ? "bg-red-500" : "bg-red-300"}`}
+                onPress={ejecutarCancelacion}
+                disabled={!motivoCancelacion.trim()}
+              >
+                <Text className="text-white font-semibold">Cancelar viaje</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 };

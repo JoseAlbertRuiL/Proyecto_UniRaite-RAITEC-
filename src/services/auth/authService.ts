@@ -70,9 +70,6 @@ export const register = async (params: {
     foto_credencial: foto_credencial ?? undefined,
     foto_perfil: foto_perfil ?? undefined,
   })
-
-  await AsyncStorage.setItem('token', data.token)
-  await AsyncStorage.setItem('user', JSON.stringify(data.user))
   return data
 }
 

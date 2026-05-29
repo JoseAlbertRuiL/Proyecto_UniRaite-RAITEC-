@@ -4,14 +4,33 @@ import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 
 // Obtener todas las notificaciones del usuario
-export const obtenerTodas = protectedProcedure
-  .handler(async ({ context }) => {
-    const notificaciones = await prisma.notificaciones.findMany({
-      where: { id_usuario: context.user.id },
-      orderBy: { fecha_creacion: 'desc' },
-    });
-    return { success: true, notificaciones };
+export const obtenerTodas = protectedProcedure.handler(async ({ context }) => {
+  const notificaciones = await prisma.notificaciones.findMany({
+    where: { id_usuario: context.user.id },
+    include: {
+      viaje: {
+        include: {
+          viajes_activos: {
+            include: {
+              calificaciones: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: { fecha_creacion: 'desc' },
   });
+
+  return {
+    success: true,
+    notificaciones: notificaciones.map((n) => ({
+      ...n,
+      yaCalificado: n.viaje?.viajes_activos?.some(va => 
+        va.calificaciones.some(c => c.id_evaluador === context.user.id)
+      ) ?? false
+    })),
+  };
+});
 
 // Marcar una notificación como leída
 export const marcarLeida = protectedProcedure
@@ -67,9 +86,11 @@ export const crearNotificacion = async (
   usuarioId: string,
   titulo: string,
   cuerpo: string,
-  tipo: string
+  tipo: string,
+  idViaje?: number
 ) => {
   await prisma.notificaciones.create({
+    
     data: {
       id_usuario: usuarioId,
       titulo,
@@ -77,6 +98,7 @@ export const crearNotificacion = async (
       tipo_notif: tipo,
       leido: false,
       fecha_creacion: new Date(),
+      id_viaje: idViaje,
     },
   });
 };

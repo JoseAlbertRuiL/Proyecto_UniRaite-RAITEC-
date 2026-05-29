@@ -9,8 +9,9 @@ interface DriverCardProps {
     destino_texto: string;
     fecha_hora_salida: string;
     asientos_disponibles: number;
-    asientos_totales: number;
-    asientos_ocupados?: number;
+    asientos_ofrecidos: number;
+    asientos_ocupados: number;
+    capacidad_pasajeros: number;
     costo_estimado: number;
     conductor: {
       modelo: string;
@@ -31,6 +32,8 @@ interface DriverCardProps {
   estadoSolicitud?: string | null;
   onEliminar?: (id: number) => void;
   onCancelar?: (id: number) => void;
+  onCancelarAceptada?: (id: number) => void;
+  motivo?: string | null;
 }
 
 const DriverCard = ({
@@ -39,6 +42,8 @@ const DriverCard = ({
   onVerPerfil,
   estadoSolicitud,
   onCancelar,
+  onCancelarAceptada,
+  motivo,
 }: DriverCardProps) => {
   const fecha = new Date(viaje.fecha_hora_salida);
   const hora = fecha.toLocaleTimeString("es-MX", {
@@ -81,12 +86,7 @@ const DriverCard = ({
     return estadoSolicitud !== null && estadoSolicitud !== undefined;
   };
 
-  const ocupados = typeof viaje.asientos_ocupados === "number"
-    ? viaje.asientos_ocupados
-    : viaje.asientos_totales - viaje.asientos_disponibles;
-  const mostrarOcupados = typeof viaje.asientos_ocupados === "number";
-  const lugaresTexto = mostrarOcupados ? "ocupados" : "disponibles";
-  const valorMostrar = mostrarOcupados ? ocupados : viaje.asientos_disponibles;
+  const asientosOcupados = viaje.asientos_ocupados;
 
   const fotoUrl = viaje.conductor.usuario.foto_perfil
     ? viaje.conductor.usuario.foto_perfil
@@ -189,18 +189,32 @@ const DriverCard = ({
           <Text className="text-gray-400 mx-2">•</Text>
           <Text className="text-gray-500 mr-1">👥</Text>
           <Text className="text-sm text-gray-800 font-medium">
-            {valorMostrar}/{viaje.asientos_totales} {lugaresTexto}
+            {asientosOcupados}/{viaje.asientos_ofrecidos} ocupados
           </Text>
         </View>
       </View>
 
       {/* Vehículo */}
-      <View className="px-4 py-2 flex-row items-center border-b border-gray-100">
-        <Text className="text-gray-500 mr-2">🚗</Text>
-        <Text className="text-sm text-gray-700">
-          {viaje.conductor.modelo} • {viaje.conductor.color}
+      <View className="px-4 py-2 border-b border-gray-100">
+        <View className="flex-row items-center">
+          <Text className="text-gray-500 mr-2">🚗</Text>
+          <Text className="text-sm text-gray-700">
+            {viaje.conductor.modelo} • {viaje.conductor.color}
+          </Text>
+        </View>
+        <Text className="px-4 py-1 text-sm text-gray-400 ml-7 mt-0.5">
+          Capacidad: {viaje.capacidad_pasajeros} asientos
         </Text>
       </View>
+
+      {/* Motivo de cancelación */}
+      {estadoSolicitud === "cancelado" && motivo ? (
+        <View className="px-4 py-2 bg-red-50 border-t border-red-100">
+          <Text className="text-xs text-red-700 font-medium">
+            Motivo: {motivo}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Precio y acción */}
       <View className="p-4 flex-row justify-between items-center">
@@ -211,15 +225,33 @@ const DriverCard = ({
           <Text className="text-xs text-gray-500">por persona</Text>
         </View>
 
-        <TouchableOpacity
-          className={`${getBotonEstilo()} rounded-xl px-6 py-3 ${getBotonDisabled() ? "opacity-70" : ""}`}
-          onPress={() => isPendiente ? onCancelar?.(viaje.id_viaje_pub) : onPress(viaje.id_viaje_pub)}
-          disabled={getBotonDisabled()}
-        >
-          <Text className="text-white font-semibold text-sm">
-            {getBotonTexto()}
-          </Text>
-        </TouchableOpacity>
+        {estadoSolicitud === "aceptada" ? (
+          <View className="flex-row gap-2">
+            <View className="bg-green-500 rounded-xl px-6 py-3 opacity-70">
+              <Text className="text-white font-semibold text-sm">
+                Aceptado ✅
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="bg-red-500 rounded-xl px-6 py-3"
+              onPress={() => onCancelarAceptada?.(viaje.id_viaje_pub)}
+            >
+              <Text className="text-white font-semibold text-sm">
+                Cancelar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            className={`${getBotonEstilo()} rounded-xl px-6 py-3 ${getBotonDisabled() ? "opacity-70" : ""}`}
+            onPress={() => isPendiente ? onCancelar?.(viaje.id_viaje_pub) : onPress(viaje.id_viaje_pub)}
+            disabled={getBotonDisabled()}
+          >
+            <Text className="text-white font-semibold text-sm">
+              {getBotonTexto()}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

@@ -1,4 +1,3 @@
-// src/screens/Principal/LoginScreen.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -11,20 +10,19 @@ import {
   ScrollView,
   StatusBar,
 } from "react-native";
-import { login } from "../../services/auth/authService";
+import { useLoginMutation } from "../../hooks/mutations/useAuthMutations";
 import { useBackHandler } from "../../hooks/useBackHandler";
 import ScreenWrapper from "../../components/common/ScreenWrapper";
 import { connectSocket } from "../../services/socket";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { BASE_URL } from "../../services/api/apiClient";
 
-
-
 const LoginScreen = ({ navigation }: any) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  const loginMutation = useLoginMutation();
 
   useBackHandler(navigation, "login");
 
@@ -48,21 +46,19 @@ const LoginScreen = ({ navigation }: any) => {
       return;
     }
 
-    try {
-      setLoading(true);
-      console.log("🔄 Intentando login con:", { email, password: "***" });
-      const data = await login(email, password);
-      console.log("✅ Login exitoso:", data);
-      // Conectar WebSocket después del login exitoso
-      await connectSocket();
-      navigation.navigate("Home");
-    } catch (error: any) {
-      console.error("❌ Error en login:", error);
-      const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
+    loginMutation.mutate(
+      { correo_inst: email, password },
+      {
+        onSuccess: async () => {
+          await connectSocket();
+          navigation.navigate("Home");
+        },
+        onError: (error: any) => {
+          const errorMessage = error?.message || error?.toString() || "Error desconocido en el login";
+          alert(`Error: ${errorMessage}`);
+        },
+      }
+    );
   };
 
   return (
@@ -80,7 +76,7 @@ const LoginScreen = ({ navigation }: any) => {
                       className="w-40 h-40 mt-16 mb-4"
                       resizeMode="contain"
                     />
-            
+
             <Text className="text-4xl font-bold text-blue-900 tracking-wider mb-2">
               UNIRAITE
             </Text>
@@ -143,14 +139,14 @@ const LoginScreen = ({ navigation }: any) => {
 
             <TouchableOpacity
               className={`rounded-xl py-4 items-center mb-6 shadow-lg ${
-                loading ? 'bg-gray-400' : 'bg-blue-900'
+                loginMutation.isPending ? 'bg-gray-400' : 'bg-blue-900'
               }`}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loginMutation.isPending}
               activeOpacity={0.8}
             >
               <Text className="text-white text-base font-semibold">
-                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+                {loginMutation.isPending ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </Text>
             </TouchableOpacity>
 
