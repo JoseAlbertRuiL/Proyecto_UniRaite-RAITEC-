@@ -4,8 +4,10 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "vitest"
   },
+
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",
     "@google-cloud/vision": "^5.3.5",
@@ -41,6 +43,7 @@
     "prisma": "^6.19.3",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.22.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.7"
   }
 }
