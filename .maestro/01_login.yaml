@@ -1,0 +1,15 @@
+#Para probarlo usar maestro test .maestro/01_login.yaml
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "app-raitec"
+- tapOn:
+    point: "50%, 55%"
+- inputText: "l23120541@morelia.tecnm.mx"
+- hideKeyboard
+- tapOn:
+    point: "50%, 68%"
+- inputText: "Bakugan"
+- hideKeyboard
+- tapOn: "Iniciar Sesión"
+- assertVisible: "Inicio"
