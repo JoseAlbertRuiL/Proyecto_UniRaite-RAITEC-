@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - tests-unitarios
+      - tests-unitarios-RamaCompleta
       - PPTSIS
+      - RamaCompleta
+
   pull_request:
     branches:
       - PPTSIS
+      - RamaCompleta
 
 jobs:
   backend-unit-tests:
