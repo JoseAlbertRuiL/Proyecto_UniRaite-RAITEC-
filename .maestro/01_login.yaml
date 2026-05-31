@@ -1,15 +1,25 @@
-#Para probarlo usar maestro test .maestro/01_login.yaml
+# Para probarlo usar: maestro test .maestro/01_login.yaml
 appId: host.exp.exponent
 ---
+# Lanza la app de Expo Go
 - launchApp
+# Abre el proyecto UniRaite
 - tapOn: "app-raitec"
+# Toca el campo de Correo (por coordenadas)
 - tapOn:
     point: "50%, 55%"
+# Escribe el correo institucional
 - inputText: "l23120541@morelia.tecnm.mx"
+# Cierra el teclado para poder tocar el siguiente campo
 - hideKeyboard
+# Toca el campo de Contraseña (por coordenadas)
 - tapOn:
     point: "50%, 68%"
+# Escribe la contraseña
 - inputText: "Bakugan"
+# Cierra el teclado para poder tocar el botón
 - hideKeyboard
+# Toca el botón de iniciar sesión
 - tapOn: "Iniciar Sesión"
+# Verifica que el login fue exitoso comprobando que la pantalla de Inicio es visible
 - assertVisible: "Inicio"
