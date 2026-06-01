@@ -22,6 +22,7 @@ const HeaderBack: React.FC<HeaderBackProps> = ({ navigation, title }) => {
     >
       {/* Botón de regreso izquierda - más bonito */}
       <TouchableOpacity
+        testID="btn-regresar"
         className="w-8 h-8 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
         onPress={() => navigation.goBack()}
         activeOpacity={0.7}

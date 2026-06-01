@@ -1,46 +1,29 @@
 # Para probarlo usar: maestro test .maestro/02_publicar_viaje.yaml
 appId: host.exp.exponent
 ---
-# Reutiliza el flujo de login (01_login.yaml debe ejecutarse primero)
 - runFlow: 01_login.yaml
-
-# Abre el menú de perfil (ícono superior derecho)
 - tapOn:
-    point: "90%, 10%"
-
-# Activa el toggle de "Modo conductor" (por coordenadas)
+    id: "btn-perfil"
 - tapOn:
-    point: "85%, 82%"
-
-# Espera a que el toggle termine su animación antes de continuar
+    id: "toggle-modo-conductor"
 - waitForAnimationToEnd
-
-# Regresa a la pantalla de Inicio (flecha superior izquierda)
 - tapOn:
-    point: "10%, 10%"
-
-# Navega a la sección Conducir desde la barra inferior
+    id: "btn-regresar"
 - tapOn: "Conducir"
-
-# Toca el botón + para publicar un nuevo viaje
 - tapOn:
-    point: "93%, 87%"
-
-# Toca el campo de Origen para abrir el mapa
+    id: "btn-nuevo-viaje"
 - tapOn: "Toca para seleccionar en el mapa"
-
-# Toca "Usar mi ubicación actual" (por coordenadas)
 - tapOn:
-    point: "50%, 50%"
-
-# Confirma el punto de origen seleccionado
-- tapOn: "Confirmar punto"
-
-# Toca el campo de comentario adicional por su placeholder y escribe el comentario de prueba
-- tapOn: "Saldré de casa a las 5:45 para evitar tráfico"
+    id: "btn-usar-ubicacion"
+- tapOn:
+    id: "btn-confirmar-punto"
+- tapOn:
+    id: "input-comentario"
 - inputText: "test viaje"
-# Cierra el teclado para poder tocar el botón de publicar
 - hideKeyboard
-
-# Publica el viaje
-- tapOn: "Publicar viaje"
+- tapOn:
+    id: "btn-publicar-viaje"
+# Cierra el alert de confirmación
+- tapOn: "OK"
+# Verifica que regresó a la pantalla de Conducir
+- assertVisible: "Conducir"

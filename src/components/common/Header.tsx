@@ -53,6 +53,7 @@ const Header: React.FC<HeaderProps> = ({ navigation, title }) => {
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="btn-perfil"
           className="w-8 h-8 bg-white rounded-full items-center justify-center"
           onPress={() => navigation.navigate("ConfigP")}
         >

@@ -489,6 +489,7 @@ const PublishTripScreen = ({ navigation }: any) => {
           >
             {mapTipo === "origen" && (
               <TouchableOpacity
+                testID="btn-usar-ubicacion"
                 onPress={centrarEnUbicacion}
                 style={{
                   backgroundColor: "#1e3a8a",
@@ -519,6 +520,7 @@ const PublishTripScreen = ({ navigation }: any) => {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                testID="btn-confirmar-punto"
                 onPress={confirmarPunto}
                 disabled={geocodingLoad || !markerTemp}
                 style={{
@@ -726,6 +728,7 @@ const PublishTripScreen = ({ navigation }: any) => {
               Comentario adicional
             </Text>
             <TextInput
+              testID="input-comentario"
               value={form.comentario}
               onChangeText={(text) => updateField("comentario", text)}
               multiline
@@ -738,6 +741,7 @@ const PublishTripScreen = ({ navigation }: any) => {
           </View>
 
           <TouchableOpacity
+            testID="btn-publicar-viaje"
             onPress={handlePublicar}
             disabled={isLoading}
             className={`rounded-2xl py-4 items-center mb-6 ${isLoading || isPublishingRef.current ? "bg-blue-300" : "bg-blue-600"}`}
