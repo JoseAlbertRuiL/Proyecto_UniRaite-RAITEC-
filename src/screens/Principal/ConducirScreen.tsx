@@ -551,6 +551,7 @@ const ConducirScreen = ({ navigation }: any) => {
       </ScrollView>
 
       <TouchableOpacity
+        testID="btn-nuevo-viaje"
         className="absolute right-6 bg-blue-900 w-14 h-14 rounded-full items-center justify-center shadow-lg"
         style={{ bottom: 80 + insets.bottom }}
         onPress={() => navigation.navigate("PublicarViaje")}

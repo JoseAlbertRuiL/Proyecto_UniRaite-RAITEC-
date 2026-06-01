@@ -1,0 +1,20 @@
+# Para probarlo usar: maestro test .maestro/01_login.yaml
+appId: host.exp.exponent
+---
+- launchApp
+- tapOn: "app-raitec"
+
+# Campo correo (testID en LoginScreen.tsx)
+- tapOn:
+    id: "input-correo"
+- inputText: "l23120541@morelia.tecnm.mx"
+- hideKeyboard
+
+# Campo contraseña (testID en LoginScreen.tsx)
+- tapOn:
+    id: "input-contrasena"
+- inputText: "Bakugan"
+- hideKeyboard
+
+- tapOn: "Iniciar Sesión"
+- assertVisible: "Inicio"
