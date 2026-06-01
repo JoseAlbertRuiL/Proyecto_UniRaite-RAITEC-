@@ -426,6 +426,7 @@ const StartScreen = ({ navigation }: any) => {
           <View className="flex-row justify-between mb-6">
             {!esConductorActivo && (
               <TouchableOpacity
+                testID="btn-punto-encuentro"
                 className={`rounded-lg py-3 px-4 flex-1 mr-2 ${
                   solicitudActiva.tieneSolicitud ? "bg-gray-400" : "bg-blue-600"
                 }`}
@@ -533,6 +534,7 @@ const StartScreen = ({ navigation }: any) => {
 
           <View style={{ position: "absolute", bottom: 32, left: 16, right: 16, gap: 10 }}>
             <TouchableOpacity
+              testID="btn-usar-ubicacion-encuentro"
               onPress={centrarEnUbicacion}
               style={{ backgroundColor: "#1e3a8a", borderRadius: 14, padding: 14, alignItems: "center" }}
             >
@@ -547,6 +549,7 @@ const StartScreen = ({ navigation }: any) => {
                 <Text style={{ color: "#374151", fontWeight: "600" }}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                testID="btn-confirmar-encuentro"
                 onPress={confirmarPuntoEncuentro}
                 disabled={geocodingLoad || !markerTemp}
                 style={{

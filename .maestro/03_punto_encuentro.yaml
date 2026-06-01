@@ -1,0 +1,23 @@
+# Para probarlo usar: maestro test .maestro/03_punto_encuentro.yaml
+appId: host.exp.exponent
+---
+# Login
+- runFlow: 01_login.yaml
+
+# Botón de punto de encuentro en pantalla Inicio
+- tapOn:
+    id: "btn-punto-encuentro"
+
+# Usar ubicación actual
+- tapOn:
+    id: "btn-usar-ubicacion-encuentro"
+
+# Confirmar punto
+- tapOn:
+    id: "btn-confirmar-encuentro"
+
+# Cierra el alert "Punto guardado"
+- tapOn: "OK"
+
+# Verifica que regresó a Inicio con el punto guardado
+- assertVisible: "Inicio"
