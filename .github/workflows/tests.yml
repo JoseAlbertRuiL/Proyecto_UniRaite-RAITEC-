@@ -5,10 +5,12 @@ on:
     branches:
       - RamaCompleta
       - PPTSIS
+      - RamaSebastian
   pull_request:
     branches:
       - RamaCompleta
       - PPTSIS
+      - RamaSebastian
 
 jobs:
   backend-tests:
