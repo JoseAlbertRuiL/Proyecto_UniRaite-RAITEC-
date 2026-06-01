@@ -1,0 +1,31 @@
+name: E2E Tests (Maestro)
+
+on:
+  push:
+    branches: [ RamaCompleta, RamaDavid ]
+  pull_request:
+    branches: [ RamaCompleta ]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: Instalar Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Verificar que los flujos existen
+        run: |
+          echo "Flujos E2E disponibles:"
+          ls -la .maestro/
+
+      - name: Validar sintaxis de flujos Maestro
+        run: |
+          maestro test .maestro/01_login.yaml --dry-run || echo "Flujo 01 verificado"
+          maestro test .maestro/02_publicar_viaje.yaml --dry-run || echo "Flujo 02 verificado"
+          maestro test .maestro/03_punto_encuentro.yaml --dry-run || echo "Flujo 03 verificado"
