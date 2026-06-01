@@ -40,10 +40,6 @@ jobs:
       JWT_SECRET: ci-test-secret
       NODE_ENV: test
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,16 +54,19 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install
+        working-directory: backend
+        run: pnpm install --no-frozen-lockfile
 
       - name: Generate Prisma Client
+        working-directory: backend
         run: pnpm prisma generate
 
       - name: Sync database schema
+        working-directory: backend
         run: pnpm prisma db push --skip-generate
 
       - name: Run integration tests
+        working-directory: backend
         run: pnpm test -- --run
