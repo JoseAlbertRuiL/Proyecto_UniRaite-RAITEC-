@@ -7,7 +7,6 @@
     "start": "node dist/server.js",
     "test": "vitest"
   },
-
   "dependencies": {
     "@emailjs/nodejs": "^5.0.2",
     "@google-cloud/vision": "^5.3.5",
@@ -40,7 +39,9 @@
     "@types/multer": "^1.4.13",
     "@types/node": "^20.19.39",
     "@types/node-cron": "^3.0.11",
+    "@types/supertest": "^7.2.0",
     "prisma": "^6.19.3",
+    "supertest": "^7.2.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.22.3",
     "typescript": "^5.9.3",
