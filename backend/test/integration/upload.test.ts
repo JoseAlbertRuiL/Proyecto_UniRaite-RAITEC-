@@ -16,7 +16,11 @@ afterAll(() => {
     const dirPath = path.resolve(__dirname, '../../uploads', dir)
     if (fs.existsSync(dirPath)) {
       for (const file of fs.readdirSync(dirPath)) {
-        fs.unlinkSync(path.join(dirPath, file))
+        try {
+          fs.unlinkSync(path.join(dirPath, file))
+        } catch {
+          // file may already be deleted by a previous cleanup
+        }
       }
     }
   }
@@ -31,7 +35,7 @@ describe('POST /upload/perfil', () => {
         contentType: 'image/jpeg',
       })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(res.body).toHaveProperty('foto_perfil')
     expect(typeof res.body.foto_perfil).toBe('string')
     expect(res.body.foto_perfil).toMatch(/\.jpg$/)
@@ -41,7 +45,7 @@ describe('POST /upload/perfil', () => {
     const res = await request(app)
       .post('/upload/perfil')
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(res.body.foto_perfil).toBeNull()
   })
 })
@@ -55,7 +59,7 @@ describe('POST /upload/credentials', () => {
         contentType: 'image/jpeg',
       })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(res.body).toHaveProperty('foto_credencial')
     expect(typeof res.body.foto_credencial).toBe('string')
   })
@@ -74,7 +78,7 @@ describe('POST /upload/registro', () => {
         contentType: 'image/jpeg',
       })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(typeof res.body.foto_credencial).toBe('string')
     expect(typeof res.body.foto_perfil).toBe('string')
   })
@@ -93,7 +97,7 @@ describe('POST /upload/conductor', () => {
         contentType: 'image/jpeg',
       })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(typeof res.body.foto_licencia).toBe('string')
     expect(typeof res.body.foto_circulacion).toBe('string')
   })
@@ -108,14 +112,14 @@ describe('POST /upload/circulacion', () => {
         contentType: 'image/jpeg',
       })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(201)
     expect(res.body).toHaveProperty('foto_circulacion')
     expect(typeof res.body.foto_circulacion).toBe('string')
   })
 })
 
 describe('multer file filter', () => {
-  it('rejects non-image files', async () => {
+  it('rejects non-image files with standardized error format', async () => {
     const res = await request(app)
       .post('/upload/perfil')
       .attach('foto_perfil', Buffer.from('text content'), {
@@ -123,6 +127,13 @@ describe('multer file filter', () => {
         contentType: 'text/plain',
       })
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(400)
+    expect(res.body).toEqual({
+      success: false,
+      error: {
+        code: 'INVALID_FILE_TYPE',
+        message: 'Solo se permiten imágenes JPG y PNG',
+      },
+    })
   })
 })

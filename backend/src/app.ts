@@ -6,6 +6,8 @@ import fs from 'fs'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
+import { statusInterceptor } from './middleware/statusInterceptor'
+import { globalErrorHandler } from './middleware/errorHandler'
 
 require('dotenv').config()
 
@@ -133,6 +135,7 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 app.use('/rpc', rateLimitMiddleware);
+app.use('/rpc', statusInterceptor);
 
 app.use('/rpc', async (req, res, next) => {
   console.log('📡 Petición recibida en /rpc:', req.method, req.url);
@@ -146,11 +149,11 @@ app.use('/rpc', async (req, res, next) => {
 // ─── Rutas de upload (Express + Multer) ───────────────────────────────────────
 
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
-  res.json({ foto_perfil: req.file?.filename || null });
+  res.status(201).json({ foto_perfil: req.file?.filename || null });
 });
 
 app.post('/upload/credentials', upload.single('foto_credencial'), (req, res) => {
-  res.json({ foto_credencial: req.file?.filename || null });
+  res.status(201).json({ foto_credencial: req.file?.filename || null });
 });
 
 app.post(
@@ -161,7 +164,7 @@ app.post(
   ]),
   (req, res) => {
     const files = req.files as Record<string, Express.Multer.File[]>
-    res.json({
+    res.status(201).json({
       foto_credencial: files?.foto_credencial?.[0]?.filename ?? null,
       foto_perfil: files?.foto_perfil?.[0]?.filename ?? null,
     })
@@ -176,7 +179,7 @@ app.post(
   ]),
   (req, res) => {
     const files = req.files as Record<string, Express.Multer.File[]>
-    res.json({
+    res.status(201).json({
       foto_licencia: files?.foto_licencia?.[0]?.filename ?? null,
       foto_circulacion: files?.foto_circulacion?.[0]?.filename ?? null,
     })
@@ -184,7 +187,7 @@ app.post(
 )
 
 app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res) => {
-  res.json({
+  res.status(201).json({
     foto_circulacion: req.file?.filename ?? null,
   })
 })
@@ -194,5 +197,9 @@ app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res) =>
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' })
 })
+
+// ─── Global Error Handler (last) ────────────────────────────────────────
+
+app.use(globalErrorHandler)
 
 export default app
