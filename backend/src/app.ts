@@ -6,6 +6,7 @@ import fs from 'fs'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
+import logger from './services/logger'
 
 require('dotenv').config()
 
@@ -65,7 +66,7 @@ app.use('/uploads', express.static('uploads'))
 const orpcHandler = new RPCHandler(router, {
   interceptors: [
     onError((error) => {
-      console.error('[oRPC error]', error)
+      logger.error('Error interno en oRPC', { error: error instanceof Error ? error.message : error })
     }),
   ],
 })
@@ -99,7 +100,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
       const accion = esLogin ? 'iniciar sesión' : 'registrarse';
 
-      console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
+      logger.warn('IP bloqueada por demasiados intentos', { ip, intentos: intentos.count, accion, minutosRestantes });
       return res.status(429).json({
         success: false,
         message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
@@ -112,10 +113,10 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
       actuales.count++;
       mapaActual.set(ip, actuales);
-      console.log(`🔐 [RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
+      logger.warn('Intento fallido en rate limit', { ip, intentosActuales: actuales.count, limite: limiteIntentos, operacion: esLogin ? 'Login' : 'Registro' });
     } else if (res.statusCode >= 200 && res.statusCode < 300) {
       mapaActual.delete(ip);
-      console.log(`🔐 [RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
+      logger.info('Acceso exitoso, contador de rate limit reiniciado', { ip, operacion: esLogin ? 'Login' : 'Registro' });
     }
   });
 
@@ -135,7 +136,7 @@ setInterval(() => {
 app.use('/rpc', rateLimitMiddleware);
 
 app.use('/rpc', async (req, res, next) => {
-  console.log('📡 Petición recibida en /rpc:', req.method, req.url);
+logger.info('Petición recibida en oRPC', { method: req.method, url: req.url });
   const { matched } = await orpcHandler.handle(req, res, {
     prefix: '/rpc',
     context: { headers: req.headers },
@@ -216,7 +217,7 @@ app.get('/health', (req, res) => {
 // ─── Middleware global centralizado de manejo de errores ───────────────────────
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("[Error Global Interceptado]:", err.message || err);
+logger.error("Error global interceptado", { error: err.message || err });
 
   // 1. Manejo específico para errores de Multer (ej. archivo muy pesado o tipo incorrecto)
   if (err.name === 'MulterError' || err.message === 'Solo JPG/PNG') {
