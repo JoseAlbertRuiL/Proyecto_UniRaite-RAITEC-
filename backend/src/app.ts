@@ -145,12 +145,20 @@ app.use('/rpc', async (req, res, next) => {
 
 // ─── Rutas de upload (Express + Multer) ───────────────────────────────────────
 
-app.post('/upload/perfil', upload.single('foto_perfil'), (req, res) => {
-  res.json({ foto_perfil: req.file?.filename || null });
+app.post('/upload/perfil', upload.single('foto_perfil'), (req, res, next) => {
+  try {
+    res.json({ foto_perfil: req.file?.filename || null });
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.post('/upload/credentials', upload.single('foto_credencial'), (req, res) => {
-  res.json({ foto_credencial: req.file?.filename || null });
+app.post('/upload/credentials', upload.single('foto_credencial'), (req, res, next) => {
+  try {
+    res.json({ foto_credencial: req.file?.filename || null });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post(
@@ -159,12 +167,16 @@ app.post(
     { name: 'foto_credencial', maxCount: 1 },
     { name: 'foto_perfil', maxCount: 1 },
   ]),
-  (req, res) => {
-    const files = req.files as Record<string, Express.Multer.File[]>
-    res.json({
-      foto_credencial: files?.foto_credencial?.[0]?.filename ?? null,
-      foto_perfil: files?.foto_perfil?.[0]?.filename ?? null,
-    })
+  (req, res, next) => {
+    try {
+      const files = req.files as Record<string, Express.Multer.File[]>
+      res.json({
+        foto_credencial: files?.foto_credencial?.[0]?.filename ?? null,
+        foto_perfil: files?.foto_perfil?.[0]?.filename ?? null,
+      })
+    } catch (error) {
+      next(error);
+    }
   }
 )
 
@@ -174,25 +186,61 @@ app.post(
     { name: 'foto_licencia', maxCount: 1 },
     { name: 'foto_circulacion', maxCount: 1 },
   ]),
-  (req, res) => {
-    const files = req.files as Record<string, Express.Multer.File[]>
-    res.json({
-      foto_licencia: files?.foto_licencia?.[0]?.filename ?? null,
-      foto_circulacion: files?.foto_circulacion?.[0]?.filename ?? null,
-    })
+  (req, res, next) => {
+    try {
+      const files = req.files as Record<string, Express.Multer.File[]>
+      res.json({
+        foto_licencia: files?.foto_licencia?.[0]?.filename ?? null,
+        foto_circulacion: files?.foto_circulacion?.[0]?.filename ?? null,
+      })
+    } catch (error) {
+      next(error);
+    }
   }
 )
 
-app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res) => {
-  res.json({
-    foto_circulacion: req.file?.filename ?? null,
-  })
+app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res, next) => {
+  try {
+    res.json({ foto_circulacion: req.file?.filename ?? null })
+  } catch (error) {
+    next(error);
+  }
 })
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' })
-})
+  res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' });
+});
+
+// ─── Middleware global centralizado de manejo de errores ───────────────────────
+
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("[Error Global Interceptado]:", err.message || err);
+
+  // 1. Manejo específico para errores de Multer (ej. archivo muy pesado o tipo incorrecto)
+  if (err.name === 'MulterError' || err.message === 'Solo JPG/PNG') {
+    return res.status(400).json({
+      success: false,
+      error: {
+        codigo: 'BAD_REQUEST',
+        mensaje: err.message === 'Solo JPG/PNG' ? err.message : 'Error al subir el archivo (quizás es muy pesado)',
+        detalles: null
+      }
+    });
+  }
+
+  // 2. Estandarización general para cualquier otro error
+  const statusCode = err.status || err.statusCode || 500;
+  
+  res.status(statusCode).json({
+    success: false,
+    error: {
+      codigo: err.code || 'INTERNAL_SERVER_ERROR',
+      mensaje: err.message || 'Ocurrió un error inesperado en el servidor',
+      detalles: err.issues || err.details || null 
+    }
+  });
+});
 
 export default app
