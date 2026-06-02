@@ -123,6 +123,6 @@ describe('multer file filter', () => {
         contentType: 'text/plain',
       })
 
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(400)
   })
 })
