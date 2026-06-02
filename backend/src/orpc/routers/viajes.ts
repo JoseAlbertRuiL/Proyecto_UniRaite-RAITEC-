@@ -3,8 +3,9 @@ import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 import { io } from '../../server'
+import logger from '../../services/logger';
 
-// 🔒 DEBOUNCE: Map para evitar publicaciones duplicadas muy rápidas
+// DEBOUNCE: Map para evitar publicaciones duplicadas muy rápidas
 const ultimaPublicacionPorUsuario = new Map<string, number>();
 
 // Función auxiliar para crear notificaciones
@@ -28,7 +29,7 @@ const crearNotificacion = async (
       },
     });
   } catch (error) {
-    console.error("Error al crear notificación:", error);
+    logger.error('Error al crear notificación', { error: error instanceof Error ? error.message : error, usuarioId, tipo });
   }
 };
 
@@ -220,7 +221,7 @@ export const publicarViaje = protectedProcedure
         tipo: "viaje"
       })
 
-      console.log('📢 Eventos nuevo_viaje y nueva_notificacion emitidos')
+      logger.info('Eventos nuevo_viaje y notificacion emitidos', { viajeId: nuevoViaje.id_viaje_pub });
     }
 
     return {
@@ -280,9 +281,9 @@ export const obtenerViajesActivos = protectedProcedure
     })
 
     if (viajes.length > 0) {
-      console.log("Viaje [0] listo para enviar:", JSON.stringify(viajes[0], null, 2));
+      logger.debug('Enviando viajes activos del conductor', { userId: context.user.id, viajesCount: viajes.length });
     } else {
-      console.log("No se encontraron viajes para este conductor.");
+      logger.info('No se encontraron viajes activos para el conductor', { userId: context.user.id });
     }
 
     return { success: true, viajes }

@@ -28,6 +28,7 @@
     "node-cron": "^4.2.1",
     "react-native-maps-directions": "^1.9.0",
     "socket.io": "^4.8.3",
+    "winston": "^3.19.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

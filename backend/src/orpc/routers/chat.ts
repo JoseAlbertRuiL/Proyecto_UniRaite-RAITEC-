@@ -2,6 +2,7 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
+import logger from '../../services/logger';
 
 // Obtener mensajes de un viaje
 export const getMensajes = protectedProcedure
@@ -103,7 +104,11 @@ export const enviarMensaje = protectedProcedure
         io.to(`chat_${input.id_viaje_pub}`).emit('new_message', mensaje);
       }
     } catch (e) {
-      console.error('Error al emitir mensaje por socket:', e);
+      logger.error('Error al emitir mensaje por socket', { 
+        error: e instanceof Error ? e.message : e, 
+        viajeId: input.id_viaje_pub, 
+        emisorId: context.user.id 
+      });
     }
 
     return mensaje;
@@ -316,7 +321,11 @@ export const marcarComoLeidos = protectedProcedure
         io.to(`chat_${input.viajeId}`).emit('mensajes_leidos', { usuarioId: context.user.id, viajeId: input.viajeId });
       }
     } catch (e) {
-      console.error('Error al emitir mensajes leídos por socket:', e);
+      logger.error('Error al emitir mensajes leídos por socket', { 
+        error: e instanceof Error ? e.message : e, 
+        viajeId: input.viajeId, 
+        usuarioId: context.user.id 
+      });
     }
     
     return { success: true };
