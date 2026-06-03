@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 import { io } from '../../server'
-import logger from '../../services/logger';
+import logger from '../../services/logger'
 
 // Función auxiliar para crear notificaciones
 const crearNotificacion = async (
@@ -103,7 +103,7 @@ export const solicitarViaje = protectedProcedure
         tipo: "solicitud"
       });
       
-      logger.info('Eventos nueva_solicitud y nueva_notificacion emitidos', { viajeId: input.viajeId });
+      logger.info('Eventos nueva_solicitud y nueva_notificacion emitidos', { viajeId: input.viajeId })
     }
 
     return { success: true, solicitud };
@@ -197,7 +197,7 @@ export const responderSolicitud = protectedProcedure
         tipo: input.estado === 'aceptada' ? "aceptacion" : "rechazo"
       });
       
-      logger.info('Eventos solicitud_actualizada y nueva_notificacion emitidos', { solicitudId: input.solicitudId, estado: input.estado });
+      logger.info('Eventos solicitud_actualizada y nueva_notificacion emitidos', { solicitudId: input.solicitudId, estado: input.estado })
     }
 
     return { success: true, solicitud: solicitudActualizada }
@@ -254,7 +254,7 @@ export const obtenerSolicitudesRecibidas = protectedProcedure
 export const obtenerEstadoPorViaje = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
-    logger.debug('Buscando solicitud para viaje', { viajeId: input.viajeId, userId: context.user.id });
+    logger.debug('Buscando solicitud para viaje', { viajeId: input.viajeId, userId: context.user.id })
     const solicitud = await prisma.solicitudes_viaje.findFirst({
       where: {
         id_viaje_pub: input.viajeId,
@@ -271,7 +271,7 @@ export const obtenerEstadoPorViaje = protectedProcedure
         },
       },
     });
-    logger.debug('Solicitud encontrada', { solicitudId: solicitud?.id_solicitud });
+    logger.debug('Solicitud encontrada', { solicitudId: solicitud?.id_solicitud })
 
     let estado: string | null = solicitud?.estado_solicitud || null;
 
@@ -427,7 +427,7 @@ export const cancelarSolicitud = protectedProcedure
         });
       }
 
-      logger.info('Evento solicitud_cancelada emitido', { solicitudId: input.solicitudId });
+      logger.info('Evento solicitud_cancelada emitido', { solicitudId: input.solicitudId })
     }
 
     return { success: true, message: 'Solicitud cancelada exitosamente' };

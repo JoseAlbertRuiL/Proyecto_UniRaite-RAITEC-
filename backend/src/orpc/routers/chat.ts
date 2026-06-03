@@ -2,7 +2,7 @@ import { ORPCError } from '@orpc/server'
 import { z } from 'zod'
 import { baseProcedure, protectedProcedure } from '../middleware'
 import { prisma } from '../context'
-import logger from '../../services/logger';
+import logger from '../../services/logger'
 
 // Obtener mensajes de un viaje
 export const getMensajes = protectedProcedure
@@ -108,7 +108,7 @@ export const enviarMensaje = protectedProcedure
         error: e instanceof Error ? e.message : e, 
         viajeId: input.id_viaje_pub, 
         emisorId: context.user.id 
-      });
+      })
     }
 
     return mensaje;
@@ -325,7 +325,7 @@ export const marcarComoLeidos = protectedProcedure
         error: e instanceof Error ? e.message : e, 
         viajeId: input.viajeId, 
         usuarioId: context.user.id 
-      });
+      })
     }
     
     return { success: true };

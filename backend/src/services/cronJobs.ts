@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../orpc/context';
 import { Server } from 'socket.io';
-import logger from './logger';
+import logger from './logger'
 
 /**
  * Cancela automáticamente los viajes que no iniciaron dentro de los
@@ -40,11 +40,11 @@ const cancelarViajesExpirados = async (io: Server) => {
 
     if (viajesExpirados.length === 0) return;
 
-    logger.info('Viajes expirados encontrados por CronJob', { cantidad: viajesExpirados.length });
+    logger.info('Viajes expirados encontrados por CronJob', { cantidad: viajesExpirados.length })
 
     for (const viaje of viajesExpirados) {
       try {
-        logger.info('Cancelando viaje expirado automáticamente', { viajeId: viaje.id_viaje_pub, destino: viaje.destino_texto });
+        logger.info('Cancelando viaje expirado automáticamente', { viajeId: viaje.id_viaje_pub, destino: viaje.destino_texto })
 
         // 1. Rechazar solicitudes pendientes del viaje
         await prisma.solicitudes_viaje.updateMany({
@@ -130,13 +130,13 @@ const cancelarViajesExpirados = async (io: Server) => {
           mensaje:    `El viaje a ${viaje.destino_texto} fue cancelado por inactividad.`,
         });
 
-        logger.info('Viaje cancelado automáticamente con éxito', { viajeId: viaje.id_viaje_pub });
+        logger.info('Viaje cancelado automáticamente con éxito', { viajeId: viaje.id_viaje_pub })
       } catch (errorViaje) {
-        logger.error('Error al cancelar viaje expirado', { error: errorViaje instanceof Error ? errorViaje.message : errorViaje, viajeId: viaje.id_viaje_pub });
+        logger.error('Error al cancelar viaje expirado', { error: errorViaje instanceof Error ? errorViaje.message : errorViaje, viajeId: viaje.id_viaje_pub })
       }
     }
   } catch (error) {
-    logger.error('Error general en cron de cancelación de viajes', { error: error instanceof Error ? error.message : error });
+    logger.error('Error general en cron de cancelación de viajes', { error: error instanceof Error ? error.message : error })
   }
 };
 
@@ -147,5 +147,5 @@ export const iniciarCronJobs = (io: Server): void => {
     await cancelarViajesExpirados(io);
   });
 
-  logger.info('CronJobs iniciados: revisión de viajes expirados configurada');
+  logger.info('CronJobs iniciados: revisión de viajes expirados configurada')
 };

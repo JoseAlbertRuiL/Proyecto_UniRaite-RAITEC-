@@ -7,7 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import cloudinary from '../../services/cloudinaryService'
 import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService'
-import logger from '../../services/logger';
+import logger from '../../services/logger'
 
 const subirACloudinary = async (localPath: string, folder: string): Promise<string> => {
   const result = await cloudinary.uploader.upload(localPath, {
@@ -81,11 +81,11 @@ export const actualizarFotoPerfil = protectedProcedure
     const rutaPerfil = path.join(process.cwd(), 'uploads', 'perfiles', input.foto_perfil);
 
     if (fs.existsSync(rutaPerfil)) {
-      logger.info('Subiendo nueva foto de perfil a Cloudinary', { userId: context.user.id });
+      logger.info('Subiendo nueva foto de perfil a Cloudinary', { userId: context.user.id })
       urlSeguraNube = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
       
       fs.unlinkSync(rutaPerfil);
-      logger.debug('Archivo local de foto de perfil eliminado', { userId: context.user.id });
+      logger.debug('Archivo local de foto de perfil eliminado', { userId: context.user.id })
     } else {
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de imagen en el servidor' })
     }
@@ -151,7 +151,7 @@ export const actualizarPerfil = protectedProcedure
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de la nueva credencial en el servidor' });
     }
 
-    logger.info('Iniciando validación con IA para cambio de nombre', { userId: context.user.id });
+    logger.info('Iniciando validación con IA para cambio de nombre', { userId: context.user.id })
     const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
     // Validar estructura básica de la credencial
@@ -172,7 +172,7 @@ export const actualizarPerfil = protectedProcedure
 
     let urlSeguraNube: string;
     try {
-      logger.info('Validación IA exitosa, subiendo credencial a Cloudinary para cambio de nombre', { userId: context.user.id });
+      logger.info('Validación IA exitosa, subiendo credencial a Cloudinary para cambio de nombre', { userId: context.user.id })
       urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
       fs.unlinkSync(rutaCredencial);
     } catch (error) {
@@ -242,7 +242,7 @@ export const actualizarPerfil = protectedProcedure
         }),
       ]);
     } catch (error) {
-      logger.error('Error en la transacción de actualización de perfil', { error: error instanceof Error ? error.message : error, userId: context.user.id });
+      logger.error('Error en la transacción de actualización de perfil', { error: error instanceof Error ? error.message : error, userId: context.user.id })
       throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de perfil de manera segura.' });
     }
     
@@ -272,7 +272,7 @@ export const actualizarCarrera = protectedProcedure
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de la nueva credencial en el servidor' });
     }
 
-    logger.info('Iniciando validación con IA para cambio de carrera', { userId: context.user.id });
+    logger.info('Iniciando validación con IA para cambio de carrera', { userId: context.user.id })
     const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
     // Validar institución
@@ -313,7 +313,7 @@ export const actualizarCarrera = protectedProcedure
 
     let urlSeguraNube: string;
     try {
-      logger.info('Validación IA exitosa, subiendo credencial a Cloudinary para cambio de carrera', { userId: context.user.id });
+      logger.info('Validación IA exitosa, subiendo credencial a Cloudinary para cambio de carrera', { userId: context.user.id })
       urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
       fs.unlinkSync(rutaCredencial);
     } catch (error) {
@@ -342,7 +342,7 @@ export const actualizarCarrera = protectedProcedure
         })
       ]);
     } catch (error) {
-      logger.error('Error en la transacción de actualización de carrera', { error: error instanceof Error ? error.message : error, userId: context.user.id });
+      logger.error('Error en la transacción de actualización de carrera', { error: error instanceof Error ? error.message : error, userId: context.user.id })
       throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de carrera de manera segura.' });
     }
 

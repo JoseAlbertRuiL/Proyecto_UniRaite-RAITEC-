@@ -6,7 +6,10 @@ import fs from 'fs'
 import { RPCHandler } from '@orpc/server/node'
 import { onError } from '@orpc/server'
 import { router } from './orpc/index'
+import { statusInterceptor } from './middleware/statusInterceptor'
+import { globalErrorHandler } from './middleware/errorHandler'
 import logger from './services/logger'
+import { requestLogger } from './middleware/requestLogger'
 
 require('dotenv').config()
 
@@ -61,6 +64,10 @@ app.use(cors())
 app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
+// ─── Request Logging ───────────────────────────────────────────────────────────
+
+app.use(requestLogger)
+
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
 
 const orpcHandler = new RPCHandler(router, {
@@ -100,7 +107,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
       const accion = esLogin ? 'iniciar sesión' : 'registrarse';
 
-      logger.warn('IP bloqueada por demasiados intentos', { ip, intentos: intentos.count, accion, minutosRestantes });
+      logger.warn('IP bloqueada por demasiados intentos', { ip, intentos: intentos.count, accion, minutosRestantes })
       return res.status(429).json({
         success: false,
         message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
@@ -113,10 +120,10 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
       actuales.count++;
       mapaActual.set(ip, actuales);
-      logger.warn('Intento fallido en rate limit', { ip, intentosActuales: actuales.count, limite: limiteIntentos, operacion: esLogin ? 'Login' : 'Registro' });
+      logger.warn('Intento fallido en rate limit', { ip, intentosActuales: actuales.count, limite: limiteIntentos, operacion: esLogin ? 'Login' : 'Registro' })
     } else if (res.statusCode >= 200 && res.statusCode < 300) {
       mapaActual.delete(ip);
-      logger.info('Acceso exitoso, contador de rate limit reiniciado', { ip, operacion: esLogin ? 'Login' : 'Registro' });
+      logger.info('Acceso exitoso, contador de rate limit reiniciado', { ip, operacion: esLogin ? 'Login' : 'Registro' })
     }
   });
 
@@ -134,9 +141,10 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 app.use('/rpc', rateLimitMiddleware);
+app.use('/rpc', statusInterceptor);
 
 app.use('/rpc', async (req, res, next) => {
-logger.info('Petición recibida en oRPC', { method: req.method, url: req.url });
+  logger.info('Petición recibida en oRPC', { method: req.method, url: req.url })
   const { matched } = await orpcHandler.handle(req, res, {
     prefix: '/rpc',
     context: { headers: req.headers },
@@ -148,7 +156,7 @@ logger.info('Petición recibida en oRPC', { method: req.method, url: req.url });
 
 app.post('/upload/perfil', upload.single('foto_perfil'), (req, res, next) => {
   try {
-    res.json({ foto_perfil: req.file?.filename || null });
+    res.status(201).json({ foto_perfil: req.file?.filename || null });
   } catch (error) {
     next(error);
   }
@@ -156,7 +164,7 @@ app.post('/upload/perfil', upload.single('foto_perfil'), (req, res, next) => {
 
 app.post('/upload/credentials', upload.single('foto_credencial'), (req, res, next) => {
   try {
-    res.json({ foto_credencial: req.file?.filename || null });
+    res.status(201).json({ foto_credencial: req.file?.filename || null });
   } catch (error) {
     next(error);
   }
@@ -171,13 +179,14 @@ app.post(
   (req, res, next) => {
     try {
       const files = req.files as Record<string, Express.Multer.File[]>
-      res.json({
+      res.status(201).json({
         foto_credencial: files?.foto_credencial?.[0]?.filename ?? null,
         foto_perfil: files?.foto_perfil?.[0]?.filename ?? null,
       })
     } catch (error) {
       next(error);
     }
+
   }
 )
 
@@ -190,7 +199,7 @@ app.post(
   (req, res, next) => {
     try {
       const files = req.files as Record<string, Express.Multer.File[]>
-      res.json({
+      res.status(201).json({
         foto_licencia: files?.foto_licencia?.[0]?.filename ?? null,
         foto_circulacion: files?.foto_circulacion?.[0]?.filename ?? null,
       })
@@ -202,7 +211,9 @@ app.post(
 
 app.post('/upload/circulacion', upload.single('foto_circulacion'), (req, res, next) => {
   try {
-    res.json({ foto_circulacion: req.file?.filename ?? null })
+    res.status(201).json({
+      foto_circulacion: req.file?.filename ?? null,
+    })
   } catch (error) {
     next(error);
   }
@@ -214,34 +225,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Servidor UNIRAITE funcionando' });
 });
 
-// ─── Middleware global centralizado de manejo de errores ───────────────────────
+// ─── Global Error Handler ────────────────────────────────────────
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-logger.error("Error global interceptado", { error: err.message || err });
-
-  // 1. Manejo específico para errores de Multer (ej. archivo muy pesado o tipo incorrecto)
-  if (err.name === 'MulterError' || err.message === 'Solo JPG/PNG') {
-    return res.status(400).json({
-      success: false,
-      error: {
-        codigo: 'BAD_REQUEST',
-        mensaje: err.message === 'Solo JPG/PNG' ? err.message : 'Error al subir el archivo (quizás es muy pesado)',
-        detalles: null
-      }
-    });
-  }
-
-  // 2. Estandarización general para cualquier otro error
-  const statusCode = err.status || err.statusCode || 500;
-  
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      codigo: err.code || 'INTERNAL_SERVER_ERROR',
-      mensaje: err.message || 'Ocurrió un error inesperado en el servidor',
-      detalles: err.issues || err.details || null 
-    }
-  });
-});
+app.use(globalErrorHandler)
 
 export default app

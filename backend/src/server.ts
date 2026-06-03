@@ -4,7 +4,7 @@ import { Server } from 'socket.io'
 import { PrismaClient } from '@prisma/client'
 import app from './app'
 import { iniciarCronJobs } from './services/cronJobs'
-import logger from './services/logger';
+import logger from './services/logger'
 
 require('dotenv').config()
 
@@ -72,7 +72,7 @@ io.use(async (socket, next) => {
 // ─── Eventos de Socket.IO ─────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
-logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_usuario });
+  logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_usuario })
 
   socket.on('join_chat', async (chatId: string) => {
     const user = (socket as any).user;
@@ -85,7 +85,7 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
       return;
     }
     socket.join(`chat_${chatId}`);
-    logger.debug('Usuario unido al chat', { chatId });
+    logger.debug('Usuario unido al chat', { chatId })
   });
 
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
@@ -112,7 +112,7 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
 
       io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
     } catch (error) {
-      logger.error('Error al guardar mensaje', { error: error instanceof Error ? error.message : error });
+      logger.error('Error al guardar mensaje', { error: error instanceof Error ? error.message : error })
       socket.emit('message_error', 'No se pudo enviar el mensaje');
     }
   });
@@ -123,11 +123,11 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
     lat: number;
     lng: number;
   }) => {
-    logger.debug('Ubicación de conductor recibida', { conductorId: (socket as any).user?.id_usuario, viajeId: data.viajeId });
+    logger.debug('Ubicación de conductor recibida', { conductorId: (socket as any).user?.id_usuario, viajeId: data.viajeId })
 
     const roomName = `viaje_${data.viajeId}`;
     const socketsEnRoom = await io.in(roomName).fetchSockets();
-    logger.debug('Emitiendo ubicación a sockets', { socketsCount: socketsEnRoom.length, roomName });
+    logger.debug('Emitiendo ubicación a sockets', { socketsCount: socketsEnRoom.length, roomName })
 
     io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
@@ -158,7 +158,7 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
 
   socket.on('join_viaje', (viajeId: number) => {
     socket.join(`viaje_${viajeId}`);
-    logger.info('Usuario unido al rastreo de viaje', { viajeId });
+    logger.info('Usuario unido al rastreo de viaje', { viajeId })
   });
 
   socket.on('leave_viaje', (viajeId: number) => {
@@ -166,7 +166,7 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
   });
 
   socket.on('disconnect', () => {
-    logger.info('Usuario desconectado de Socket.IO');
+    logger.info('Usuario desconectado de Socket.IO')
   });
 });
 
@@ -174,12 +174,12 @@ logger.info('Usuario conectado a Socket.IO', { userId: (socket as any).user?.id_
 
 if (process.env.NODE_ENV !== 'test') {
   serverHttp.listen(Number(PORT), '0.0.0.0', () => {
-    logger.info('Servidor HTTP iniciado', { port: PORT });
+    logger.info('Servidor HTTP iniciado', { port: PORT })
     iniciarCronJobs(io);
-    logger.info('Ruta configurada: oRPC -> /rpc/*');
-    logger.info('Rate Limit configurado', { login: '30 intentos/15min', registro: '15 intentos/30min' });
-    logger.info('Rutas de Uploads configuradas');
-    logger.info('Ruta Health configurada: GET /health');
-    logger.info('WebSocket Server corriendo en el mismo puerto');
+    logger.info('Ruta configurada: oRPC -> /rpc/*')
+    logger.info('Rate Limit configurado', { login: '30 intentos/15min', registro: '15 intentos/30min' })
+    logger.info('Rutas de Uploads configuradas')
+    logger.info('Ruta Health configurada: GET /health')
+    logger.info('WebSocket Server corriendo en el mismo puerto')
   })
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure } from "../middleware";
 import { prisma } from "../context";
-import logger from '../../services/logger';
+import logger from '../../services/logger'
 
 export const registrarIncidente = protectedProcedure
   .input(
@@ -13,7 +13,7 @@ export const registrarIncidente = protectedProcedure
     })
   )
   .handler(async ({ input, context }) => {
-   logger.info("Incidente registrado", { userId: context.user.id, tipo: input.tipo });
+    logger.info("Incidente registrado", { userId: context.user.id, tipo: input.tipo })
 
     const incidente = await prisma.incidentes_seguridad.create({
       data: {

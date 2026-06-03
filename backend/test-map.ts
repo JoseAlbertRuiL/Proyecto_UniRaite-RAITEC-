@@ -38,7 +38,7 @@ const match1 = estaCercaDeRuta(
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-logger.info("Resultado de prueba 1", { matchObtenido: match1, testPass: match1 === true });
+logger.info("Resultado de prueba 1", { matchObtenido: match1, testPass: match1 === true })
 
 // Prueba 2: Pasajero Lejos (Límite 1km)
 logger.info("Ejecutando prueba 2: Pasajero en Altozano", { expected: false });
@@ -48,4 +48,4 @@ const match2 = estaCercaDeRuta(
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-logger.info("Resultado de prueba 2", { matchObtenido: match2, testPass: match2 === false });
+logger.info("Resultado de prueba 2", { matchObtenido: match2, testPass: match2 === false })
