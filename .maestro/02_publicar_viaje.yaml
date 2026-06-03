@@ -1,0 +1,29 @@
+# Para probarlo usar: maestro test .maestro/02_publicar_viaje.yaml
+appId: host.exp.exponent
+---
+- runFlow: 01_login.yaml
+- tapOn:
+    id: "btn-perfil"
+- tapOn:
+    id: "toggle-modo-conductor"
+- waitForAnimationToEnd
+- tapOn:
+    id: "btn-regresar"
+- tapOn: "Conducir"
+- tapOn:
+    id: "btn-nuevo-viaje"
+- tapOn: "Toca para seleccionar en el mapa"
+- tapOn:
+    id: "btn-usar-ubicacion"
+- tapOn:
+    id: "btn-confirmar-punto"
+- tapOn:
+    id: "input-comentario"
+- inputText: "test viaje"
+- hideKeyboard
+- tapOn:
+    id: "btn-publicar-viaje"
+# Cierra el alert de confirmación
+- tapOn: "OK"
+# Verifica que regresó a la pantalla de Conducir
+- assertVisible: "Conducir"

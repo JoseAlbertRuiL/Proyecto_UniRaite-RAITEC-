@@ -91,6 +91,7 @@ const LoginScreen = ({ navigation }: any) => {
                 Correo
               </Text>
               <TextInput
+                testID="input-correo"
                 className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base text-gray-900"
                 placeholder="Ingresa tu correo"
                 placeholderTextColor="#9CA3AF"
@@ -108,6 +109,7 @@ const LoginScreen = ({ navigation }: any) => {
               </Text>
               <View className="flex-row items-center bg-gray-50 border border-gray-200 rounded-xl">
                 <TextInput
+                  testID="input-contrasena"
                   className="flex-1 px-4 py-4 text-base text-gray-900"
                   placeholder="••••••••"
                   placeholderTextColor="#9CA3AF"

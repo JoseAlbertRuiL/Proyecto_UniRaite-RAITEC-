@@ -1,6 +1,6 @@
 // Importamos la función que acabamos de crear
 import { estaCercaDeRuta } from './src/services/mapService';
-
+import logger from './src/services/logger';
 // ============================================================================
 // SIMULACIÓN DE DATOS
 // ============================================================================
@@ -28,24 +28,24 @@ const pasajero2 = {
 // ============================================================================
 // EJECUCIÓN DE LAS PRUEBAS
 // ============================================================================
-console.log("=== INICIANDO PRUEBAS DE MATCH CON TURF.JS ===\n");
+logger.info("Iniciando pruebas de match con Turf.js", { modulo: "match_service" });
 
 // Prueba 1: Pasajero Cerca (Límite 1km)
-console.log("Prueba 1: Pasajero en Félix Ireta (Debería ser TRUE)");
+logger.info("Ejecutando prueba 1: Pasajero en Félix Ireta", { expected: true });
 const match1 = estaCercaDeRuta(
   pasajero1.lat, pasajero1.lng,
   conductor.origenLat, conductor.origenLng,
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-console.log(`Resultado: ${match1 ? 'MATCH' : 'NO MATCH'}\n`);
+logger.info("Resultado de prueba 1", { matchObtenido: match1, testPass: match1 === true })
 
 // Prueba 2: Pasajero Lejos (Límite 1km)
-console.log("Prueba 2: Pasajero en Altozano (Debería ser FALSE)");
+logger.info("Ejecutando prueba 2: Pasajero en Altozano", { expected: false });
 const match2 = estaCercaDeRuta(
   pasajero2.lat, pasajero2.lng,
   conductor.origenLat, conductor.origenLng,
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-console.log(`Resultado: ${match2 ? 'MATCH' : 'NO MATCH'}\n`);
+logger.info("Resultado de prueba 2", { matchObtenido: match2, testPass: match2 === false })

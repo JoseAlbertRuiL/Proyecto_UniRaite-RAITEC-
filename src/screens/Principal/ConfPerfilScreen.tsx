@@ -626,6 +626,7 @@ const ConfigPerfilScreen = ({ navigation }: any) => {
               <Text className="text-base text-gray-700">Modo conductor</Text>
             </View>
             <Switch
+              testID="toggle-modo-conductor"
               value={esConductorActivo}
               onValueChange={handleModoConductor}
               style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}

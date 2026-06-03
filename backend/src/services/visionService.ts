@@ -1,6 +1,6 @@
 import path from 'path'
 import vision from '@google-cloud/vision'
-import logger from '../utils/logger'
+import logger from './logger'
 
 const client = new vision.ImageAnnotatorClient({
   keyFilename: path.join(__dirname, '../../google-key.json'),
@@ -15,7 +15,7 @@ export const extraerTextoDeImagen = async (rutaAbsoluta: string): Promise<string
     }
     return ''
   } catch (error: any) {
-    logger.error(`[Vision] Error en Vision API: ${error.message}`)
+    logger.error('Error en Google Cloud Vision API', { error: error.message, rutaImagen: rutaAbsoluta })
     throw new Error('Fallo al comunicarse con Google Cloud Vision')
   }
 }

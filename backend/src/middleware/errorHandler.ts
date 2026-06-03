@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { MulterError } from 'multer'
 import { Prisma } from '@prisma/client'
 import { ORPCError } from '@orpc/server'
-import logger from '../utils/logger'
+import logger from '../services/logger'
 
 interface AppError {
   code: string

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { protectedProcedure } from "../middleware";
 import { prisma } from "../context";
 import { ORPCError } from "@orpc/server";
-import logger from "../../utils/logger";
+import logger from '../../services/logger'
 
 // Guardar calificación de un viaje completado
 export const guardarCalificacion = protectedProcedure
@@ -116,7 +116,11 @@ export const guardarCalificacion = protectedProcedure
       if (error instanceof ORPCError) {
         throw error;
       }
-      logger.error("[Calificaciones] Error guardando calificación: " + error);
+      logger.error("Error guardando calificación", { 
+        error: error instanceof Error ? error.message : error, 
+        userId: context.user.id, 
+        viajeId: input.viajeId 
+      })
       throw new ORPCError("INTERNAL_SERVER_ERROR", {
         message: "Error al guardar la calificación",
       });
@@ -205,7 +209,10 @@ export const obtenerPendiente = protectedProcedure.handler(async ({ context }) =
 
     return { success: false, message: "No hay viajes pendientes por calificar" };
   } catch (error) {
-    logger.error("[Calificaciones] Error en obtenerPendiente: " + error);
+    logger.error("Error en obtenerPendiente", { 
+      error: error instanceof Error ? error.message : error, 
+      userId: context.user.id 
+    })
     throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Error al buscar viaje pendiente" });
   }
 });

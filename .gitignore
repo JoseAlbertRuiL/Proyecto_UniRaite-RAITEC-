@@ -55,3 +55,6 @@ backend/.env
 backend/.env
 backend/.env
 env
+backend/google-key.json
+backend/.env.cloudinary
+backend/logs/

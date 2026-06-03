@@ -9,7 +9,7 @@ import { baseProcedure } from '../middleware'
 import { prisma } from '../context'
 import cloudinary from '../../services/cloudinaryService'
 import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService'
-import logger from '../../utils/logger'
+import logger from '../../services/logger'
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ export const forgotPassword = baseProcedure
       },
     })
 
-    logger.info(`[Auth] Código enviado a ${input.correo_inst}: ${codigo}`)
+    logger.debug('Código de recuperación generado', { correo: input.correo_inst })
 
     // Enviar correo con EmailJS
     try {
@@ -121,9 +121,9 @@ export const forgotPassword = baseProcedure
         }
       )
 
-      logger.info('[Auth] Email enviado correctamente')
+      logger.info('Email de recuperación enviado correctamente', { correo: input.correo_inst })
     } catch (emailError) {
-      logger.error(`[Auth] Error al enviar email: ${emailError}`)
+      logger.error('Error al enviar email de recuperación', { error: emailError instanceof Error ? emailError.message : emailError, correo: input.correo_inst })
       // No lanzamos error, el código igual se guardó
     }
 
@@ -220,7 +220,7 @@ export const register = baseProcedure
       const rutaPerfil = path.join(process.cwd(), 'uploads', 'perfiles', input.foto_perfil);
 
       if (fs.existsSync(rutaPerfil)) {
-        logger.debug('[Auth] Subiendo foto de perfil a Cloudinary...');
+        logger.info('Subiendo foto de perfil a Cloudinary', { numControl: input.num_control })
         urlFotoPerfil = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
         fs.unlinkSync(rutaPerfil); // Borramos el archivo local
       }
@@ -230,7 +230,7 @@ export const register = baseProcedure
       const rutaCredencial = path.join(process.cwd(), 'uploads', 'credentials', input.foto_credencial);
       
       if (fs.existsSync(rutaCredencial)) {
-        logger.debug('[Auth] Validando credencial con IA...');
+        logger.info('Iniciando validación de credencial con IA', { numControl: input.num_control })
         try {
           const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
@@ -268,7 +268,7 @@ export const register = baseProcedure
             }
           }
 
-          logger.debug('[Auth] Validación completa. Subiendo credencial a Cloudinary...');
+          logger.info('Validación IA exitosa. Subiendo credencial a Cloudinary', { numControl: input.num_control })
           urlFotoCredencial = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
           fs.unlinkSync(rutaCredencial);
 
