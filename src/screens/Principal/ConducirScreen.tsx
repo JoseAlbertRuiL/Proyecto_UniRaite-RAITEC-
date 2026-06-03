@@ -1,3 +1,5 @@
+import LoadingState from "../../components/common/LoadingState";
+import EmptyState from "../../components/common/EmptyState";
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -455,34 +457,22 @@ const ConducirScreen = ({ navigation }: any) => {
   );
 
   const renderContent = () => {
+    
     if (cargando && !refrescando) {
-      return (
-        <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#1e3a8a" />
-          <Text className="text-gray-500 mt-4">Cargando...</Text>
-        </View>
-      );
-    }
+  return <LoadingState message="Cargando información del conductor..." />;
+}
 
     if (activeTab === "activos") {
       if (viajesActivos.length === 0) {
-        return (
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-4xl mb-4">🚗</Text>
-            <Text className="text-gray-500 text-center">
-              No tienes viajes activos
-            </Text>
-            <TouchableOpacity
-              className="mt-4 bg-blue-900 rounded-xl py-3 px-6"
-              onPress={() => navigation.navigate("PublicarViaje")}
-            >
-              <Text className="text-white font-semibold">
-                Publicar un viaje
-              </Text>
-            </TouchableOpacity>
-          </View>
-        );
-      }
+  return (
+    <EmptyState
+      icon="🚗"
+      message="No tienes viajes activos"
+      buttonText="Publicar un viaje"
+      onPress={() => navigation.navigate("PublicarViaje")}
+    />
+  );
+}
       return viajesActivos.map((viaje) =>
         renderViajeCard(viaje, false, undefined, true),
       );
@@ -490,15 +480,13 @@ const ConducirScreen = ({ navigation }: any) => {
 
     if (activeTab === "solicitudes") {
       if (solicitudes.length === 0) {
-        return (
-          <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-4xl mb-4">📭</Text>
-            <Text className="text-gray-500 text-center">
-              No hay solicitudes pendientes
-            </Text>
-          </View>
-        );
-      }
+  return (
+    <EmptyState
+      icon="📭"
+      message="No hay solicitudes pendientes"
+    />
+  );
+}
       return solicitudes.map((solicitud) => (
         <View key={solicitud.id_solicitud}>
           {renderViajeCard(
