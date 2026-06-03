@@ -1,7 +1,9 @@
 import LoadingState from "../../components/common/LoadingState";
 import EmptyState from "../../components/common/EmptyState";
+import ErrorState from "../../components/common/ErrorState";
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Snackbar from "../../components/common/Snackbar";
 import {
   View,
   Text,
@@ -40,11 +42,32 @@ const ConducirScreen = ({ navigation }: any) => {
   const locationSub = useRef<Location.LocationSubscription | null>(null);
   const destinoAlertado = useRef<boolean>(false);
   // const locationInterval = useRef<any>(null);
+  const [snackbar, setSnackbar] = useState<{
+  visible: boolean;
+  message: string;
+  type: "success" | "error" | "info";
+}>({
+  visible: false,
+  message: "",
+  type: "info",
+});
+
+const mostrarSnackbar = (
+  message: string,
+  type: "success" | "error" | "info" = "info"
+) => {
+  setSnackbar({ visible: true, message, type });
+
+  setTimeout(() => {
+    setSnackbar((prev) => ({ ...prev, visible: false }));
+  }, 3000);
+};
 
   const {
     data: viajesActivos = [],
     isLoading: cargandoViajes,
     isRefetching: refrescandoViajes,
+    isError: errorViajes,
     refetch: refetchViajes,
   } = useQuery({
     queryKey: ["viajes", "activos", "conductor"],
@@ -58,6 +81,7 @@ const ConducirScreen = ({ navigation }: any) => {
   const {
     data: solicitudes = [],
     isLoading: cargandoSolicitudes,
+    isError: errorSolicitudes,
     isRefetching: refrescandoSolicitudes,
     refetch: refetchSolicitudes,
   } = useQuery({
@@ -71,6 +95,7 @@ const ConducirScreen = ({ navigation }: any) => {
 
   const cargando = cargandoViajes || cargandoSolicitudes;
   const refrescando = refrescandoViajes || refrescandoSolicitudes;
+  const hayError = errorViajes || errorSolicitudes;
 
   useBackHandler(navigation, "normal");
 
@@ -241,14 +266,17 @@ const ConducirScreen = ({ navigation }: any) => {
     try {
       const result = await orpc.solicitudes.responder({ solicitudId, estado });
       if (result.success) {
-        Alert.alert(
-          "Éxito",
-          `Solicitud ${estado === "aceptada" ? "aceptada" : "rechazada"}`,
-        );
+        mostrarSnackbar(
+  `Solicitud ${estado === "aceptada" ? "aceptada" : "rechazada"} correctamente`,
+  "success"
+);
         cargarDatos();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "No se pudo procesar la solicitud");
+      mostrarSnackbar(
+  error.message || "No se pudo procesar la solicitud",
+  "error"
+);
     }
   };
 
@@ -461,6 +489,11 @@ const ConducirScreen = ({ navigation }: any) => {
     if (cargando && !refrescando) {
   return <LoadingState message="Cargando información del conductor..." />;
 }
+if (hayError) {
+  return (
+    <ErrorState message="No se pudo cargar la información del conductor" />
+  );
+}
 
     if (activeTab === "activos") {
       if (viajesActivos.length === 0) {
@@ -617,6 +650,13 @@ const ConducirScreen = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+
+<Snackbar
+  visible={snackbar.visible}
+  message={snackbar.message}
+  type={snackbar.type}
+/>
+
     </ScreenWrapper>
   );
 };
