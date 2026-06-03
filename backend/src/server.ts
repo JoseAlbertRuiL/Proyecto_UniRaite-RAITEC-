@@ -4,6 +4,7 @@ import { Server } from 'socket.io'
 import { PrismaClient } from '@prisma/client'
 import app from './app'
 import { iniciarCronJobs } from './services/cronJobs'
+import logger from './utils/logger'
 
 require('dotenv').config()
 
@@ -71,7 +72,7 @@ io.use(async (socket, next) => {
 // ─── Eventos de Socket.IO ─────────────────────────────────────────────────────
 
 io.on('connection', (socket) => {
-  console.log('⚡ Usuario conectado:', (socket as any).user?.id_usuario);
+  logger.info(`[Socket] Usuario conectado: ${(socket as any).user?.id_usuario}`);
 
   socket.on('join_chat', async (chatId: string) => {
     const user = (socket as any).user;
@@ -84,7 +85,7 @@ io.on('connection', (socket) => {
       return;
     }
     socket.join(`chat_${chatId}`);
-    console.log(`📱 Usuario unido al chat ${chatId}`);
+    logger.info(`[Socket] Usuario unido al chat ${chatId}`);
   });
 
   socket.on('send_message', async (data: { chatId: string; message: string; receiverId: string }) => {
@@ -111,7 +112,7 @@ io.on('connection', (socket) => {
 
       io.to(`chat_${data.chatId}`).emit('new_message', mensaje);
     } catch (error) {
-      console.error('Error al guardar mensaje:', error);
+      logger.error(`[Socket] Error al guardar mensaje: ${error}`);
       socket.emit('message_error', 'No se pudo enviar el mensaje');
     }
   });
@@ -122,11 +123,11 @@ io.on('connection', (socket) => {
     lat: number;
     lng: number;
   }) => {
-    console.log(`📍 driver_location recibido de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
+    logger.debug(`[Socket] driver_location de ${(socket as any).user?.id_usuario} para viaje ${data.viajeId}`);
 
     const roomName = `viaje_${data.viajeId}`;
     const socketsEnRoom = await io.in(roomName).fetchSockets();
-    console.log(`   Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
+    logger.debug(`[Socket] Enviando a ${socketsEnRoom.length} socket(s) en ${roomName}`);
 
     io.to(roomName).emit('driver_location_update', {
       lat: data.lat,
@@ -157,7 +158,7 @@ io.on('connection', (socket) => {
 
   socket.on('join_viaje', (viajeId: number) => {
     socket.join(`viaje_${viajeId}`);
-    console.log(`🗺️ Usuario unido al viaje ${viajeId}`);
+    logger.info(`[Socket] Usuario unido al viaje ${viajeId}`);
   });
 
   socket.on('leave_viaje', (viajeId: number) => {
@@ -165,7 +166,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('⚡ Usuario desconectado');
+    logger.info(`[Socket] Usuario desconectado`);
   });
 });
 
@@ -173,12 +174,12 @@ io.on('connection', (socket) => {
 
 if (process.env.NODE_ENV !== 'test') {
   serverHttp.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Servidor en http://localhost:${PORT}`)
+    logger.info(`Servidor iniciado en http://localhost:${PORT}`)
     iniciarCronJobs(io);
-    console.log(`oRPC    → /rpc/*`)
-    console.log(`Rate Limit → Login (30 intentos/15min) | Registro (15 intentos/30min)`)
-    console.log(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
-    console.log(`Health  → GET  /health`)
-    console.log(`WebSocket Server corriendo en el mismo puerto`)
+    logger.info(`oRPC    → /rpc/*`)
+    logger.info(`Rate Limit → Login (30 intentos/15min) | Registro (15 intentos/30min)`)
+    logger.info(`Uploads → POST /upload/registro | /upload/conductor | /upload/circulacion`)
+    logger.info(`Health  → GET  /health`)
+    logger.info(`WebSocket Server corriendo en el mismo puerto`)
   })
 }

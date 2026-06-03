@@ -38,7 +38,7 @@ const match1 = estaCercaDeRuta(
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-console.log(`Resultado: ${match1 ? '✅ MATCH' : '❌ NO MATCH'}\n`);
+console.log(`Resultado: ${match1 ? 'MATCH' : 'NO MATCH'}\n`);
 
 // Prueba 2: Pasajero Lejos (Límite 1km)
 console.log("Prueba 2: Pasajero en Altozano (Debería ser FALSE)");
@@ -48,4 +48,4 @@ const match2 = estaCercaDeRuta(
   conductor.destinoLat, conductor.destinoLng,
   1.0 // Límite de 1 kilómetro
 );
-console.log(`Resultado: ${match2 ? '✅ MATCH' : '❌ NO MATCH'}\n`);
+console.log(`Resultado: ${match2 ? 'MATCH' : 'NO MATCH'}\n`);

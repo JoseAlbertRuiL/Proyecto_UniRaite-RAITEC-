@@ -6,6 +6,7 @@ import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService' // Importa las funciones de Vision CloudService
 import cloudinary from '../../services/cloudinaryService';
+import logger from '../../utils/logger';
 
 // ============================================
 // SERVICIO DE CLOUDINARY ACTIVADO
@@ -69,7 +70,7 @@ export const registroConductor = protectedProcedure
     // IA 1: VALIDAR LICENCIA DE CONDUCIR
     // ==========================================================================
 
-    console.log('Validando Licencia de Conducir con IA...')
+    logger.debug('[Conductor] Validando Licencia de Conducir con IA...')
     const txtLicencia = normalizarTexto(await extraerTextoDeImagen(rutaLicencia))
 
     // Validar la estructura básica de la licencia de conducir
@@ -103,7 +104,7 @@ export const registroConductor = protectedProcedure
     // IA 2: VALIDAR TARJETA DE CIRCULACIÓN
     // ==========================================================================
 
-    console.log('Validando Tarjeta de Circulación con IA...')
+    logger.debug('[Conductor] Validando Tarjeta de Circulación con IA...')
     const txtCirculacion = normalizarTexto(await extraerTextoDeImagen(rutaCirculacion))
 
     // Validar la estructura básica de la tarjeta de circulación
@@ -144,7 +145,7 @@ export const registroConductor = protectedProcedure
     // Código para subir fotos a Cloudinary y guardar datos en BD
     // ==========================================================================
     
-    console.log('Validación completada. Subiendo a Cloudinary...')
+    logger.debug('[Conductor] Validación completada. Subiendo a Cloudinary...')
     const licenciaUrl = await subirACloudinary(rutaLicencia, 'uniraite/licencias')
     const circulacionUrl = await subirACloudinary(rutaCirculacion, 'uniraite/circulaciones')
     borrarArchivos()
@@ -228,7 +229,7 @@ export const actualizarVehiculo = protectedProcedure
     // IA: VALIDAR TARJETA DE CIRCULACIÓN
     // ==========================================================================
 
-    console.log('Validando Tarjeta de Circulación con IA...')
+    logger.debug('[Conductor] Validando Tarjeta de Circulación con IA...')
     const txtCirculacion = normalizarTexto(await extraerTextoDeImagen(rutaCirculacion))
 
     // Validar la estructura básica de la tarjeta de circulación
@@ -266,7 +267,7 @@ export const actualizarVehiculo = protectedProcedure
     // ==========================================================================
     // NOTA: Código comentado para subir foto a Cloudinary y actualizar datos en BD
     // ==========================================================================
-    console.log('Validación completada. Subiendo a Cloudinary...')
+    logger.debug('[Conductor] Validación completada. Subiendo a Cloudinary...')
     const circulacionUrl = await subirACloudinary(rutaCirculacion, 'uniraite/circulaciones')
     borrarArchivo()
 

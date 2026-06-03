@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { prisma } from '../orpc/context';
 import { Server } from 'socket.io';
+import logger from '../utils/logger';
 
 /**
  * Cancela automáticamente los viajes que no iniciaron dentro de los
@@ -39,12 +40,12 @@ const cancelarViajesExpirados = async (io: Server) => {
 
     if (viajesExpirados.length === 0) return;
 
-    console.log(`⏰ [CronJob] ${viajesExpirados.length} viaje(s) expirado(s) encontrado(s)`);
+    logger.info(`[CronJob] ${viajesExpirados.length} viaje(s) expirado(s) encontrado(s)`);
 
     for (const viaje of viajesExpirados) {
       try {
-        console.log(
-          `🗑️  [CronJob] Cancelando viaje ${viaje.id_viaje_pub}: ` +
+        logger.info(
+          `[CronJob] Cancelando viaje ${viaje.id_viaje_pub}: ` +
           `${viaje.origen_texto} → ${viaje.destino_texto} ` +
           `(salida: ${viaje.fecha_hora_salida.toISOString()})`
         );
@@ -133,13 +134,13 @@ const cancelarViajesExpirados = async (io: Server) => {
           mensaje:    `El viaje a ${viaje.destino_texto} fue cancelado por inactividad.`,
         });
 
-        console.log(`✅ [CronJob] Viaje ${viaje.id_viaje_pub} cancelado correctamente`);
+        logger.info(`[CronJob] Viaje ${viaje.id_viaje_pub} cancelado correctamente`);
       } catch (errorViaje) {
-        console.error(`❌ [CronJob] Error al cancelar viaje ${viaje.id_viaje_pub}:`, errorViaje);
+        logger.error(`[CronJob] Error al cancelar viaje ${viaje.id_viaje_pub}: ${errorViaje}`);
       }
     }
   } catch (error) {
-    console.error('❌ [CronJob] Error general en cancelarViajesExpirados:', error);
+    logger.error(`[CronJob] Error general en cancelarViajesExpirados: ${error}`);
   }
 };
 
@@ -150,5 +151,5 @@ export const iniciarCronJobs = (io: Server): void => {
     await cancelarViajesExpirados(io);
   });
 
-  console.log('CronJobs iniciados: revisión de viajes expirados cada minuto');
+  logger.info('CronJobs iniciados: revisión de viajes expirados cada minuto');
 };

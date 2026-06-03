@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { protectedProcedure } from '../middleware'
 import { prisma } from '../context'
 import { io } from '../../server'
+import logger from '../../utils/logger'
 
 // Función auxiliar para crear notificaciones
 const crearNotificacion = async (
@@ -102,7 +103,7 @@ export const solicitarViaje = protectedProcedure
         tipo: "solicitud"
       });
       
-      console.log('📢 Eventos nueva_solicitud y nueva_notificacion emitidos');
+      logger.debug('[Solicitudes] Eventos nueva_solicitud y nueva_notificacion emitidos');
     }
 
     return { success: true, solicitud };
@@ -196,7 +197,7 @@ export const responderSolicitud = protectedProcedure
         tipo: input.estado === 'aceptada' ? "aceptacion" : "rechazo"
       });
       
-      console.log(`📢 Eventos solicitud_actualizada y nueva_notificacion emitidos: ${input.estado}`);
+      logger.debug(`[Solicitudes] Eventos solicitud_actualizada y nueva_notificacion emitidos: ${input.estado}`);
     }
 
     return { success: true, solicitud: solicitudActualizada }
@@ -253,7 +254,7 @@ export const obtenerSolicitudesRecibidas = protectedProcedure
 export const obtenerEstadoPorViaje = protectedProcedure
   .input(z.object({ viajeId: z.number() }))
   .handler(async ({ input, context }) => {
-    console.log(`🔍 Buscando solicitud para viaje ${input.viajeId}, usuario ${context.user.id}`);
+    logger.debug(`[Solicitudes] Buscando solicitud para viaje ${input.viajeId}, usuario ${context.user.id}`);
     const solicitud = await prisma.solicitudes_viaje.findFirst({
       where: {
         id_viaje_pub: input.viajeId,
@@ -270,7 +271,7 @@ export const obtenerEstadoPorViaje = protectedProcedure
         },
       },
     });
-    console.log(`📋 Solicitud encontrada:`, solicitud);
+    logger.debug(`[Solicitudes] Solicitud encontrada: ${JSON.stringify(solicitud)}`);
 
     let estado: string | null = solicitud?.estado_solicitud || null;
 
@@ -426,7 +427,7 @@ export const cancelarSolicitud = protectedProcedure
         });
       }
 
-      console.log('📢 Evento solicitud_cancelada emitido');
+      logger.debug('[Solicitudes] Evento solicitud_cancelada emitido');
     }
 
     return { success: true, message: 'Solicitud cancelada exitosamente' };

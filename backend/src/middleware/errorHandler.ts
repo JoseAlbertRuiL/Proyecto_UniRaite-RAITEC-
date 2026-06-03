@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express'
 import { MulterError } from 'multer'
 import { Prisma } from '@prisma/client'
 import { ORPCError } from '@orpc/server'
+import logger from '../utils/logger'
 
 interface AppError {
   code: string
@@ -74,7 +75,7 @@ export function globalErrorHandler(
   const message =
     err instanceof Error ? err.message : 'An internal server error occurred'
 
-  console.error('[GlobalErrorHandler]', err)
+  logger.error(`[GlobalErrorHandler] ${err instanceof Error ? err.message : err}`)
   res.status(500).json(
     toErrorResponse({ code: 'INTERNAL_SERVER_ERROR', message })
   )

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { baseProcedure } from "../middleware";
 import { prisma } from "../context";
+import logger from "../../utils/logger";
 
 export const registrarIncidente = baseProcedure
   .input(
@@ -9,7 +10,8 @@ export const registrarIncidente = baseProcedure
     })
   )
   .handler(async ({ input }) => {
-   console.log("INPUT RECIBIDO:", input);
+    logger.debug("[Incidentes] Input recibido:", input);
+
 
     const incidente = await prisma.incidentes_seguridad.create({
       data: {

@@ -8,6 +8,8 @@ import { onError } from '@orpc/server'
 import { router } from './orpc/index'
 import { statusInterceptor } from './middleware/statusInterceptor'
 import { globalErrorHandler } from './middleware/errorHandler'
+import logger from './utils/logger'
+import { requestLogger } from './middleware/requestLogger'
 
 require('dotenv').config()
 
@@ -62,12 +64,16 @@ app.use(cors())
 app.use(express.json())
 app.use('/uploads', express.static('uploads'))
 
+// ─── Request Logging ───────────────────────────────────────────────────────────
+
+app.use(requestLogger)
+
 // ─── oRPC Handler ─────────────────────────────────────────────────────────────
 
 const orpcHandler = new RPCHandler(router, {
   interceptors: [
     onError((error) => {
-      console.error('[oRPC error]', error)
+      logger.error('[oRPC error]', error)
     }),
   ],
 })
@@ -101,7 +107,7 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const minutosRestantes = Math.ceil((tiempoCastigo - (now - intentos.firstAttempt)) / 60000);
       const accion = esLogin ? 'iniciar sesión' : 'registrarse';
 
-      console.log(`🔐 BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
+      logger.warn(`[RateLimit] BLOQUEADO - IP: ${ip}, intentos: ${intentos.count}`);
       return res.status(429).json({
         success: false,
         message: `Demasiados intentos para ${accion}. Bloqueado por ${minutosRestantes} minutos.`
@@ -114,10 +120,10 @@ const rateLimitMiddleware = (req: express.Request, res: express.Response, next: 
       const actuales = mapaActual.get(ip) || { count: 0, firstAttempt: Date.now() };
       actuales.count++;
       mapaActual.set(ip, actuales);
-      console.log(`🔐 [RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
+      logger.warn(`[RateLimit] Intento FALLIDO ${actuales.count}/${limiteIntentos} en ${esLogin ? 'Login' : 'Registro'} para IP: ${ip}`);
     } else if (res.statusCode >= 200 && res.statusCode < 300) {
       mapaActual.delete(ip);
-      console.log(`🔐 [RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
+      logger.info(`[RateLimit] Acceso EXITOSO en ${esLogin ? 'Login' : 'Registro'}. Contador limpio para IP: ${ip}`);
     }
   });
 
@@ -138,7 +144,7 @@ app.use('/rpc', rateLimitMiddleware);
 app.use('/rpc', statusInterceptor);
 
 app.use('/rpc', async (req, res, next) => {
-  console.log('📡 Petición recibida en /rpc:', req.method, req.url);
+  logger.debug('RPC request received', { method: req.method, url: req.url });
   const { matched } = await orpcHandler.handle(req, res, {
     prefix: '/rpc',
     context: { headers: req.headers },

@@ -7,6 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import cloudinary from '../../services/cloudinaryService'
 import { extraerTextoDeImagen, normalizarTexto } from '../../services/visionService'
+import logger from '../../utils/logger'
 
 const subirACloudinary = async (localPath: string, folder: string): Promise<string> => {
   const result = await cloudinary.uploader.upload(localPath, {
@@ -80,11 +81,11 @@ export const actualizarFotoPerfil = protectedProcedure
     const rutaPerfil = path.join(process.cwd(), 'uploads', 'perfiles', input.foto_perfil);
 
     if (fs.existsSync(rutaPerfil)) {
-      console.log('Subiendo nueva foto de perfil a Cloudinary...');
+      logger.debug('[Usuarios] Subiendo nueva foto de perfil a Cloudinary...');
       urlSeguraNube = await subirACloudinary(rutaPerfil, 'uniraite/perfiles');
       
       fs.unlinkSync(rutaPerfil);
-      console.log('Archivo local eliminado.');
+      logger.debug('[Usuarios] Archivo local eliminado.');
     } else {
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de imagen en el servidor' })
     }
@@ -150,7 +151,7 @@ export const actualizarPerfil = protectedProcedure
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de la nueva credencial en el servidor' });
     }
 
-    console.log('Validando nueva credencial con IA para cambio de nombre...');
+    logger.debug('[Usuarios] Validando nueva credencial con IA para cambio de nombre...');
     const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
     // Validar estructura básica de la credencial
@@ -171,8 +172,7 @@ export const actualizarPerfil = protectedProcedure
 
     let urlSeguraNube: string;
     try {
-      console.log('Subiendo nueva credencial a Cloudinary...');
-      urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
+      logger.debug('[Usuarios] Subiendo nueva credencial a Cloudinary...');
       fs.unlinkSync(rutaCredencial);
     } catch (error) {
       if (fs.existsSync(rutaCredencial)) fs.unlinkSync(rutaCredencial);
@@ -241,7 +241,7 @@ export const actualizarPerfil = protectedProcedure
         }),
       ]);
     } catch (error) {
-      console.error('Error en la transacción de actualización:', error);
+      logger.error(`[Usuarios] Error en transacción de actualización: ${error}`);
       throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de perfil de manera segura.' });
     }
     
@@ -271,7 +271,7 @@ export const actualizarCarrera = protectedProcedure
       throw new ORPCError('BAD_REQUEST', { message: 'No se encontró el archivo de la nueva credencial en el servidor' });
     }
 
-    console.log('Validando nueva credencial con IA para cambio de carrera...');
+    logger.debug('[Usuarios] Validando nueva credencial con IA para cambio de carrera...');
     const txtCredencial = normalizarTexto(await extraerTextoDeImagen(rutaCredencial));
 
     // Validar institución
@@ -312,7 +312,7 @@ export const actualizarCarrera = protectedProcedure
 
     let urlSeguraNube: string;
     try {
-      console.log('Subiendo nueva credencial a Cloudinary...');
+      logger.debug('[Usuarios] Subiendo nueva credencial a Cloudinary...');
       urlSeguraNube = await subirACloudinary(rutaCredencial, 'uniraite/credenciales');
       fs.unlinkSync(rutaCredencial);
     } catch (error) {
@@ -341,7 +341,7 @@ export const actualizarCarrera = protectedProcedure
         })
       ]);
     } catch (error) {
-      console.error('Error en la transacción de actualización de carrera:', error);
+      logger.error(`[Usuarios] Error en transacción de actualización de carrera: ${error}`);
       throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'No se pudo guardar el cambio de carrera de manera segura.' });
     }
 
